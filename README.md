@@ -8,6 +8,8 @@
 [![Stellar](https://img.shields.io/badge/Stellar-Soroban-08b5e5?logo=stellar)](https://developers.stellar.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
+**Live app: [sorowill.vercel.app](https://sorowill.vercel.app/)**
+
 ## What is SoroWill
 
 SoroWill is a trustless, on-chain inheritance protocol on Stellar Soroban. This app is the dashboard for it: create a will, check in to prove you're active, review beneficiaries and guardians, and — for anyone named as a beneficiary — verify and claim an inheritance once a will's grace period has elapsed.
@@ -22,7 +24,7 @@ SoroWill is a trustless, on-chain inheritance protocol on Stellar Soroban. This 
 ## Local Setup
 
 ```bash
-git clone git@github-icentedward76:icentedward76-sketch/sorowill-app.git
+git clone https://github.com/SoroWill/sorowill-app.git
 cd sorowill-app
 npm install
 cp .env.example .env.local
