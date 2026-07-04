@@ -10,6 +10,8 @@
 
 **Live app: [sorowill.vercel.app](https://sorowill.vercel.app/)**
 
+![SoroWill landing page](./docs/screenshot.png)
+
 ## What is SoroWill
 
 SoroWill is a trustless, on-chain inheritance protocol on Stellar Soroban. This app is the dashboard for it: create a will, check in to prove you're active, review beneficiaries and guardians, and — for anyone named as a beneficiary — verify and claim an inheritance once a will's grace period has elapsed.
