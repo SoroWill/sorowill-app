@@ -1,3 +1,5 @@
+<img src="./docs/logo.svg" alt="SoroWill" width="56" height="56" />
+
 # SoroWill App
 
 **On-chain inheritance, in your browser**

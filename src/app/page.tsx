@@ -56,7 +56,7 @@ export default function LandingPage() {
             Create your Will
           </Link>
           <a
-            href="https://github.com/icentedward76-sketch/sorowill-contracts"
+            href="https://github.com/SoroWill/sorowill-contracts"
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-will-light/80 transition hover:border-white/40 hover:text-will-light"
@@ -96,7 +96,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <span>MIT License</span>
           <a
-            href="https://github.com/icentedward76-sketch/sorowill-app"
+            href="https://github.com/SoroWill/sorowill-app"
             target="_blank"
             rel="noreferrer"
             className="hover:text-will-light"
