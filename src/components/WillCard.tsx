@@ -36,10 +36,8 @@ export function WillCard({
 
   // Compute grace period deadline countdown for Triggered status
   const graceSecondsLeft = (() => {
-    if (will.status !== WillStatus.Triggered) return 0;
-    const graceEndMs = will.triggerTime
-      ? will.triggerTime.getTime() + (will.gracePeriodDays ?? 7) * 86_400 * 1000
-      : will.lastCheckin.getTime() + ((will.checkinPeriodDays ?? 90) + (will.gracePeriodDays ?? 7)) * 86_400 * 1000;
+    if (will.status !== WillStatus.Triggered || !will.triggerTime) return 0;
+    const graceEndMs = will.triggerTime.getTime() + (will.gracePeriodDays ?? 7) * 86_400 * 1000;
     return Math.max(0, Math.ceil((graceEndMs - Date.now()) / 1000));
   })();
   const graceDaysLeft = Math.ceil(graceSecondsLeft / 86_400);

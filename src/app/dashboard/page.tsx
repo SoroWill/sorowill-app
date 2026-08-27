@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { WillStatus, type Will, formatUSDC, toStroops } from '@sorowill/sdk';
 
@@ -10,6 +11,7 @@ import { safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
 import { useToast } from '@/components/Toast';
+import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { WillCard } from '@/components/WillCard';
 
 // TODO(#5): Add an activity feed (check-ins, top-ups, guardian votes) once
@@ -67,6 +69,9 @@ function CardSkeleton() {
 
 export default function DashboardPage() {
   const toast = useToast();
+  const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [checkedWallet, setCheckedWallet] = useState(false);
   const [tab, setTab] = useState<Tab>('owned');
@@ -98,6 +103,12 @@ export default function DashboardPage() {
       isMounted.current = false;
     };
   }, []);
+
+  useKeyboardShortcuts({
+    onNewWill: () => router.push('/will/new'),
+    onSearch: () => searchInputRef.current?.focus(),
+    onHelp: () => setShowShortcutsHelp((prev) => !prev),
+  });
 
   const loadWills = useCallback(async (owner: string) => {
     setLoading(true);
@@ -415,6 +426,7 @@ export default function DashboardPage() {
       {/* Search & Filter */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
+          ref={searchInputRef}
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -433,6 +445,24 @@ export default function DashboardPage() {
           ))}
         </select>
       </div>
+
+      {showShortcutsHelp ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-will-light/70"
+        >
+          <span><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono">n</kbd> New will</span>
+          <span><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono">/</kbd> Search</span>
+          <span><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono">?</kbd> Toggle this help</span>
+          <button
+            type="button"
+            onClick={() => setShowShortcutsHelp(false)}
+            className="ml-auto text-will-light/50 hover:text-will-light"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="text-sm text-red-400 flex items-center gap-3" role="alert">
