@@ -17,6 +17,35 @@ import { formatError } from '@/lib/errors';
 // flag below stops safeGetPublicKey() from silently reconnecting on the next
 // mount within the same tab session.
 const DISCONNECTED_KEY = 'sorowill:wallet-cleared';
+const BROADCAST_CHANNEL_NAME = 'wallet_state';
+
+type ErrorType = 'not_installed' | 'user_declined' | 'generic';
+
+interface ErrorInfo {
+  type: ErrorType;
+  message: string;
+}
+
+function classifyError(err: unknown): ErrorInfo {
+  const rawMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
+  const message = formatError(err);
+
+  if (
+    rawMessage.includes('Freighter') ||
+    rawMessage.includes('not found') ||
+    rawMessage.includes('not installed')
+  ) {
+    return { type: 'not_installed', message };
+  }
+  if (
+    rawMessage.includes('declined') ||
+    rawMessage.includes('denied') ||
+    rawMessage.includes('rejected')
+  ) {
+    return { type: 'user_declined', message };
+  }
+  return { type: 'generic', message };
+}
 
 function isSessionCleared(): boolean {
   if (typeof window === 'undefined') {
@@ -39,7 +68,7 @@ function setSessionCleared(cleared: boolean): void {
 export function WalletConnect() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorInfo | null>(null);
 
   const isMounted = useRef(true);
 
@@ -61,6 +90,30 @@ export function WalletConnect() {
     });
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+
+    const handleMessage = (event: MessageEvent) => {
+      const { type, publicKey: incomingKey } = event.data;
+
+      if (type === 'wallet_connected' && incomingKey) {
+        setSessionCleared(false);
+        setPublicKey(incomingKey);
+      } else if (type === 'wallet_disconnected') {
+        setPublicKey(null);
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, []);
+
   async function handleConnect() {
     setConnecting(true);
     setError(null);
@@ -68,8 +121,17 @@ export function WalletConnect() {
     try {
       const connection = await safeConnectWallet();
       setPublicKey(connection.publicKey);
+
+      if (typeof window !== 'undefined') {
+        const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        channel.postMessage({
+          type: 'wallet_connected',
+          publicKey: connection.publicKey,
+        });
+        channel.close();
+      }
     } catch (err) {
-      setError(err instanceof Error ? formatError(err) : 'Failed to connect wallet');
+      setError(classifyError(err));
     } finally {
       setConnecting(false);
     }
@@ -79,6 +141,14 @@ export function WalletConnect() {
     setSessionCleared(true);
     setPublicKey(null);
     setError(null);
+
+    if (typeof window !== 'undefined') {
+      const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      channel.postMessage({
+        type: 'wallet_disconnected',
+      });
+      channel.close();
+    }
   }
 
   if (publicKey) {
@@ -108,7 +178,25 @@ export function WalletConnect() {
       >
         {connecting ? 'Connecting…' : 'Connect Wallet'}
       </button>
-      {error ? <span className="text-xs text-red-400">{error}</span> : null}
+      {error ? (
+        <div className="max-w-xs text-right text-xs text-red-400">
+          {error.type === 'not_installed' ? (
+            <>
+              <p className="mb-1">Freighter wallet not installed. Install it to continue.</p>
+              <a
+                href="https://www.freighter.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-red-300 underline hover:text-red-200"
+              >
+                Install Freighter
+              </a>
+            </>
+          ) : (
+            <p>{error.message}</p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
