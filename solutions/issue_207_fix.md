@@ -1,0 +1,1 @@
+Solution proposal for Stats page's "Displayed in millions for readability" copy is factually wrong
