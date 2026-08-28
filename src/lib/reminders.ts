@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import { WillStatus, type Will } from '@sorowill/sdk';
 
@@ -11,6 +12,8 @@ export interface ReminderSubscription {
   willId: string;
   email: string;
   owner: string;
+  confirmed: boolean;
+  confirmationToken: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,14 +60,8 @@ function buildDeadline(will: Will): Date {
   return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
 }
 
-export function getReminderKind(daysRemaining: number): ReminderKind | null {
-  if (daysRemaining <= 14) {
-    return 'imminent';
-  }
-  if (daysRemaining > 14) {
-    return 'well-before';
-  }
-  return null;
+export function getReminderKind(daysRemaining: number): ReminderKind {
+  return daysRemaining <= 14 ? 'imminent' : 'well-before';
 }
 
 async function readStore(): Promise<ReminderStore> {
@@ -98,14 +95,26 @@ export async function registerReminderSubscription({
   willId,
   email,
   owner,
+  appUrl,
 }: {
   willId: string;
   email: string;
   owner: string;
+  appUrl: string;
 }): Promise<ReminderRegistrationResult> {
+  if (!willId.trim()) {
+    return { ok: false, error: 'A willId is required.' };
+  }
+
   const normalizedEmail = normalizeEmail(email);
   if (!isValidEmail(normalizedEmail)) {
     return { ok: false, error: 'Please provide a valid email address.' };
+  }
+
+  try {
+    await getSoroWillClient().getWill(willId);
+  } catch {
+    return { ok: false, error: 'No will exists with the provided willId.' };
   }
 
   const store = await readStore();
@@ -113,11 +122,30 @@ export async function registerReminderSubscription({
     willId,
     email: normalizedEmail,
     owner,
+    confirmed: false,
+    confirmationToken: randomUUID(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   store.subscriptions[`${willId}:${normalizedEmail}`] = subscription;
+  await writeStore(store);
+
+  await sendConfirmationEmail({ to: subscription.email, appUrl, token: subscription.confirmationToken });
+
+  return { ok: true, subscription };
+}
+
+export async function confirmReminderSubscription(token: string): Promise<ReminderRegistrationResult> {
+  const store = await readStore();
+  const subscription = Object.values(store.subscriptions).find((entry) => entry.confirmationToken === token);
+  if (!subscription) {
+    return { ok: false, error: 'Invalid or expired confirmation token.' };
+  }
+
+  subscription.confirmed = true;
+  subscription.updatedAt = new Date().toISOString();
+  store.subscriptions[`${subscription.willId}:${subscription.email}`] = subscription;
   await writeStore(store);
 
   return { ok: true, subscription };
@@ -133,6 +161,11 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
 
   for (const subscription of subscriptions) {
     try {
+      if (!subscription.confirmed) {
+        sentCount.skipped += 1;
+        continue;
+      }
+
       const will = await client.getWill(subscription.willId);
       if (will.status !== WillStatus.Active) {
         sentCount.skipped += 1;
@@ -148,10 +181,6 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
 
       const daysRemaining = remainingMs / 86_400_000;
       const reminderKind = getReminderKind(daysRemaining);
-      if (!reminderKind) {
-        sentCount.skipped += 1;
-        continue;
-      }
 
       const historyKey = getHistoryKey(subscription.willId, subscription.email);
       const historyEntry = store.history[historyKey] ?? {
@@ -225,6 +254,47 @@ async function sendReminderEmail({ to, will, deadline, reminderKind }: ReminderE
       from: fromEmail,
       to: [to],
       subject,
+      text: body,
+      html: `<p>${body.replace(/\n/g, '<br />')}</p>`,
+    }),
+  });
+
+  if (!response.ok) {
+    const fallback = await response.text();
+    throw new Error(`Resend request failed: ${response.status} ${fallback}`);
+  }
+}
+
+async function sendConfirmationEmail({
+  to,
+  appUrl,
+  token,
+}: {
+  to: string;
+  appUrl: string;
+  token: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+
+  if (!apiKey || !fromEmail) {
+    console.info(`[reminders] Skipping confirmation email for ${to}; provider not configured.`);
+    return;
+  }
+
+  const confirmUrl = `${appUrl}/api/reminders/confirm?token=${encodeURIComponent(token)}`;
+  const body = `Hello,\n\nPlease confirm you'd like to receive SoroWill check-in reminders by visiting the link below:\n\n${confirmUrl}\n\nIf you didn't request this, you can ignore this email.\n\nSoroWill`;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [to],
+      subject: 'Confirm your SoroWill reminder subscription',
       text: body,
       html: `<p>${body.replace(/\n/g, '<br />')}</p>`,
     }),
