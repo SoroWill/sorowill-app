@@ -29,6 +29,10 @@ export function Footer() {
           Stats
         </Link>
         <span className="text-white/20">•</span>
+        <Link href="/faq" className="hover:text-will-light">
+          FAQ
+        </Link>
+        <span className="text-white/20">•</span>
         <span>MIT License</span>
       </div>
     </footer>

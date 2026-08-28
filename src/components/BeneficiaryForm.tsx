@@ -114,6 +114,7 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
     setResolvingId(id);
     try {
       const resolved = await resolveFederatedAddress(address);
+      onChange(value.map((row, rowIndex) => (rowIndex === index ? { ...row, address: resolved } : row)));
       setResolvedAddresses((prev) => new Map(prev).set(id, resolved));
       setResolutionError((prev) => {
         const next = new Map(prev);
