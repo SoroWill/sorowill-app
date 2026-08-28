@@ -40,6 +40,19 @@ function isUnsafeCheckinPeriod(days: number): boolean {
   return days > SAFE_CHECKIN_WINDOW_DAYS;
 }
 
+export function getSubmittedGuardians(
+  guardians: string[],
+  resolvedGuardians: Map<string, string>,
+  guardianIds: Map<number, string>,
+): string[] {
+  return guardians
+    .map((guardian, index) => {
+      const id = guardianIds.get(index);
+      return (id && resolvedGuardians.get(id)) || guardian;
+    })
+    .filter((guardian) => guardian.trim() !== '');
+}
+
 // Soroban contract strkey: 'C' followed by 55 base32 chars (RFC 4648 alphabet,
 // no padding). Catches typos here rather than deep in the SDK at submit time.
 const CONTRACT_ADDRESS_PATTERN = /^C[A-Z2-7]{55}$/;
@@ -319,7 +332,7 @@ export default function NewWillPage() {
         beneficiaries,
         checkinPeriodDays,
         gracePeriodDays,
-        guardians: guardians.filter((g) => g.trim() !== ''),
+        guardians: getSubmittedGuardians(guardians, resolvedGuardians, stableGuardianIds),
       });
       if (typeof window !== 'undefined') {
         localStorage.removeItem(STORAGE_KEY);

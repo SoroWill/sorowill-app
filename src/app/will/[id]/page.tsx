@@ -30,6 +30,30 @@ interface ActivityEntry {
   at: Date;
 }
 
+interface StoredActivityEntry {
+  action: string;
+  txHash: string;
+  at: string;
+}
+
+function activityStorageKey(willId: string): string {
+  return `sorowill-activity-${willId}`;
+}
+
+export function loadActivity(willId: string): ActivityEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const stored = window.localStorage.getItem(activityStorageKey(willId));
+    if (!stored) return [];
+
+    const entries = JSON.parse(stored) as StoredActivityEntry[];
+    return entries.map((entry) => ({ ...entry, at: new Date(entry.at) }));
+  } catch {
+    return [];
+  }
+}
+
 function nextCheckinDeadline(will: Will): Date {
   return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
 }
@@ -87,6 +111,7 @@ export default function WillDetailPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [castingVoteId, setCastingVoteId] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [activityHydratedFor, setActivityHydratedFor] = useState<string | null>(null);
   const [exportingCertificate, setExportingCertificate] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -174,6 +199,19 @@ export default function WillDetailPage() {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  useEffect(() => {
+    setActivityHydratedFor(null);
+    setActivity(loadActivity(willId));
+    setActivityHydratedFor(willId);
+  }, [willId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || activityHydratedFor !== willId) return;
+
+    const stored = activity.map((entry) => ({ ...entry, at: entry.at.toISOString() }));
+    window.localStorage.setItem(activityStorageKey(willId), JSON.stringify(stored));
+  }, [activity, activityHydratedFor, willId]);
 
   function recordActivity(action: string, txHash: string) {
     setActivity((prev) => [{ action, txHash, at: new Date() }, ...prev]);
@@ -685,11 +723,11 @@ export default function WillDetailPage() {
       </div>
 
       <div className="print-hide rounded-xl border border-white/10 bg-white/5 p-4">
-        <h2 className="text-sm font-semibold text-will-light">Recent activity (this session)</h2>
+        <h2 className="text-sm font-semibold text-will-light">Recent activity</h2>
         {activity.length === 0 ? (
           <div className="mt-2 flex items-center gap-2 text-sm text-will-light/60">
             <span>📋</span>
-            <p>No actions recorded yet in this session. Activity is only tracked during the current browser session and does not persist across page reloads.</p>
+            <p>No actions recorded yet.</p>
           </div>
         ) : (
           <ul className="mt-2 space-y-2">
