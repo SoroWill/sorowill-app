@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import Image from 'next/image';
-import { NetworkMismatchBanner } from '@/components/NetworkMismatchBanner';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
@@ -20,7 +19,6 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     <ThemeProvider>
       <ToastProvider>
         <header className="sticky top-0 z-10 border-b border-white/10 bg-will-dark/80 backdrop-blur dark:bg-will-dark/80">
-        <NetworkMismatchBanner />
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-will-light">
             <Image src="/logo.svg" alt="SoroWill Logo" width={24} height={24} className="h-6 w-6 shrink-0" priority />

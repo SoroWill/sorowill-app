@@ -77,6 +77,7 @@ export function NetworkMismatchBanner() {
   return (
     <div
       role="alert"
+      data-testid="network-mismatch-banner"
       className="flex items-center justify-between gap-3 bg-amber-500/15 border border-amber-500/30 rounded-lg px-4 py-2.5 text-sm text-amber-300"
     >
       <div className="flex items-center gap-2">

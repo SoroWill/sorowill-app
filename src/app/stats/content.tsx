@@ -27,13 +27,14 @@ export function StatsContent() {
         // Attempt to fetch protocol stats
         // Note: This depends on the contract exposing get_protocol_stats method
         try {
-          const protocolStats = await (client as any).getProtocolStats?.();
-          if (protocolStats) {
+          const protocolStats = await (client as unknown as { getProtocolStats?: () => Promise<unknown> }).getProtocolStats?.();
+          if (protocolStats && typeof protocolStats === 'object') {
+            const stats = protocolStats as Record<string, unknown>;
             setStats({
-              totalWills: Number(protocolStats.totalWills || 0),
-              totalValueLocked: String(protocolStats.totalValueLocked || '0'),
-              activeWills: Number(protocolStats.activeWills || 0),
-              completedInheritances: Number(protocolStats.completedInheritances || 0),
+              totalWills: Number(stats.totalWills || 0),
+              totalValueLocked: String(stats.totalValueLocked || '0'),
+              activeWills: Number(stats.activeWills || 0),
+              completedInheritances: Number(stats.completedInheritances || 0),
             });
             return;
           }
