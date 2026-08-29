@@ -205,7 +205,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
       const handleReconnectError = async () => {
         try {
           return await safeGetPublicKey()
-        } catch (error) {
+        } catch {
           return null
         }
       }

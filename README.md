@@ -69,6 +69,23 @@ npm run dev
 | `/inherit/[id]` | Beneficiary view — see your entitled share and claim once ready |
 | `/verify/[id]` | Public, wallet-free verification of a will's on-chain state |
 
+## Internationalization
+
+This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings. Translation namespaces and strings are stored in `src/messages/en.json`, which is organized by feature:
+
+- **`common`** — reusable UI strings (buttons, labels, form text)
+- **`landing`** — landing page (`/`)
+- **`dashboard`** — dashboard page (`/dashboard`)
+- **`willDetail`** — will detail view (`/will/[id]`)
+- **`status`** — will status labels and descriptions
+- **`inherit`** — beneficiary inheritance view (`/inherit/[id]`)
+
+To use translations in a component:
+- **Server components:** `import { getTranslations } from 'next-intl/server'; const t = await getTranslations('namespace');` then use `t('key')`
+- **Client components:** `import { useTranslations } from 'next-intl'; const t = useTranslations('namespace');` then use `t('key')`
+
+Currently, the app only supports `en` (English), hardcoded in `src/i18n/request.ts`. Contributors adding new UI copy should place translatable strings in `src/messages/en.json` under the appropriate namespace rather than hardcoding them. Multi-locale support (switching from `'en'` to dynamic locale detection) is tracked separately but not yet implemented.
+
 ## Reminder delivery
 
 Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job or Vercel Cron can call the dispatch endpoint without exposing any secrets:
