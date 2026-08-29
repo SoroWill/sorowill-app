@@ -4,12 +4,37 @@ import { useEffect, useState } from 'react';
 import { WillStatus } from '@sorowill/sdk';
 import { enumerateAllWills, getSoroWillClient } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
+import { WillStatus, type Will } from '@sorowill/sdk';
 
 interface ProtocolStats {
   totalWills: number;
   totalValueLocked: string;
   activeWills: number;
   completedInheritances: number;
+}
+
+/**
+ * Compute protocol stats from a list of wills using the real SDK fields:
+ * `status` (WillStatus) for the active/completed counts and `balance` (stroops)
+ * for Total Value Locked. Pure so it can be unit-tested (#205).
+ */
+export function computeStatsFromWills(wills: Will[]): ProtocolStats {
+  const totalWills = wills.length;
+  const activeWills = wills.filter(
+    (w) => w.status === WillStatus.Active
+  ).length;
+  const completedInheritances = wills.filter(
+    (w) => w.status === WillStatus.Released
+  ).length;
+
+  // Sum balance (in stroops) across all wills so TVL reflects on-chain value.
+  const totalValueLocked = wills.reduce((sum, w) => {
+    const balance =
+      w.balance === undefined || w.balance === null ? 0n : BigInt(w.balance);
+    return sum + balance;
+  }, 0n).toString();
+
+  return { totalWills, totalValueLocked, activeWills, completedInheritances };
 }
 
 export function StatsContent() {
