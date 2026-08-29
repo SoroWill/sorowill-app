@@ -1,8 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import type { Beneficiary } from '@sorowill/sdk';
+import { resolveFederatedAddress } from '@/lib/federated';
+
+vi.mock('@/lib/federated', () => ({
+  isFederatedAddress: (address: string) => address.includes('*'),
+  resolveFederatedAddress: vi.fn(),
+}));
 
 describe('BeneficiaryForm', () => {
   it('renders with empty state', () => {
@@ -45,6 +51,20 @@ describe('BeneficiaryForm', () => {
     render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
     await user.type(screen.getByPlaceholderText(/stellar address/i), 'GNEW');
     expect(onChange).toHaveBeenCalled();
+  });
+
+  it('reports the resolved address through onChange', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const beneficiaries: Beneficiary[] = [{ address: 'alice*domain.com', percentage: 100 }];
+    vi.mocked(resolveFederatedAddress).mockResolvedValue('GRESOLVED123');
+
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
+    await user.click(screen.getByRole('button', { name: 'Resolve' }));
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith([{ address: 'GRESOLVED123', percentage: 100 }]);
+    });
   });
 
   it('shows valid state when total is 100%', () => {
