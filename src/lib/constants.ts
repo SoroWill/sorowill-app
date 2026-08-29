@@ -1,2 +1,4 @@
+import { MAX_GUARDIANS } from '@sorowill/sdk';
+
 export const GUARDIAN_THRESHOLD = 2;
-export const MAX_GUARDIANS = 3;
+export { MAX_GUARDIANS };
