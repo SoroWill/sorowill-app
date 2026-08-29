@@ -12,6 +12,23 @@ export interface BeneficiaryFormProps {
   onChange: (beneficiaries: Beneficiary[]) => void;
 }
 
+function isValidStellarAddress(address: string): boolean {
+  if (!address) return false;
+  return /^G[0-9A-Z]{55}$/.test(address);
+}
+
+function getAddressErrors(beneficiaries: Beneficiary[]): Record<number, string> {
+  const errors: Record<number, string> = {};
+  beneficiaries.forEach((b, i) => {
+    if (b.percentage > 0 && !b.address.trim()) {
+      errors[i] = 'Address is required';
+    } else if (b.address && !isFederatedAddress(b.address) && !isValidStellarAddress(b.address)) {
+      errors[i] = 'Invalid Stellar address';
+    }
+  });
+  return errors;
+}
+
 function equalSplit(count: number): number[] {
   if (count === 0) {
     return [];
@@ -56,6 +73,7 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
   const total = value.reduce((sum, b) => sum + b.percentage, 0);
   const validationMessage = getBeneficiaryValidationMessage(value);
   const isValid = validationMessage === null;
+  const addressErrors = getAddressErrors(value);
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
 
@@ -182,7 +200,9 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none"
+                  className={`w-full rounded-lg border ${
+                    addressErrors[index] ? 'border-red-400' : 'border-white/10'
+                  } bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none`}
                 />
               </div>
               {isFederatedAddress(beneficiary.address) && (
@@ -240,6 +260,11 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
               <div className="ml-1 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
                 <p className="text-xs text-red-400">{resolutionError.get(beneficiaryId)}</p>
               </div>
+            )}
+            {addressErrors[index] && (
+              <p className="text-xs text-red-400">
+                {addressErrors[index]}
+              </p>
             )}
           </div>
         );

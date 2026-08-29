@@ -53,7 +53,10 @@ npm run dev
 | `NEXT_PUBLIC_RPC_URL` | Soroban RPC endpoint (defaults to the public testnet RPC) |
 | `RESEND_API_KEY` | API key for reminder emails (optional; leave unset to skip sending) |
 | `RESEND_FROM_EMAIL` | Verified Resend sender address used for reminder emails |
-| `REMINDER_STORE_FILE` | Optional path for the local JSON reminder store used by the cron route |
+| `KV_REST_API_URL` | Vercel KV / Upstash Redis REST URL used to persist reminder subscriptions (required for reminders; the serverless filesystem is ephemeral) |
+| `KV_REST_API_TOKEN` | REST token for the KV store above |
+| `REMINDER_STORE_KV_KEY` | Optional key used to store the reminder blob in the KV store (defaults to `sorowill:reminder-store`) |
+| `NEXT_PUBLIC_APP_URL` | Optional public base URL used to build the unsubscribe link in reminder emails (defaults to `VERCEL_URL` or `http://localhost:3000`) |
 
 ## Pages
 

@@ -26,13 +26,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback((message: string, variant: ToastVariant) => {
     const id = Math.random().toString(36).slice(2);
     const toast: Toast = { id, message, variant };
+    // Auto-dismiss is owned entirely by ToastItem's useEffect, which cleans up
+    // its timer on unmount / id change. Scheduling one here as well would leave
+    // an uncancellable timer running after an early manual dismiss.
     setToasts((prev) => [...prev, toast]);
-
-    const timer = setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-
-    return () => clearTimeout(timer);
   }, []);
 
   const removeToast = useCallback((id: string) => {

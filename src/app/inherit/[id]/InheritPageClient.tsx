@@ -7,19 +7,13 @@ import { calculateShares, formatUSDC, WillStatus, type Will } from '@sorowill/sd
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
+import { graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 
 function isValidWillId(id: string): boolean {
   return /^\d+$/.test(id);
-}
-
-function graceDeadline(will: Will): Date | null {
-  if (!will.triggerTime) {
-    return null;
-  }
-  return new Date(will.triggerTime.getTime() + will.gracePeriodDays * 86_400_000);
 }
 
 export default function InheritPageClient({ id }: { id: string }) {

@@ -21,7 +21,6 @@ export default defineConfig({
       'tests/unit/DestructiveActionConfirmation.test.tsx',
       'tests/unit/useKeyboardShortcuts.test.tsx',
       'tests/unit/willExport.test.ts',
-      'tests/unit/BundleSize.test.ts',
       'tests/unit/ErrorBoundary.test.ts',
       'tests/unit/Analytics.test.ts',
     ],

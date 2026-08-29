@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 
 export function ShareVerification() {
   const [url, setUrl] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -11,6 +13,25 @@ export function ShareVerification() {
     setUrl(window.location.href);
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    QRCode.toDataURL(url, {
+      margin: 1,
+      width: 200,
+      color: { dark: '#7D00FF', light: '#ffffff' },
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
+      .catch((err) => {
+        console.error('Failed to generate QR code: ', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
 
   async function handleCopy() {
     try {
@@ -26,8 +47,6 @@ export function ShareVerification() {
     return <div className="h-48 w-full rounded-xl bg-white/5 animate-pulse" />;
   }
 
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=7D00FF&bgcolor=ffffff&data=${encodeURIComponent(url)}`;
-
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-6 flex flex-col items-center gap-4 text-center">
       <h3 className="text-sm font-semibold text-will-light">Share this verification page</h3>
@@ -37,16 +56,19 @@ export function ShareVerification() {
 
       {/* QR Code Container */}
       <div className="p-3 bg-white rounded-lg shadow-lg transition-transform hover:scale-105 duration-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={qrCodeUrl}
-          alt="Verification Page QR Code"
-          width={180}
-          height={180}
-          loading="lazy"
-          decoding="async"
-          className="rounded"
-        />
+        {qrDataUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={qrDataUrl}
+            alt="Verification Page QR Code"
+            width={180}
+            height={180}
+            decoding="async"
+            className="rounded"
+          />
+        ) : (
+          <div className="h-[180px] w-[180px] rounded bg-black/5 animate-pulse" />
+        )}
       </div>
 
       {/* Action Area */}

@@ -7,6 +7,7 @@ import { type Will, formatUSDC } from '@sorowill/sdk';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { formatError } from '@/lib/errors';
+import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 
 function OnboardContent() {
   const searchParams = useSearchParams();
@@ -69,7 +70,7 @@ function OnboardContent() {
           <div className="p-4 rounded-lg bg-white/5 border border-white/5">
             <h3 className="text-sm font-semibold text-will-light">2. Quorum release</h3>
             <p className="mt-1 text-xs text-will-light/60">
-              If needed, any 2 of the designated guardians can vote to release the inheritance early, bypassing the remaining grace period.
+              If needed, any {GUARDIAN_THRESHOLD} of the designated guardians can vote to release the inheritance early, bypassing the remaining grace period.
             </p>
           </div>
         </div>

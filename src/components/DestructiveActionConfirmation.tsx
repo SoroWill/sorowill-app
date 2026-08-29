@@ -37,11 +37,17 @@ export function DestructiveActionConfirmation({
     <div role="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-xl border border-white/10 bg-will-dark p-6 space-y-4">
         <h2 className="text-lg font-bold text-will-light">
-          {action === 'cancel_will' ? 'Cancel this will' : 'Destructive Action'}
+          {action === 'cancel_will' && 'Cancel this will'}
+          {action === 'switch_network' && 'Switch network'}
+          {action !== 'cancel_will' && action !== 'switch_network' && 'Destructive Action'}
         </h2>
 
         <div className="text-sm text-will-light/70 space-y-2">
-          <p className="font-semibold text-amber-400">This action cannot be undone.</p>
+          {action === 'switch_network' ? (
+            <p>You may need to reconnect your wallet and switch the network inside your Freighter extension.</p>
+          ) : (
+            <p className="font-semibold text-amber-400">This action cannot be undone.</p>
+          )}
           {action === 'cancel_will' && (
             <p>Funds will not be released to beneficiaries once cancelled.</p>
           )}

@@ -1,4 +1,4 @@
-import type { Will } from '@sorowill/sdk';
+import { formatUSDC, type Will } from '@sorowill/sdk';
 
 function escapeCSVField(val: string | number | bigint | null | undefined): string {
   if (val === null || val === undefined) {
@@ -25,8 +25,7 @@ export function exportWillsToCSV(wills: Will[]): string {
   ];
 
   const rows = wills.map((will) => {
-    // Format balance by dividing by 1,000,000 (USDC standard)
-    const formattedBalance = will.balance ? Number(will.balance) / 1_000_000 : 0;
+    const formattedBalance = will.balance ? formatUSDC(BigInt(will.balance)) : '0';
 
     const beneficiariesStr = ((will.beneficiaries as any[]) || [])
       .map((b) => (typeof b === 'string' ? b : b?.address || ''))
