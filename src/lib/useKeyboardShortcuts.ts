@@ -33,12 +33,12 @@ export function useKeyboardShortcuts({
       if (activeEl) {
         const tagName = activeEl.tagName.toLowerCase();
         const contentEditableAttr = activeEl.getAttribute('contenteditable');
+        const htmlEl = activeEl as HTMLElement;
         const isContentEditable =
           contentEditableAttr === 'true' ||
           contentEditableAttr === '' ||
-          (activeEl as any).contentEditable === 'true' ||
-          (activeEl as any).contentEditable === true ||
-          (activeEl as any).isContentEditable === true;
+          htmlEl.contentEditable === 'true' ||
+          (htmlEl as HTMLElement & { isContentEditable?: boolean }).isContentEditable === true;
 
         if (
           tagName === 'input' ||

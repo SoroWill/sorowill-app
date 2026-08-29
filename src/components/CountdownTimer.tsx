@@ -16,7 +16,11 @@ export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
     let interval: ReturnType<typeof setInterval> | null = null;
 
     const tick = () => {
-      setSecondsLeft(computeSeconds());
+      const remaining = computeSeconds();
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        stop();
+      }
     };
 
     const start = () => {

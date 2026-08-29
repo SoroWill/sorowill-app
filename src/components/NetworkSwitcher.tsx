@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { getNetwork, resetSoroWillClient } from '@/lib/sorowill';
 import { type SoroWillNetwork } from '@sorowill/sdk';
+import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 
 export function NetworkSwitcher() {
   const [network, setNetwork] = useState<SoroWillNetwork>('testnet');
   const [mounted, setMounted] = useState(false);
+  const [pendingNetwork, setPendingNetwork] = useState<SoroWillNetwork | null>(null);
 
   useEffect(() => {
     setNetwork(getNetwork());
@@ -16,26 +18,20 @@ export function NetworkSwitcher() {
   function handleNetworkChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const newNetwork = event.target.value as SoroWillNetwork;
     if (newNetwork === network) return;
+    setPendingNetwork(newNetwork);
+  }
 
-    const confirmSwitch = window.confirm(
-      `Warning: Switching to ${newNetwork} may require you to reconnect your wallet and switch the network inside your Freighter extension. Do you want to proceed?`
-    );
-
-    if (confirmSwitch) {
-      window.localStorage.setItem('sorowill_network', newNetwork);
-      setNetwork(newNetwork);
-      // Invalidate the cached SoroWillClient singleton so the next
-      // module evaluation starts fresh. This is important because
-      // Vercel's serverless functions can stay warm across requests,
-      // and the SDK's own spec-caching could otherwise serve stale
-      // contract state after a network switch.
-      resetSoroWillClient();
-      // Reload the page to reconstruct client and clear/reset state
-      window.location.reload();
-    } else {
-      // Revert select input
-      event.target.value = network;
-    }
+  function confirmNetworkSwitch(newNetwork: SoroWillNetwork) {
+    window.localStorage.setItem('sorowill_network', newNetwork);
+    setNetwork(newNetwork);
+    // Invalidate the cached SoroWillClient singleton so the next
+    // module evaluation starts fresh. This is important because
+    // Vercel's serverless functions can stay warm across requests,
+    // and the SDK's own spec-caching could otherwise serve stale
+    // contract state after a network switch.
+    resetSoroWillClient();
+    // Reload the page to reconstruct client and clear/reset state
+    window.location.reload();
   }
 
   if (!mounted) {
@@ -60,6 +56,16 @@ export function NetworkSwitcher() {
           ● Mainnet
         </option>
       </select>
+      <DestructiveActionConfirmation
+        isOpen={pendingNetwork !== null}
+        action="switch_network"
+        willId=""
+        onCancel={() => setPendingNetwork(null)}
+        onConfirm={() => {
+          if (pendingNetwork) confirmNetworkSwitch(pendingNetwork);
+          setPendingNetwork(null);
+        }}
+      />
     </div>
   );
 }

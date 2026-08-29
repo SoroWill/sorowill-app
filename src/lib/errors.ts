@@ -1,3 +1,24 @@
+/**
+ * Shared check for whether an error message indicates the will does not
+ * exist on chain (contract-level "will not found" / "WillNotFound", error
+ * code #1). Used by every call site that needs to classify a "will not
+ * found" condition so they stay consistent with one another.
+ */
+export function isWillNotFoundMessage(message: string): boolean {
+  const msg = message.toLowerCase();
+  return (
+    msg.includes('not found') ||
+    msg.includes('willnotfound') ||
+    msg.includes('no such will') ||
+    msg.includes('does not exist') ||
+    msg.includes('error(contract, #1)')
+  );
+}
+
+export function isWillNotFoundError(error: unknown): boolean {
+  return error instanceof Error && isWillNotFoundMessage(error.message);
+}
+
 const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
   test: (message: string) => boolean;
   friendly: string;
@@ -10,9 +31,12 @@ const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
   },
   {
     test: (message) =>
-      message.toLowerCase().includes('not found') ||
-      message.toLowerCase().includes('willnotfound') ||
-      message.toLowerCase().includes('no such will'),
+      message.toLowerCase().includes('contract') &&
+      message.toLowerCase().includes('not found'),
+    friendly: 'The smart contract could not be found on the network.',
+  },
+  {
+    test: (message) => isWillNotFoundMessage(message),
     friendly: 'This will was not found on the blockchain.',
   },
   {
@@ -27,8 +51,11 @@ const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
     friendly: 'There are not enough funds to complete this operation.',
   },
   {
+    test: (message) => message.toLowerCase().includes('already voted'),
+    friendly: "You've already cast a vote on this will.",
+  },
+  {
     test: (message) =>
-      message.toLowerCase().includes('already voted') ||
       message.toLowerCase().includes('not a guardian') ||
       message.toLowerCase().includes('not guardian'),
     friendly:
@@ -38,12 +65,6 @@ const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
     test: (message) => message.toLowerCase().includes('unauthorized'),
     friendly:
       'You do not have permission to perform this action.',
-  },
-  {
-    test: (message) =>
-      message.toLowerCase().includes('contract') &&
-      message.toLowerCase().includes('not found'),
-    friendly: 'The smart contract could not be found on the network.',
   },
 ];
 

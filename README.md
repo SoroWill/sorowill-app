@@ -53,7 +53,10 @@ npm run dev
 | `NEXT_PUBLIC_RPC_URL` | Soroban RPC endpoint (defaults to the public testnet RPC) |
 | `RESEND_API_KEY` | API key for reminder emails (optional; leave unset to skip sending) |
 | `RESEND_FROM_EMAIL` | Verified Resend sender address used for reminder emails |
-| `REMINDER_STORE_FILE` | Optional path for the local JSON reminder store used by the cron route |
+| `KV_REST_API_URL` | Vercel KV / Upstash Redis REST URL used to persist reminder subscriptions (required for reminders; the serverless filesystem is ephemeral) |
+| `KV_REST_API_TOKEN` | REST token for the KV store above |
+| `REMINDER_STORE_KV_KEY` | Optional key used to store the reminder blob in the KV store (defaults to `sorowill:reminder-store`) |
+| `NEXT_PUBLIC_APP_URL` | Optional public base URL used to build the unsubscribe link in reminder emails (defaults to `VERCEL_URL` or `http://localhost:3000`) |
 
 ## Pages
 
@@ -65,6 +68,23 @@ npm run dev
 | `/will/[id]` | Full will detail: check in, top up, update beneficiaries, cancel, trigger, release |
 | `/inherit/[id]` | Beneficiary view — see your entitled share and claim once ready |
 | `/verify/[id]` | Public, wallet-free verification of a will's on-chain state |
+
+## Internationalization
+
+This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings. Translation namespaces and strings are stored in `src/messages/en.json`, which is organized by feature:
+
+- **`common`** — reusable UI strings (buttons, labels, form text)
+- **`landing`** — landing page (`/`)
+- **`dashboard`** — dashboard page (`/dashboard`)
+- **`willDetail`** — will detail view (`/will/[id]`)
+- **`status`** — will status labels and descriptions
+- **`inherit`** — beneficiary inheritance view (`/inherit/[id]`)
+
+To use translations in a component:
+- **Server components:** `import { getTranslations } from 'next-intl/server'; const t = await getTranslations('namespace');` then use `t('key')`
+- **Client components:** `import { useTranslations } from 'next-intl'; const t = useTranslations('namespace');` then use `t('key')`
+
+Currently, the app only supports `en` (English), hardcoded in `src/i18n/request.ts`. Contributors adding new UI copy should place translatable strings in `src/messages/en.json` under the appropriate namespace rather than hardcoding them. Multi-locale support (switching from `'en'` to dynamic locale detection) is tracked separately but not yet implemented.
 
 ## Reminder delivery
 

@@ -1,5 +1,13 @@
 import { getNetwork } from './sorowill';
 
+const FETCH_TIMEOUT_MS = 10_000;
+
+interface HorizonBalance {
+  balance: string;
+  asset_type: string;
+  asset_code?: string;
+}
+
 export async function getUserBalance(userAddress: string): Promise<string | null> {
   try {
     const network = getNetwork();
@@ -8,19 +16,18 @@ export async function getUserBalance(userAddress: string): Promise<string | null
         ? 'https://horizon.stellar.org'
         : 'https://horizon-testnet.stellar.org';
 
-    const response = await fetch(`${horizonUrl}/accounts/${userAddress}`);
+    const response = await fetch(`${horizonUrl}/accounts/${userAddress}`, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       return null;
     }
 
-    const data = (await response.json()) as { balances?: Array<{ balance: string }> };
+    const data = (await response.json()) as { balances?: HorizonBalance[] };
     const balances = data.balances || [];
 
-    if (balances.length > 0) {
-      return balances[0].balance;
-    }
-
-    return null;
+    const usdcBalance = balances.find((b) => b.asset_code === 'USDC');
+    return usdcBalance ? usdcBalance.balance : null;
   } catch {
     return null;
   }

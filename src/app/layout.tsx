@@ -50,7 +50,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        {/* Parser-blocking classic script: applies data-theme before first paint
+            to prevent a theme flash. Must be synchronous and run before hydration,
+            so the async-by-default next/script is not usable here. Source lives in
+            public/theme-init.js. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme-init.js" />
+      </head>
       <body className="min-h-screen bg-will-dark text-will-light antialiased">
         <NextIntlClientProvider messages={messages}>
           <ClientLayout>{children}</ClientLayout>

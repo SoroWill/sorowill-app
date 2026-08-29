@@ -3,9 +3,7 @@ import QRCode from 'qrcode';
 
 import { formatDeadline, formatUSDC, WillStatus, type Will } from '@sorowill/sdk';
 
-function nextCheckinDeadline(will: Will): Date {
-  return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
-}
+import { nextCheckinDeadline } from '@/lib/deadlines';
 
 /**
  * Generates and downloads a PDF "certificate" summarizing `will`'s public,
@@ -19,7 +17,17 @@ export async function downloadWillCertificate(will: Will, verifyUrl: string): Pr
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const marginX = 56;
-  let y = 64;
+  const marginTop = 64;
+  const marginBottom = 64;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = marginTop;
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - marginBottom) {
+      doc.addPage();
+      y = marginTop;
+    }
+  };
 
   doc.setFontSize(20);
   doc.setTextColor(20);
@@ -50,22 +58,26 @@ export async function downloadWillCertificate(will: Will, verifyUrl: string): Pr
     lines.push(`Next check-in due: ${formatDeadline(nextCheckinDeadline(will))}`);
   }
   for (const line of lines) {
+    ensureSpace(20);
     doc.text(line, marginX, y);
     y += 20;
   }
   y += 12;
 
+  ensureSpace(20);
   doc.setFontSize(14);
   doc.text('Beneficiaries', marginX, y);
   y += 20;
   doc.setFontSize(11);
   for (const beneficiary of will.beneficiaries) {
+    ensureSpace(18);
     doc.text(`${beneficiary.address} — ${beneficiary.percentage}%`, marginX, y);
     y += 18;
   }
   y += 24;
 
   const qrSize = 110;
+  ensureSpace(qrSize);
   doc.addImage(qrDataUrl, 'PNG', marginX, y, qrSize, qrSize);
   doc.setFontSize(10);
   doc.setTextColor(90);
