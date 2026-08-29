@@ -1,14 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getSoroWillClient } from '@/lib/sorowill';
+import { WillStatus } from '@sorowill/sdk';
+import { enumerateAllWills, getSoroWillClient } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
+import { WillStatus, type Will } from '@sorowill/sdk';
 
 interface ProtocolStats {
   totalWills: number;
   totalValueLocked: string;
   activeWills: number;
   completedInheritances: number;
+}
+
+/**
+ * Compute protocol stats from a list of wills using the real SDK fields:
+ * `status` (WillStatus) for the active/completed counts and `balance` (stroops)
+ * for Total Value Locked. Pure so it can be unit-tested (#205).
+ */
+export function computeStatsFromWills(wills: Will[]): ProtocolStats {
+  const totalWills = wills.length;
+  const activeWills = wills.filter(
+    (w) => w.status === WillStatus.Active
+  ).length;
+  const completedInheritances = wills.filter(
+    (w) => w.status === WillStatus.Released
+  ).length;
+
+  // Sum balance (in stroops) across all wills so TVL reflects on-chain value.
+  const totalValueLocked = wills.reduce((sum, w) => {
+    const balance =
+      w.balance === undefined || w.balance === null ? 0n : BigInt(w.balance);
+    return sum + balance;
+  }, 0n).toString();
+
+  return { totalWills, totalValueLocked, activeWills, completedInheritances };
 }
 
 export function StatsContent() {
@@ -42,33 +68,24 @@ export function StatsContent() {
           // Method not available, use fallback
         }
 
-        // Fallback: fetch wills sequentially to calculate stats
-        const wills: { id: string; executionStarted?: boolean; amount?: string | bigint }[] = [];
-        const promises = [];
-        for (let i = 1; i <= 100; i++) {
-          promises.push(
-            client
-              .getWill(i.toString())
-              .then((will) => {
-                if (will) {
-                  wills.push(will);
-                }
-              })
-              .catch(() => {
-                // Will does not exist or network error
-              })
-          );
-        }
-        await Promise.all(promises);
+        // Fallback: enumerate every will on the contract and derive the
+        // stats from real will state. enumerateAllWills() walks sequential
+        // IDs until the last one is passed, so it does not silently cap out.
+        const wills = await enumerateAllWills();
 
         const totalWills = wills.length;
-        const activeWills = wills.filter((w) => !w.executionStarted).length;
-        const completedInheritances = wills.filter((w) => w.executionStarted).length;
+        const activeWills = wills.filter((w) => w.status === WillStatus.Active).length;
+        const completedInheritances = wills.filter(
+          (w) => w.status === WillStatus.Released,
+        ).length;
 
-        // Sum value locked (if available in will object)
-        const totalValueLocked = wills.reduce((sum, w) => {
-          return sum + (BigInt(w.amount || 0));
-        }, BigInt(0)).toString();
+        // Total value locked: sum of balances still held by non-terminal wills.
+        const totalValueLocked = wills
+          .filter(
+            (w) => w.status === WillStatus.Active || w.status === WillStatus.Triggered,
+          )
+          .reduce((sum, w) => sum + BigInt(w.balance || 0), BigInt(0))
+          .toString();
 
         setStats({
           totalWills,
@@ -129,8 +146,13 @@ export function StatsContent() {
     },
     {
       label: 'Total Value Locked',
+      // Issue #207: dividing by 1_000_000 converts USDC base units to whole
+      // USDC (1 USDC = 10^6 base units) — it is NOT a millions-scale
+      // reduction. BigInt division also truncates, so the figure is rounded
+      // down to the nearest whole USDC. The copy below and the "About These
+      // Metrics" bullet now describe exactly that.
       value: `${(BigInt(stats.totalValueLocked) / BigInt(1000000)).toString()} USDC`,
-      description: 'Total USDC held in active wills (in millions)',
+      description: 'Total USDC held in active wills, rounded down to whole USDC',
       color: 'from-blue-400 to-cyan-500',
     },
     {
@@ -176,7 +198,8 @@ export function StatsContent() {
           <li className="flex gap-3">
             <span className="shrink-0 text-will-purple">→</span>
             <span>
-              <strong>Total Value Locked:</strong> Sum of all USDC held across all active wills. Displayed in millions for readability.
+              <strong>Total Value Locked:</strong> Sum of all USDC held across all active wills, converted from the
+              contract&apos;s base units (1 USDC = 1,000,000 base units) and rounded down to the nearest whole USDC.
             </span>
           </li>
           <li className="flex gap-3">

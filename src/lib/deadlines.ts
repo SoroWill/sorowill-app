@@ -1,4 +1,5 @@
 import { type Will } from '@sorowill/sdk';
+import { isWillNotFoundMessage } from '@/lib/errors';
 
 export function nextCheckinDeadline(will: Will): Date {
   return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
@@ -21,11 +22,7 @@ export function categorizeWillError(err: unknown): WillErrorCode {
   const message = err instanceof Error ? err.message : String(err);
   const normalized = message.toLowerCase();
 
-  if (
-    normalized.includes('not found') ||
-    normalized.includes('does not exist') ||
-    normalized.includes('no such will')
-  ) {
+  if (isWillNotFoundMessage(message)) {
     return WillErrorCode.NotFound;
   }
 

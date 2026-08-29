@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { CopyAddress } from './CopyAddress';
+import { useToast } from './Toast';
 
 export interface GuardianPanelProps {
   guardians: string[];
@@ -10,6 +11,7 @@ export interface GuardianPanelProps {
   isGuardian?: boolean;
   isActive?: boolean;
   isCastingVote?: boolean;
+  hasVoted?: boolean;
   onCastVote?: () => void;
   error?: string | null;
 }
@@ -22,10 +24,12 @@ export function GuardianPanel({
   isGuardian = false,
   isActive = false,
   isCastingVote = false,
+  hasVoted = false,
   onCastVote,
   error,
 }: GuardianPanelProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const toast = useToast();
 
   if (guardians.length === 0) {
     return (
@@ -50,6 +54,7 @@ export function GuardianPanel({
       setTimeout(() => setCopiedIndex(null), 2000);
     } catch (err) {
       console.error('Failed to copy invite link', err);
+      toast.error('Failed to copy invite link. Please copy it manually.');
     }
   };
 
@@ -101,14 +106,16 @@ export function GuardianPanel({
         ))}
       </ul>
       {isGuardian && isActive ? (
-        <button
-          type="button"
-          onClick={onCastVote}
-          disabled={isCastingVote}
-          className="mt-3 rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60"
-        >
-          {isCastingVote ? 'Casting vote…' : 'Cast guardian vote'}
-        </button>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={onCastVote}
+            disabled={isCastingVote || hasVoted}
+            className="rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60"
+          >
+            {hasVoted ? "You've already voted" : isCastingVote ? 'Casting vote…' : 'Cast guardian vote'}
+          </button>
+        </div>
       ) : null}
       {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
       <p className="mt-2 text-xs text-will-light/50" role={hasEnoughGuardians ? undefined : 'alert'}>

@@ -1,14 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import { BeneficiaryFormWithValidation } from '@/components/BeneficiaryFormWithValidation';
+import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import type { Beneficiary } from '@sorowill/sdk';
 
-describe('BeneficiaryFormWithValidation', () => {
+describe('BeneficiaryForm', () => {
   it('shows validation error for invalid address live', () => {
     const onChange = vi.fn();
     const beneficiaries: Beneficiary[] = [{ address: 'INVALID', percentage: 100 }];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/invalid stellar address/i)).toBeInTheDocument();
   });
@@ -17,7 +17,7 @@ describe('BeneficiaryFormWithValidation', () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const beneficiaries: Beneficiary[] = [{ address: 'INVALID', percentage: 100 }];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/invalid stellar address/i)).toBeInTheDocument();
 
@@ -35,7 +35,7 @@ describe('BeneficiaryFormWithValidation', () => {
       { address: 'GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 50 },
       { address: 'GXYZABC1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 40 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/Total: 90%/)).toBeInTheDocument();
     expect(screen.getByText(/must equal 100%/)).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('BeneficiaryFormWithValidation', () => {
       { address: 'GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 60 },
       { address: 'GXYZABC1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 0 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     const percentageInput = screen.getAllByDisplayValue(0)[0] as HTMLInputElement;
     await user.clear(percentageInput);
@@ -62,7 +62,7 @@ describe('BeneficiaryFormWithValidation', () => {
     const beneficiaries: Beneficiary[] = [
       { address: 'GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 100 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/Total: 100% ✓/)).toBeInTheDocument();
   });
@@ -72,7 +72,7 @@ describe('BeneficiaryFormWithValidation', () => {
     const beneficiaries: Beneficiary[] = [
       { address: '', percentage: 100 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/address is required/i)).toBeInTheDocument();
   });
@@ -84,7 +84,7 @@ describe('BeneficiaryFormWithValidation', () => {
       { address: '', percentage: 50 },
       { address: '', percentage: 50 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getAllByText(/address is required/i)).toHaveLength(2);
   });
@@ -95,7 +95,7 @@ describe('BeneficiaryFormWithValidation', () => {
     const beneficiaries: Beneficiary[] = [
       { address: 'GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890AB', percentage: 100 },
     ];
-    render(<BeneficiaryFormWithValidation value={beneficiaries} onChange={onChange} />);
+    render(<BeneficiaryForm value={beneficiaries} onChange={onChange} />);
 
     expect(screen.getByText(/Total: 100% ✓/)).toBeInTheDocument();
 

@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { safeGetWalletNetwork, safeGetPublicKey } from '@/lib/freighter';
 import { getNetwork } from '@/lib/sorowill';
 import type { SoroWillNetwork } from '@sorowill/sdk';
 
 const STORAGE_KEY = 'sorowill_network_mismatch_dismissed';
+
+/** How often to re-check the wallet network while the page stays open. */
+const POLL_INTERVAL_MS = 4000;
+
+interface Mismatch {
+  appNetwork: SoroWillNetwork;
+  walletNetwork: string;
+}
 
 /** Maps Freighter network strings to SoroWill network identifiers. */
 function normalizeWalletNetwork(network: string): SoroWillNetwork | null {
@@ -20,59 +28,95 @@ function normalizeWalletNetwork(network: string): SoroWillNetwork | null {
   return null;
 }
 
-export function NetworkMismatchBanner() {
-  const [mismatch, setMismatch] = useState<{
-    appNetwork: SoroWillNetwork;
-    walletNetwork: string;
-  } | null>(null);
-  const [dismissed, setDismissed] = useState(false);
+/**
+ * Stable key identifying a specific app-network / wallet-network mismatch pair,
+ * so a dismissal only suppresses the exact pair the user dismissed.
+ */
+function mismatchKey(mismatch: Mismatch): string {
+  const normalized = normalizeWalletNetwork(mismatch.walletNetwork) ?? mismatch.walletNetwork;
+  return `${mismatch.appNetwork}|${normalized}`;
+}
 
-  useEffect(() => {
-    // Check if banner was previously dismissed this session
-    const wasDismissed = sessionStorage.getItem(STORAGE_KEY) === '1';
-    if (wasDismissed) {
-      setDismissed(true);
+function readDismissed(): string[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function addDismissed(key: string): string[] {
+  const next = Array.from(new Set([...readDismissed(), key]));
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // sessionStorage unavailable (private mode, etc.) - suppression is
+    // best-effort for this render only.
+  }
+  return next;
+}
+
+export function NetworkMismatchBanner() {
+  const [mismatch, setMismatch] = useState<Mismatch | null>(null);
+  const [dismissedKeys, setDismissedKeys] = useState<string[]>([]);
+  // Monotonic token so a slow in-flight check can't overwrite a newer result.
+  const runToken = useRef(0);
+
+  const check = useCallback(async () => {
+    const token = ++runToken.current;
+
+    const [publicKey, appNetwork, walletInfo] = await Promise.all([
+      safeGetPublicKey(),
+      Promise.resolve(getNetwork()),
+      safeGetWalletNetwork(),
+    ]);
+
+    if (token !== runToken.current) return;
+
+    // Only compare when a wallet is actually connected.
+    if (!publicKey || !walletInfo) {
+      setMismatch(null);
       return;
     }
 
-    let cancelled = false;
-
-    async function check() {
-      const [publicKey, appNetwork, walletInfo] = await Promise.all([
-        safeGetPublicKey(),
-        Promise.resolve(getNetwork()),
-        safeGetWalletNetwork(),
-      ]);
-
-      if (cancelled) return;
-
-      // Only check mismatch when a wallet is connected
-      if (!publicKey || !walletInfo) return;
-
-      const walletNetwork = normalizeWalletNetwork(walletInfo.network);
-      if (walletNetwork && walletNetwork !== appNetwork) {
-        setMismatch({
-          appNetwork,
-          walletNetwork: walletInfo.network,
-        });
-      } else {
-        setMismatch(null);
-      }
+    const walletNetwork = normalizeWalletNetwork(walletInfo.network);
+    if (walletNetwork && walletNetwork !== appNetwork) {
+      setMismatch({ appNetwork, walletNetwork: walletInfo.network });
+    } else {
+      setMismatch(null);
     }
-
-    void check();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
+  useEffect(() => {
+    setDismissedKeys(readDismissed());
+
+    void check();
+    const interval = setInterval(() => void check(), POLL_INTERVAL_MS);
+
+    const onFocus = () => void check();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      runToken.current++;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [check]);
+
   function handleDismiss() {
-    setDismissed(true);
-    sessionStorage.setItem(STORAGE_KEY, '1');
+    if (!mismatch) return;
+    setDismissedKeys(addDismissed(mismatchKey(mismatch)));
   }
 
-  if (!mismatch || dismissed) return null;
+  if (!mismatch || dismissedKeys.includes(mismatchKey(mismatch))) return null;
 
   return (
     <div

@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 
 import { formatDeadline, WillStatus } from '@sorowill/sdk';
 import { getContractId, getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
+import { nextCheckinDeadline } from '@/lib/deadlines';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ShareVerification } from '@/components/ShareVerification';
 import { CopyAddress } from '@/components/CopyAddress';
@@ -34,29 +35,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title, description };
 }
 
-/**
- * Returns true when the error clearly indicates the will does not exist on
- * chain (contract-level "will not found" / "WillNotFound"). Transient RPC
- * errors will not match this pattern and are allowed to propagate to the
- * route's generic error boundary instead.
- */
-function isWillNotFoundError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const msg = error.message.toLowerCase();
-  // The SDK throws: "SoroWill simulation failed for get_will: ..."
-  // The Soroban contract returns error code #1 (WillNotFound).
-  // Match on any combination of these signals so the check stays robust
-  // even if the exact error string changes slightly.
-  return (
-    msg.includes('get_will') &&
-    (msg.includes('willnotfound') ||
-      msg.includes('not found') ||
-      msg.includes('#1') ||
-      msg.includes('error(contract, #1)') ||
-      msg.includes('no such will'))
-  );
-}
-
 export default async function VerifyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let will;
@@ -71,7 +49,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
     throw error;
   }
 
-  const nextDeadline = new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
+  const nextDeadline = nextCheckinDeadline(will);
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

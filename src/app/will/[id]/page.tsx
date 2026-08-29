@@ -16,10 +16,12 @@ import {
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
+import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
+import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { isTopUpAmountValid } from '@/lib/amount';
@@ -30,24 +32,9 @@ interface ActivityEntry {
   at: Date;
 }
 
-function nextCheckinDeadline(will: Will): Date {
-  return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
-}
-
-function graceDeadline(will: Will): Date | null {
-  if (!will.triggerTime) {
-    return null;
-  }
-  return new Date(will.triggerTime.getTime() + will.gracePeriodDays * 86_400 * 1000);
-}
-
 function getGuardianVoteErrorMessage(err: unknown): string {
   const message = formatError(err);
   const normalized = message.toLowerCase();
-
-  if (normalized.includes('already voted')) {
-    return 'This guardian has already cast a vote for this will.';
-  }
 
   if (normalized.includes('not a guardian') || normalized.includes('not guardian')) {
     return 'Only listed guardians can cast a vote for this will.';
@@ -86,6 +73,7 @@ export default function WillDetailPage() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [castingVoteId, setCastingVoteId] = useState<string | null>(null);
+  const [hasVoted, setHasVoted] = useState(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [exportingCertificate, setExportingCertificate] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
@@ -94,6 +82,7 @@ export default function WillDetailPage() {
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
   const [showEditBeneficiaries, setShowEditBeneficiaries] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [draftBeneficiaries, setDraftBeneficiaries] = useState<Beneficiary[]>([]);
   const showEditBeneficiariesRef = useRef(false);
   useEffect(() => {
@@ -200,6 +189,7 @@ export default function WillDetailPage() {
     name: string,
     fn: () => Promise<{ txHash: string }>,
     errorMessage?: (err: unknown) => string,
+    onSuccess?: () => void,
   ) {
     setBusyAction(name);
     setError(null);
@@ -209,6 +199,7 @@ export default function WillDetailPage() {
       await refetch();
       const actionLabel = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       toast.success(`${actionLabel} successful`);
+      onSuccess?.();
     } catch (err) {
       const message = errorMessage ? errorMessage(err) : formatError(err);
       setError(message);
@@ -296,6 +287,7 @@ export default function WillDetailPage() {
 
   const isOwner = publicKey === will.owner;
   const isGuardian = !!publicKey && will.guardians.includes(publicKey);
+  const guardianHasVoted = isGuardian && (hasVoted || hasGuardianVoted(will.id, publicKey as string));
   const isBeneficiary = !!publicKey && will.beneficiaries.some((b) => b.address === publicKey);
   const role = isOwner ? 'Owner' : isGuardian ? 'Guardian' : isBeneficiary ? 'Beneficiary' : 'Viewing as guest';
   const client = getSoroWillClient();
@@ -477,7 +469,7 @@ export default function WillDetailPage() {
             </button>
             <button
               type="button"
-              onClick={() => runAction('cancel_will', () => client.cancelWill(will.id))}
+              onClick={() => setShowCancelConfirm(true)}
               disabled={busyAction !== null}
               className="w-full rounded-full border border-red-400/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400/70 disabled:opacity-60 sm:w-auto"
             >
@@ -635,6 +627,18 @@ export default function WillDetailPage() {
         </div>
       ) : null}
 
+      <DestructiveActionConfirmation
+        isOpen={showCancelConfirm}
+        action="cancel_will"
+        willId={will.id}
+        confirmationType="willId"
+        onCancel={() => setShowCancelConfirm(false)}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          void runAction('cancel_will', () => client.cancelWill(will.id));
+        }}
+      />
+
       <div className="print-section rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light print-heading">Beneficiaries</h2>
         <table className="mt-3 w-full text-sm print-table">
@@ -674,11 +678,20 @@ export default function WillDetailPage() {
           isGuardian={isGuardian}
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
+          hasVoted={guardianHasVoted}
           onCastVote={() => {
             setCastingVoteId(will.id);
-            void runAction('cast_guardian_vote', () => client.guardianTrigger(will.id), getGuardianVoteErrorMessage).finally(
-              () => setCastingVoteId(null),
-            );
+            void runAction(
+              'cast_guardian_vote',
+              () => client.guardianTrigger(will.id),
+              getGuardianVoteErrorMessage,
+              () => {
+                if (publicKey) {
+                  markGuardianVoted(will.id, publicKey);
+                  setHasVoted(true);
+                }
+              },
+            ).finally(() => setCastingVoteId(null));
           }}
           error={error}
         />
