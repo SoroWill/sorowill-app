@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import { useMounted } from '@/lib/useMounted';
+import { useToast } from '@/components/Toast';
 
 export function ShareVerification() {
   const [url, setUrl] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copied, setCopied] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
+  const toast = useToast();
 
   useEffect(() => {
     setUrl(window.location.href);
-    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -40,6 +42,7 @@ export function ShareVerification() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy link — please copy it manually.');
     }
   }
 

@@ -4,15 +4,15 @@ import { useEffect, useState } from 'react';
 import { getNetwork, resetSoroWillClient } from '@/lib/sorowill';
 import { type SoroWillNetwork } from '@sorowill/sdk';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
+import { useMounted } from '@/lib/useMounted';
 
 export function NetworkSwitcher() {
   const [network, setNetwork] = useState<SoroWillNetwork>('testnet');
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [pendingNetwork, setPendingNetwork] = useState<SoroWillNetwork | null>(null);
 
   useEffect(() => {
     setNetwork(getNetwork());
-    setMounted(true);
   }, []);
 
   function handleNetworkChange(event: React.ChangeEvent<HTMLSelectElement>) {

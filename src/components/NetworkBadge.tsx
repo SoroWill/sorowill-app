@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import { getNetwork } from '@/lib/sorowill';
 import type { SoroWillNetwork } from '@sorowill/sdk';
+import { useMounted } from '@/lib/useMounted';
 
 export function NetworkBadge() {
   const [network, setNetwork] = useState<SoroWillNetwork>('testnet');
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
 
   useEffect(() => {
     setNetwork(getNetwork());
-    setMounted(true);
   }, []);
 
   if (!mounted) {
