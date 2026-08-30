@@ -72,8 +72,29 @@ npm run dev
 
 ## Internationalization
 
-This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings. Translation namespaces and strings are stored in `src/messages/en.json`, which is organized by feature:
+This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings and automatic locale detection.
 
+### Supported Locales
+
+- **`en`** — English (default)
+- **`es`** — Español (Spanish)
+
+### Locale Detection & Selection
+
+The app automatically detects the user's preferred locale based on their browser's `Accept-Language` header:
+- If the header requests Spanish (or any variant like `es-MX`, `es-AR`), the app displays Spanish content
+- If the header requests English or any unsupported locale, the app defaults to English
+- Users can manually switch locales using the **Language Selector** button in the header (top right, displays "EN" / "ES")
+- The user's language preference is stored in `localStorage` for persistence across sessions
+
+### Translation Files & Structure
+
+Translation namespaces and strings are stored in `src/messages/`, organized by feature:
+
+- **`src/messages/en.json`** — English translations
+- **`src/messages/es.json`** — Spanish translations
+
+Both files use the same structure with these namespaces:
 - **`common`** — reusable UI strings (buttons, labels, form text)
 - **`landing`** — landing page (`/`)
 - **`dashboard`** — dashboard page (`/dashboard`)
@@ -81,11 +102,38 @@ This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translatio
 - **`status`** — will status labels and descriptions
 - **`inherit`** — beneficiary inheritance view (`/inherit/[id]`)
 
-To use translations in a component:
-- **Server components:** `import { getTranslations } from 'next-intl/server'; const t = await getTranslations('namespace');` then use `t('key')`
-- **Client components:** `import { useTranslations } from 'next-intl'; const t = useTranslations('namespace');` then use `t('key')`
+### Using Translations in Components
 
-Currently, the app only supports `en` (English), hardcoded in `src/i18n/request.ts`. Contributors adding new UI copy should place translatable strings in `src/messages/en.json` under the appropriate namespace rather than hardcoding them. Multi-locale support (switching from `'en'` to dynamic locale detection) is tracked separately but not yet implemented.
+To use translations in a component:
+
+- **Server components:**
+  ```typescript
+  import { getTranslations } from 'next-intl/server';
+  const t = await getTranslations('namespace');
+  // Use t('key') in JSX
+  ```
+
+- **Client components:**
+  ```typescript
+  import { useTranslations } from 'next-intl';
+  const t = useTranslations('namespace');
+  // Use t('key') in JSX
+  ```
+
+### Adding a New Locale
+
+To add support for a new language:
+
+1. Create a new file `src/messages/[locale].json` (e.g., `src/messages/fr.json` for French)
+2. Copy the structure from `src/messages/en.json` and translate all strings
+3. Add the locale code to the `supportedLocales` array in `src/i18n/request.ts`
+4. Add the locale to the `locales` array in `middleware.ts`
+5. Test locale detection by setting your browser's language preference
+
+### Middleware & Request Configuration
+
+- **`middleware.ts`** — Handles locale detection from Accept-Language header; does not require URL prefix (e.g., `/en/dashboard` — just `/dashboard`)
+- **`src/i18n/request.ts`** — Loads the appropriate message file based on detected locale and provides a fallback to English
 
 ## Reminder delivery
 
