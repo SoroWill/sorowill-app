@@ -18,7 +18,8 @@
     "loading": "Loading…",
     "error": "Error",
     "noWillsMatch": "No wills match your search or filter.",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "clipboardError": "Could not copy to clipboard. Check your browser permissions."
   },
   "landing": {
     "heroTitle": "Protect your crypto legacy",

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { truncateAddress } from '@/lib/freighter';
+import { useToast } from '@/components/Toast';
 
 export interface CopyAddressProps {
   /** The full address or transaction hash to copy. */
@@ -21,6 +23,8 @@ export interface CopyAddressProps {
  */
 export function CopyAddress({ address, label, className = '' }: CopyAddressProps) {
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
+  const t = useTranslations('common');
 
   const displayLabel = label !== undefined ? label : truncateAddress(address);
 
@@ -30,7 +34,8 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard API unavailable (e.g. insecure context); silently ignore.
+      // Clipboard API unavailable (e.g. insecure context or permission denied).
+      toast.error(t('clipboardError'));
     }
   }
 
