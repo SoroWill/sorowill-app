@@ -88,13 +88,21 @@ Currently, the app only supports `en` (English), hardcoded in `src/i18n/request.
 
 ## Reminder delivery
 
-Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job or Vercel Cron can call the dispatch endpoint without exposing any secrets:
+Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job can call the dispatch endpoint without exposing any secrets:
 
 ```bash
-curl -X POST https://your-app.example.com/api/reminders/dispatch
+curl --fail -X POST https://your-app.example.com/api/reminders/dispatch
 ```
 
-The dispatch route computes reminder windows from each will's `lastCheckin` and `checkinPeriodDays`, sending a well-before reminder once and an imminent reminder once for each active will that still has time left. The route is protected by a `CRON_SECRET` bearer token when configured, and Vercel cron plus GitHub Actions can both invoke it.
+The dispatch route computes reminder windows from each will's `lastCheckin` and `checkinPeriodDays`, sending a well-before reminder once and an imminent reminder once for each active will that still has time left. The route is protected by a `CRON_SECRET` bearer token when configured.
+
+### Scheduling
+
+`.github/workflows/reminder-cron.yml` is the single scheduled trigger for `/api/reminders/dispatch`, running daily at `0 8 * * *`. It is deliberately the only one: a Vercel Cron entry previously fired the same endpoint on the same schedule, so the route ran twice back to back every day from two uncoordinated triggers. The Vercel Cron entry has been removed. Do not add a second scheduler; if one is ever needed as a backup, give it a staggered schedule and note the intent here.
+
+GitHub Actions is the chosen home because it keeps per-run logs, supports a manual `workflow_dispatch` re-run, and fails the run on a non-2xx response so a broken dispatch is visible.
+
+Duplicate triggers are harmless in the sequential case regardless: `dispatchReminderEmails` records a `wellBeforeSentAt` / `imminentSentAt` timestamp per will and email in the shared store immediately after each send, and skips any subscription whose reminder of that kind is already recorded. That check is a read-modify-write against the KV store with no locking, so two genuinely concurrent runs can still race, which is a further reason to keep exactly one scheduler.
 
 ## Contributing via Drips Wave
 
