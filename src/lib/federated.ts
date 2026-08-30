@@ -1,7 +1,50 @@
 const STELLAR_TOML_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * In-memory cache of fetched stellar.toml contents, keyed by domain.
+ * Each entry includes the TOML content and an expiry timestamp.
+ * Cache TTL is 5 minutes per domain.
+ *
+ * @see {@link resolveFederatedAddress} - This cache is used to avoid
+ * repeatedly fetching the same stellar.toml file during the process lifetime.
+ */
 const STELLAR_TOML_CACHE = new Map<string, { toml: string; expiresAt: number }>();
 const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
 
+/**
+ * Resolves a Stellar federated address (e.g., "user*example.com") to a Stellar account ID.
+ *
+ * For non-federated addresses (those not containing a `*`), returns the input unchanged.
+ *
+ * For federated addresses:
+ * 1. Fetches the stellar.toml file from the specified domain's `.well-known/` directory
+ * 2. Extracts the FEDERATION_SERVER URL from the TOML
+ * 3. Queries the federation server with the federated address to obtain the account ID
+ *
+ * **Caching Behavior:**
+ * - stellar.toml files are cached per-domain for 5 minutes to avoid repeated network requests
+ * - Repeated calls for the same domain within the cache window will reuse the cached TOML
+ * - Cache entries are stored for the duration of the process and automatically expire after 5 minutes
+ *
+ * @param address - A Stellar address, either a public key (e.g., "GXXXXXX...") or
+ *                  a federated address (e.g., "username*example.com")
+ * @returns The Stellar account ID (public key) if the address is federated, or the input unchanged if it's already a public key
+ * @throws {Error} If the address is federated but:
+ *   - The stellar.toml file cannot be fetched from the domain
+ *   - The FEDERATION_SERVER entry is missing from the TOML
+ *   - The federation server cannot resolve the federated address
+ *   - The federation server returns a malformed account ID
+ *
+ * @example
+ * // Federated address - will fetch and resolve
+ * const accountId = await resolveFederatedAddress("user*example.com");
+ * // Returns: "GXXXXXX..." (the resolved account ID)
+ *
+ * @example
+ * // Regular public key - returned unchanged
+ * const accountId = await resolveFederatedAddress("GXXXXXX...");
+ * // Returns: "GXXXXXX..." (same as input)
+ */
 export async function resolveFederatedAddress(address: string): Promise<string> {
   if (!address.includes('*')) {
     return address;
