@@ -18,6 +18,10 @@ export function NetworkSwitcher() {
   function handleNetworkChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const newNetwork = event.target.value as SoroWillNetwork;
     if (newNetwork === network) return;
+    // Do not mutate the DOM node's value directly. The `<select>` is a
+    // controlled input bound to `value={network}`, so leaving `network`
+    // unchanged keeps the rendered dropdown on the current network. We
+    // only stage the pending selection until the user confirms.
     setPendingNetwork(newNetwork);
   }
 
@@ -50,10 +54,10 @@ export function NetworkSwitcher() {
         }`}
       >
         <option value="testnet" className="bg-will-dark text-amber-400 font-semibold">
-          ● Testnet
+          ◍ Testnet
         </option>
         <option value="mainnet" className="bg-will-dark text-emerald-400 font-semibold">
-          ● Mainnet
+          ◍ Mainnet
         </option>
       </select>
       <DestructiveActionConfirmation
