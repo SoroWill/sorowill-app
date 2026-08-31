@@ -9,6 +9,8 @@ import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { formatError } from '@/lib/errors';
 import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 
+const BROADCAST_CHANNEL_NAME = 'wallet_state';
+
 function OnboardContent() {
   const searchParams = useSearchParams();
   const willId = searchParams.get('willId');
@@ -19,7 +21,28 @@ function OnboardContent() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+    const handleMessage = (event: MessageEvent) => {
+      const { type, publicKey: incomingKey } = event.data ?? {};
+
+      if (type === 'wallet_connected' && incomingKey) {
+        setPublicKey(incomingKey);
+      } else if (type === 'wallet_disconnected') {
+        setPublicKey(null);
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
     void safeGetPublicKey().then(setPublicKey);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
   }, []);
 
   useEffect(() => {
