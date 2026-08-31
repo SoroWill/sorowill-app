@@ -13,6 +13,7 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { isValidAmount } from '@/lib/amount';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
+import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
 
 const CHECKIN_OPTIONS = [30, 60, 90, 180, 365];
@@ -557,109 +558,21 @@ export default function NewWillPage() {
         ) : null}
 
         {step === 3 ? (
-          <fieldset className="space-y-3">
-            <div className="flex items-center justify-between">
-              <legend className="text-sm font-medium text-will-light">Guardians (optional, up to {MAX_GUARDIANS})</legend>
-              <button
-                type="button"
-                onClick={addGuardian}
-                disabled={guardians.length >= MAX_GUARDIANS}
-                aria-label={`Add guardian (${guardians.length} of ${MAX_GUARDIANS})`}
-                className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
-              >
-                + Add guardian
-              </button>
-            </div>
-            <p className="text-xs text-will-light/50">
-              Any {GUARDIAN_THRESHOLD} of your guardians can force an early release if you&apos;re incapacitated.
-            </p>
-
-            {guardians.map((guardian, index) => {
-              const guardianId = stableGuardianIds.get(index) || '';
-              return (
-              <div key={guardianId} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <label htmlFor={`guardian-${index}`} className="sr-only">
-                    Guardian {index + 1} address
-                  </label>
-                  <input
-                    id={`guardian-${index}`}
-                    type="text"
-                    value={guardian}
-                    onChange={(event) => updateGuardian(index, event.target.value)}
-                    placeholder="Guardian address (G...) or federated address (name*domain.com)"
-                    aria-describedby={guardianRowErrors[index] ? `guardian-error-${index}` : undefined}
-                    aria-invalid={guardianRowErrors[index] ? 'true' : undefined}
-                    className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
-                      guardianRowErrors[index]
-                        ? 'border-red-400/60 bg-red-500/5 focus:border-red-400'
-                        : guardian.trim() === '' && guardians.length > 0
-                        ? 'border-amber-400/40 bg-white/5 focus:border-will-purple'
-                        : 'border-white/10 bg-white/5 focus:border-will-purple'
-                    }`}
-                  />
-                  {isFederatedAddress(guardian) && (
-                    <button
-                      type="button"
-                      onClick={() => resolveGuardianAddress(index, guardian)}
-                      disabled={resolvingGuardianId === guardianId}
-                      className="whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
-                    >
-                      {resolvingGuardianId === guardianId ? 'Resolving…' : 'Resolve'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeGuardian(index)}
-                    aria-label={`Remove guardian ${index + 1}`}
-                    className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
-                  >
-                    ✕
-                  </button>
-                </div>
-                {resolvedGuardians.has(guardianId) && (
-                  <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2">
-                    <p className="text-xs text-emerald-400">Resolved address:</p>
-                    <p className="font-mono text-xs text-emerald-300">{resolvedGuardians.get(guardianId)}</p>
-                  </div>
-                )}
-                {guardianResolutionError.has(guardianId) && (
-                  <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
-                    <p className="text-xs text-red-400">{guardianResolutionError.get(guardianId)}</p>
-                  </div>
-                )}
-                {/* Per-row validation errors */}
-                {guardianRowErrors[index] ? (
-                  <p id={`guardian-error-${index}`} className="text-xs text-red-400" role="alert">
-                    {guardianRowErrors[index]}
-                  </p>
-                ) : null}
-                {/* Blank-row warning — shown only when there are no other errors for this row */}
-                {!guardianRowErrors[index] && guardian.trim() === '' ? (
-                  <p className="text-xs text-amber-400/80">
-                    This empty row will be excluded when the will is submitted.
-                  </p>
-                ) : null}
-              </div>
-            );
-            })}
-
-            {/* Top-level validation error when guardians have issues */}
-            {guardianTopError && (
-              <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-400" role="alert">
-                {guardianTopError}
-              </p>
-            )}
-
-            {/* Summary warning when blank rows exist alongside valid rows */}
-            {blankGuardianIndices.length > 0 && guardians.some((g) => g.trim() !== '') ? (
-              <p className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs text-amber-400" role="status">
-                {blankGuardianIndices.length === 1
-                  ? '1 empty guardian row will not be included in the will.'
-                  : `${blankGuardianIndices.length} empty guardian rows will not be included in the will.`}
-              </p>
-            ) : null}
-
+          <>
+            <GuardianForm
+              guardians={guardians}
+              guardianIds={stableGuardianIds}
+              resolvedGuardians={resolvedGuardians}
+              guardianResolutionError={guardianResolutionError}
+              resolvingGuardianId={resolvingGuardianId}
+              rowErrors={guardianRowErrors}
+              topError={guardianTopError}
+              blankGuardianIndices={blankGuardianIndices}
+              onAdd={addGuardian}
+              onRemove={removeGuardian}
+              onUpdate={updateGuardian}
+              onResolve={resolveGuardianAddress}
+            />
             {guardianBeneficiaryOverlap.length > 0 ? (
               <p className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs text-amber-400" role="status">
                 {guardianBeneficiaryOverlap.length === 1
@@ -667,7 +580,7 @@ export default function NewWillPage() {
                   : `${guardianBeneficiaryOverlap.length} guardians are also listed as beneficiaries — this changes who can vote to trigger an early release of funds they themselves stand to receive.`}
               </p>
             ) : null}
-          </fieldset>
+          </>
         ) : null}
 
         {step === 4 ? (
