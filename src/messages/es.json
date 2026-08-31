@@ -1,0 +1,148 @@
+{
+  "common": {
+    "soroWill": "SoroWill",
+    "onStellarSoroban": "En Stellar Soroban",
+    "dashboard": "Panel de Control",
+    "createAWill": "Crear un Testamento",
+    "connectWallet": "Conectar Monedero",
+    "connecting": "Conectando…",
+    "disconnect": "Desconectar",
+    "viewOnGithub": "Ver en GitHub",
+    "githubLink": "GitHub",
+    "mitLicense": "Licencia MIT",
+    "builtOnStellar": "SoroWill, construido en Stellar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "loading": "Cargando…",
+    "error": "Error",
+    "noWillsMatch": "Ningún testamento coincide con tu búsqueda o filtro.",
+    "allStatuses": "Todos los estados",
+    "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador."
+  },
+  "landing": {
+    "heroTitle": "Protege tu herencia criptográfica",
+    "heroDescription": "SoroWill es un protocolo de herencia descentralizado en Stellar Soroban. Bloquea USDC, nombra tus beneficiarios y deja que un contrato inteligente cumpla tus deseos si alguna vez desapareces.",
+    "createYourWill": "Crear tu testamento",
+    "howItWorks": "Cómo funciona",
+    "whySoroWill": "Por qué SoroWill",
+    "steps": {
+      "lockUsdc": {
+        "title": "Bloquear USDC",
+        "description": "Deposita USDC en un contrato de SoroWill y nombra tus beneficiarios con porcentajes de división."
+      },
+      "checkInRegularly": {
+        "title": "Chequea regularmente",
+        "description": "Demuestra que sigues activo con un simple chequeo antes de que expire tu fecha límite."
+      },
+      "missTriggersGrace": {
+        "title": "Perder un chequeo activa el período de gracia",
+        "description": "Si pierdes la fecha límite, cualquiera puede activar el testamento — iniciando un período de gracia para que respondas."
+      },
+      "fundsRelease": {
+        "title": "Los fondos se liberan automáticamente a los herederos",
+        "description": "Si el período de gracia expira sin una respuesta, el contrato divide tu USDC entre tus beneficiarios."
+      }
+    },
+    "why": {
+      "trustless": {
+        "title": "Sin Confianza",
+        "description": "Sin abogado, sin tribunal, sin intermediario. El contrato ejecuta el resultado exactamente como está configurado."
+      },
+      "automatic": {
+        "title": "Automático",
+        "description": "Cualquiera puede activar un chequeo perdido o liberar fondos una vez que se cumplan las condiciones — no se requiere guardián."
+      },
+      "reversible": {
+        "title": "Reversible",
+        "description": "Cancela en cualquier momento mientras estés activo, o actualiza tus beneficiarios cuando cambien tus circunstancias."
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Panel de Control",
+    "myWills": "Mis Testamentos",
+    "inheriting": "Heredando",
+    "guardianship": "Tutela",
+    "newWill": "+ Nuevo Testamento",
+    "connectWalletPrompt": "Conecta tu monedero",
+    "connectWalletDescription": "Conecta Freighter para ver los testamentos que posees y los que eres beneficiario o tutor.",
+    "searchPlaceholder": "Buscar por ID de testamento o dirección de beneficiario",
+    "activeWillCount": "{count, plural, =0 {Sin testamentos activos} =1 {1 testamento activo} other {# testamento(s) activo(s)}}",
+    "noWillsOwned": "Aún no has creado ningún testamento.",
+    "notABeneficiary": "Nadie te ha nombrado como beneficiario aún.",
+    "notAGuardian": "No estás designado como tutor de ningún testamento.",
+    "noWillsYet": "Sin testamentos aún",
+    "notABeneficiaryYet": "Aún no eres beneficiario",
+    "noWillsDescription": "No has creado ningún testamento. Comienza a proteger tu herencia criptográfica hoy.",
+    "notABeneficiaryDescription": "Nadie te ha nombrado como beneficiario aún.",
+    "createFirstWill": "Crear tu primer testamento",
+    "guardianAlert": "Eres tutor designado en {count} testamento(s) activo(s).",
+    "viewRole": "Ver Rol",
+    "multiSelectMode": "Modo Selección Múltiple",
+    "cancelMultiSelect": "Cancelar Selección Múltiple",
+    "batchTopUp": "Top-up por Lotes ({count} testamento{count, plural, =1 {} other {s}} seleccionado{count, plural, =1 {a} other {os}})",
+    "batchTopUpDescription": "Especifica el monto de top-up para cada testamento seleccionado.",
+    "currentBalance": "Saldo actual: {balance} USDC",
+    "totalAmount": "Monto Total: {amount} USDC",
+    "submitBatchTopUp": "Enviar Top-up por Lotes",
+    "submittingBatch": "Enviando Lote…",
+    "checkIn": "Chequear",
+    "checkingIn": "Chequeando…",
+    "details": "Detalles",
+    "usdcLocked": "{amount} USDC bloqueado",
+    "checkInDue": "Chequeo vencido en {days} día{days, plural, =1 {} other {s}}",
+    "checkInOverdue": "Chequeo vencido"
+  },
+  "willDetail": {
+    "willNumber": "Testamento #{id}",
+    "owner": "Propietario: {address}",
+    "exportCertificate": "Exportar Certificado (PDF)",
+    "generating": "Generando…",
+    "lockedBalance": "Saldo bloqueado",
+    "nextCheckInDue": "Próximo chequeo vencido",
+    "gracePeriodEnds": "Período de gracia finaliza",
+    "checkIn": "Chequear",
+    "checkingIn": "Chequeando…",
+    "emergencyCheckIn": "Chequeo de Emergencia",
+    "submitting": "Enviando…",
+    "triggerWill": "Activar Testamento",
+    "triggering": "Activando…",
+    "releaseInheritance": "Liberar Herencia",
+    "releasing": "Liberando…",
+    "topUp": "Top-up",
+    "releaseEarly": "Liberar Anticipadamente",
+    "updateBeneficiaries": "Actualizar Beneficiarios",
+    "saveBeneficiaries": "Guardar Beneficiarios",
+    "duplicate": "Duplicar",
+    "cancelWill": "Cancelar Testamento",
+    "cancelling": "Cancelando…",
+    "checkInReminders": "Recordatorios de chequeo",
+    "reminderDescription": "Recibe un correo electrónico 2+ semanas antes de la fecha límite y nuevamente cuando sea inminente.",
+    "enableReminders": "Habilitar recordatorios",
+    "saving": "Guardando…",
+    "topUpAmount": "Monto de top-up (USDC)",
+    "beneficiaries": "Beneficiarios",
+    "address": "Dirección",
+    "percentage": "Porcentaje",
+    "share": "Cuota",
+    "recentActivity": "Actividad reciente",
+    "noActionsTaken": "Ninguna acción tomada aún en esta sesión.",
+    "couldNotLoad": "No se pudo cargar este testamento",
+    "releaseEarlyTitle": "Liberar anticipadamente al beneficiario",
+    "amountUSDC": "Monto (USDC)",
+    "recipientAddress": "Dirección del destinatario",
+    "earlyReleaseComingSoon": "Nota: La liberación parcial anticipada requiere soporte del SDK (próximamente)"
+  },
+  "status": {
+    "active": "Activo",
+    "triggered": "Activado — período de gracia en ejecución",
+    "released": "Liberado",
+    "cancelled": "Cancelado",
+    "activeDescription": "Este testamento está activo. El propietario está chequeando según lo programado.",
+    "triggeredDescription": "Se perdió una fecha límite de chequeo. El propietario aún puede demostrar que está vivo.",
+    "releasedDescription": "La herencia ha sido distribuida a todos los beneficiarios.",
+    "cancelledDescription": "El propietario canceló este testamento y retiró el saldo."
+  }
+}

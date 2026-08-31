@@ -56,6 +56,7 @@ npm run dev
 | `KV_REST_API_URL` | Vercel KV / Upstash Redis REST URL used to persist reminder subscriptions (required for reminders; the serverless filesystem is ephemeral) |
 | `KV_REST_API_TOKEN` | REST token for the KV store above |
 | `REMINDER_STORE_KV_KEY` | Optional key used to store the reminder blob in the KV store (defaults to `sorowill:reminder-store`) |
+| `CRON_SECRET` | Bearer token for authenticating automated reminder dispatch requests from GitHub Actions (required if using the automated GitHub Actions trigger; see [Reminder delivery](#reminder-delivery)) |
 | `NEXT_PUBLIC_APP_URL` | Optional public base URL used to build the unsubscribe link in reminder emails (defaults to `VERCEL_URL` or `http://localhost:3000`) |
 
 ## Pages
@@ -71,8 +72,29 @@ npm run dev
 
 ## Internationalization
 
-This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings. Translation namespaces and strings are stored in `src/messages/en.json`, which is organized by feature:
+This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translation strings and automatic locale detection.
 
+### Supported Locales
+
+- **`en`** — English (default)
+- **`es`** — Español (Spanish)
+
+### Locale Detection & Selection
+
+The app automatically detects the user's preferred locale based on their browser's `Accept-Language` header:
+- If the header requests Spanish (or any variant like `es-MX`, `es-AR`), the app displays Spanish content
+- If the header requests English or any unsupported locale, the app defaults to English
+- Users can manually switch locales using the **Language Selector** button in the header (top right, displays "EN" / "ES")
+- The user's language preference is stored in `localStorage` for persistence across sessions
+
+### Translation Files & Structure
+
+Translation namespaces and strings are stored in `src/messages/`, organized by feature:
+
+- **`src/messages/en.json`** — English translations
+- **`src/messages/es.json`** — Spanish translations
+
+Both files use the same structure with these namespaces:
 - **`common`** — reusable UI strings (buttons, labels, form text)
 - **`landing`** — landing page (`/`)
 - **`dashboard`** — dashboard page (`/dashboard`)
@@ -80,29 +102,99 @@ This app uses **[next-intl](https://next-intl-docs.vercel.app/)** for translatio
 - **`status`** — will status labels and descriptions
 - **`inherit`** — beneficiary inheritance view (`/inherit/[id]`)
 
-To use translations in a component:
-- **Server components:** `import { getTranslations } from 'next-intl/server'; const t = await getTranslations('namespace');` then use `t('key')`
-- **Client components:** `import { useTranslations } from 'next-intl'; const t = useTranslations('namespace');` then use `t('key')`
+### Using Translations in Components
 
-Currently, the app only supports `en` (English), hardcoded in `src/i18n/request.ts`. Contributors adding new UI copy should place translatable strings in `src/messages/en.json` under the appropriate namespace rather than hardcoding them. Multi-locale support (switching from `'en'` to dynamic locale detection) is tracked separately but not yet implemented.
+To use translations in a component:
+
+- **Server components:**
+  ```typescript
+  import { getTranslations } from 'next-intl/server';
+  const t = await getTranslations('namespace');
+  // Use t('key') in JSX
+  ```
+
+- **Client components:**
+  ```typescript
+  import { useTranslations } from 'next-intl';
+  const t = useTranslations('namespace');
+  // Use t('key') in JSX
+  ```
+
+### Adding a New Locale
+
+To add support for a new language:
+
+1. Create a new file `src/messages/[locale].json` (e.g., `src/messages/fr.json` for French)
+2. Copy the structure from `src/messages/en.json` and translate all strings
+3. Add the locale code to the `supportedLocales` array in `src/i18n/request.ts`
+4. Add the locale to the `locales` array in `middleware.ts`
+5. Test locale detection by setting your browser's language preference
+
+### Middleware & Request Configuration
+
+- **`middleware.ts`** — Handles locale detection from Accept-Language header; does not require URL prefix (e.g., `/en/dashboard` — just `/dashboard`)
+- **`src/i18n/request.ts`** — Loads the appropriate message file based on detected locale and provides a fallback to English
 
 ## Reminder delivery
 
-Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job can call the dispatch endpoint without exposing any secrets:
+Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job can call the dispatch endpoint without exposing any secrets.
+
+The dispatch route (`/api/reminders/dispatch`) computes reminder windows from each will's `lastCheckin` and `checkinPeriodDays`, sending a well-before reminder once and an imminent reminder once for each active will that still has time left. The route is protected by a `CRON_SECRET` bearer token when configured.
+
+### Automated Reminder Triggers
+
+The application supports the following automated trigger mechanisms to schedule daily reminder dispatch:
+
+#### GitHub Actions Workflow (Recommended)
+
+**File:** `.github/workflows/reminder-cron.yml`
+
+The primary automated trigger runs via GitHub Actions, scheduled daily at `08:00 UTC` (cron: `0 8 * * *`). The workflow:
+- Runs on a fixed schedule every day
+- Supports manual re-runs via the GitHub UI (`workflow_dispatch`)
+- Keeps per-run logs for debugging and monitoring
+- Fails visibly if the dispatch endpoint returns a non-2xx response
+
+**Required GitHub Actions Secrets:**
+
+To enable reminder delivery via GitHub Actions, set the following **repository secrets** (not to be confused with environment variables):
+
+1. **`REMINDER_DISPATCH_URL`** — The full URL to your `/api/reminders/dispatch` endpoint
+   - Example: `https://sorowill.vercel.app/api/reminders/dispatch`
+   - For local/private deployments, use your deployment's public URL
+
+2. **`CRON_SECRET`** — A secure bearer token that authenticates cron requests to the dispatch endpoint
+   - This token is passed in the `Authorization: Bearer` header
+   - Can be any arbitrary string; treat it as a password
+   - The API route validates this against the `CRON_SECRET` environment variable
+
+**Configuration Steps:**
+
+1. Go to your GitHub repository settings → Secrets and variables → Actions
+2. Create a **New repository secret**:
+   - Name: `REMINDER_DISPATCH_URL`
+   - Value: Your app's dispatch endpoint URL (e.g., `https://your-deployment.vercel.app/api/reminders/dispatch`)
+3. Create another **New repository secret**:
+   - Name: `CRON_SECRET`
+   - Value: A random string to serve as the bearer token (e.g., generate with `openssl rand -hex 32`)
+4. Ensure your deployment has the corresponding `CRON_SECRET` environment variable set (see [Environment Variables](#environment-variables))
+
+#### Manual Dispatch
+
+For testing or one-off dispatch, you can manually call the endpoint with `curl`:
 
 ```bash
-curl --fail -X POST https://your-app.example.com/api/reminders/dispatch
+curl --fail -X POST https://your-app.example.com/api/reminders/dispatch \
+  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Content-Type: application/json"
 ```
 
-The dispatch route computes reminder windows from each will's `lastCheckin` and `checkinPeriodDays`, sending a well-before reminder once and an imminent reminder once for each active will that still has time left. The route is protected by a `CRON_SECRET` bearer token when configured.
+### Scheduling Notes
 
-### Scheduling
-
-`.github/workflows/reminder-cron.yml` is the single scheduled trigger for `/api/reminders/dispatch`, running daily at `0 8 * * *`. It is deliberately the only one: a Vercel Cron entry previously fired the same endpoint on the same schedule, so the route ran twice back to back every day from two uncoordinated triggers. The Vercel Cron entry has been removed. Do not add a second scheduler; if one is ever needed as a backup, give it a staggered schedule and note the intent here.
-
-GitHub Actions is the chosen home because it keeps per-run logs, supports a manual `workflow_dispatch` re-run, and fails the run on a non-2xx response so a broken dispatch is visible.
-
-Duplicate triggers are harmless in the sequential case regardless: `dispatchReminderEmails` records a `wellBeforeSentAt` / `imminentSentAt` timestamp per will and email in the shared store immediately after each send, and skips any subscription whose reminder of that kind is already recorded. That check is a read-modify-write against the KV store with no locking, so two genuinely concurrent runs can still race, which is a further reason to keep exactly one scheduler.
+- **Single Scheduler:** `.github/workflows/reminder-cron.yml` is the **only** scheduled trigger. A previous Vercel Cron entry that fired on the same schedule has been removed to avoid duplicate dispatch runs.
+- **No Duplicate Triggers:** Do not add a second independent scheduler unless absolutely necessary; doing so causes the dispatch route to run multiple times in quick succession. If a backup scheduler is needed, give it a distinctly different schedule (e.g., a different hour) and document the intent here.
+- **Race Condition Mitigation:** The dispatch route records `wellBeforeSentAt` and `imminentSentAt` timestamps per will in the KV store immediately after each send. Subscriptions with a recorded timestamp of that kind are skipped. This prevents duplicate reminders even if two dispatch runs overlap, though the lack of locking means a true race condition is still theoretically possible—yet another reason to keep a single scheduler.
+- **Error Visibility:** GitHub Actions fails the run when the dispatch endpoint returns a non-2xx response, making broken dispatch immediately visible in the Actions UI.
 
 ## Contributing via Drips Wave
 
