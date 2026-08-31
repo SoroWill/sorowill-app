@@ -201,7 +201,12 @@ export default function NewWillPage() {
     }
   }
 
-  const beneficiariesValid = validateBeneficiaries(beneficiaries) && beneficiaries.every((b) => b.address.trim() !== '');
+  const beneficiariesValid =
+    validateBeneficiaries(beneficiaries) &&
+    beneficiaries.every((b) => b.address.trim() !== '') &&
+    // Block progression if any beneficiary still holds an unresolved federated address.
+    // The user must click "Resolve" before the address is replaced with the real G... key.
+    beneficiaries.every((b) => !isFederatedAddress(b.address));
 
   const { rowErrors: guardianRowErrors, topError: guardianTopError } = validateGuardians(guardians, ownerAddress);
   // Step 3 is valid when there are no row-level errors (blank rows are a
@@ -320,6 +325,17 @@ export default function NewWillPage() {
     // Validate guardians before submission
     if (guardianTopError !== null) {
       setError('Please fix the guardian address errors before submitting.');
+      setSubmitting(false);
+      return;
+    }
+
+    // Defense-in-depth: block submission if any beneficiary address is still a
+    // federated address string. The user must resolve it to a real G... key first.
+    const unresolvedFederated = beneficiaries.filter((b) => isFederatedAddress(b.address));
+    if (unresolvedFederated.length > 0) {
+      setError(
+        'One or more beneficiary addresses are still federated addresses. Please resolve them to Stellar addresses before submitting.',
+      );
       setSubmitting(false);
       return;
     }

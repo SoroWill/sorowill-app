@@ -22,6 +22,8 @@ function getAddressErrors(beneficiaries: Beneficiary[]): Record<number, string> 
   beneficiaries.forEach((b, i) => {
     if (b.percentage > 0 && !b.address.trim()) {
       errors[i] = 'Address is required';
+    } else if (b.address && isFederatedAddress(b.address)) {
+      errors[i] = 'Federated address must be resolved before submitting — click Resolve';
     } else if (b.address && !isFederatedAddress(b.address) && !isValidStellarAddress(b.address)) {
       errors[i] = 'Invalid Stellar address';
     }
