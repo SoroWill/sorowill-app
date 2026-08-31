@@ -1,5 +1,6 @@
 import { WillStatus, type Will } from '@sorowill/sdk';
 
+import { nextCheckinDeadline } from '@/lib/deadlines';
 import { getSoroWillClient } from '@/lib/sorowill';
 
 export type ReminderKind = 'well-before' | 'imminent';
@@ -80,10 +81,6 @@ function normalizeEmail(email: string): string {
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function buildDeadline(will: Will): Date {
-  return new Date(will.lastCheckin.getTime() + will.checkinPeriodDays * 86_400 * 1000);
 }
 
 export function getReminderKind(daysRemaining: number): ReminderKind {
@@ -359,7 +356,7 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
           continue;
         }
 
-        const deadline = buildDeadline(will);
+        const deadline = nextCheckinDeadline(will);
         const remainingMs = deadline.getTime() - Date.now();
         if (remainingMs <= 0) {
           sentCount.skipped += 1;
