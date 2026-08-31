@@ -1,4 +1,6 @@
-import { formatUSDC, type Will } from '@sorowill/sdk';
+import { type Will } from '@sorowill/sdk';
+
+import { formatTokenBalance } from '@/lib/tokenDecimals';
 
 function escapeCSVField(val: string | number | bigint | null | undefined): string {
   if (val === null || val === undefined) {
@@ -25,7 +27,7 @@ export function exportWillsToCSV(wills: Will[]): string {
   ];
 
   const rows = wills.map((will) => {
-    const formattedBalance = will.balance ? formatUSDC(BigInt(will.balance)) : '0';
+    const formattedBalance = will.balance ? formatTokenBalance(will.balance, will.token) : '0';
 
     const beneficiariesStr = (Array.isArray(will.beneficiaries) ? will.beneficiaries : [])
       .map((b) => (typeof b === 'string' ? b : (b as { address?: string })?.address || ''))
