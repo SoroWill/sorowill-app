@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 
 import { formatDeadline, WillStatus } from '@sorowill/sdk';
 import { getContractId, getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
+import { isWillNotFoundError } from '@/lib/errors';
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ShareVerification } from '@/components/ShareVerification';

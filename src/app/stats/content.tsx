@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { WillStatus } from '@sorowill/sdk';
+import { WillStatus, type Will } from '@sorowill/sdk';
 import { enumerateAllWills, getSoroWillClient } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
-import { WillStatus, type Will } from '@sorowill/sdk';
 
 interface ProtocolStats {
   totalWills: number;

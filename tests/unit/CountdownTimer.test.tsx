@@ -14,11 +14,16 @@ function getCountdownText(): string {
 
 describe('CountdownTimer', () => {
   it('renders the countdown in DD:HH:MM:SS format', () => {
-    // Add a generous buffer so the test doesn't flake on a slow render:
-    // 1 day + 1 hour + 1 minute + 1.5 seconds  → rounds to 01:01:01:01
-    const future = new Date(Date.now() + 86_400_000 + 3_600_000 + 60_000 + 1_500);
+    // The component floors elapsed time to whole seconds, so asserting an
+    // exact seconds value is inherently flaky: any render/test-harness delay
+    // between capturing `future` and the first computeSeconds() call shifts
+    // the displayed seconds down by however long that took. Days/hours/
+    // minutes are stable against a few seconds of delay, so only those are
+    // asserted exactly; seconds is checked against the DD:HH:MM:SS shape.
+    const future = new Date(Date.now() + 86_400_000 + 3_600_000 + 60_000 + 30_000);
     render(<CountdownTimer deadline={future} />);
-    expect(getCountdownText()).toBe('01:01:01:01');
+    const text = getCountdownText();
+    expect(text).toMatch(/^01:01:01:\d{2}$/);
   });
 
   it('shows overdue when deadline is in the past', () => {

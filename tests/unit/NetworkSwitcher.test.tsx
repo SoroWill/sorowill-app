@@ -1,14 +1,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NetworkSwitcher } from '@/components/NetworkSwitcher';
 
-jest.mock('@/lib/sorowill', () => ({
-  getNetwork: jest.fn(() => 'testnet'),
-  resetSoroWillClient: jest.fn(),
+vi.mock('@/lib/sorowill', () => ({
+  getNetwork: vi.fn(() => 'testnet'),
+  resetSoroWillClient: vi.fn(),
 }));
 
 // Stub out the confirmation UI so the test can drive its cancel/confirm
 // callbacks without depending on its internal markup.
-jest.mock('@/components/DestructiveActionConfirmation', () => ({
+vi.mock('@/components/DestructiveActionConfirmation', () => ({
   DestructiveActionConfirmation: ({
     isOpen,
     onCancel,

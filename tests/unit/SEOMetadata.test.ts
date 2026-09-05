@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import sitemap from '@/app/sitemap';
 
 describe('SEO Metadata Audit (#40)', () => {
-  it('verifies sitemap.xml exists at public root', () => {
-    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
-    expect(fs.existsSync(sitemapPath)).toBe(true);
+  // sitemap.xml is generated dynamically by src/app/sitemap.ts (Next.js's
+  // MetadataRoute.Sitemap convention) rather than served as a static file
+  // under public/, so it's verified by calling that function directly.
+  it('verifies the dynamic sitemap generates at least one entry', () => {
+    const entries = sitemap();
+    expect(entries.length).toBeGreaterThan(0);
   });
 
   it('verifies robots.txt exists at public root', () => {
@@ -13,13 +17,15 @@ describe('SEO Metadata Audit (#40)', () => {
     expect(fs.existsSync(robotsPath)).toBe(true);
   });
 
-  it('verifies sitemap.xml contains expected routes', () => {
-    const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
-    const content = fs.readFileSync(sitemapPath, 'utf-8');
+  it('verifies the dynamic sitemap contains expected routes', () => {
+    const entries = sitemap();
+    const urls = entries.map((entry) => entry.url);
 
-    expect(content).toContain('<urlset');
-    expect(content).toContain('</urlset>');
-    expect(content).toContain('<url>');
+    expect(urls.some((url) => url.endsWith('/'))).toBe(true);
+    expect(urls.some((url) => url.endsWith('/dashboard'))).toBe(true);
+    for (const entry of entries) {
+      expect(entry.url).toMatch(/^https?:\/\//);
+    }
   });
 
   it('verifies robots.txt has proper content', () => {

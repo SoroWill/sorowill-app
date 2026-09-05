@@ -22,6 +22,11 @@ export default defineConfig({
       'tests/unit/willExport.test.ts',
       'tests/unit/ErrorBoundary.test.ts',
       'tests/unit/Analytics.test.ts',
+      // Standalone script run via `npm run test:reminders` (tsx, not
+      // vitest) -- it uses its own console-based assertions, not
+      // describe/it, so vitest's `src/**/*.test.ts` pattern picking it up
+      // fails with "No test suite found in file".
+      'src/lib/reminders.test.ts',
     ],
   },
 });

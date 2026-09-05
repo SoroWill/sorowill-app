@@ -12,8 +12,10 @@ const localeLabels: Record<SupportedLocale, string> = {
 };
 
 /**
- * Language selector component that allows users to switch between supported locales.
- * Stores the user's preference in localStorage for persistence across sessions.
+ * Language selector component that allows users to switch between supported
+ * locales. Persists the choice in the `NEXT_LOCALE` cookie -- the convention
+ * `next-intl`'s `getLocale()` reads server-side -- then refreshes the router
+ * so the server re-renders with the new locale.
  */
 export function LanguageSelector() {
   const locale = useLocale() as SupportedLocale;
@@ -24,12 +26,8 @@ export function LanguageSelector() {
     if (newLocale === locale) return;
 
     startTransition(() => {
-      // Store user's language preference
-      localStorage.setItem('sorowill-locale', newLocale);
-
-      // Reload the page to apply the new locale
-      // Note: In a production app with [locale] route segments, you would route differently
-      window.location.href = `/?locale=${newLocale}`;
+      document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000`;
+      router.refresh();
     });
   };
 

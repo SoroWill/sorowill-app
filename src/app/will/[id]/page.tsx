@@ -32,6 +32,50 @@ interface ActivityEntry {
   at: Date;
 }
 
+/** localStorage key holding the persisted activity log for one will. */
+export function activityStorageKey(willId: string): string {
+  return `sorowill-activity-${willId}`;
+}
+
+/**
+ * Restores a will's activity log from localStorage, converting each entry's
+ * `at` back into a `Date`. Returns an empty log if nothing is stored, if
+ * running outside a browser, or if the stored value isn't valid JSON.
+ */
+export function loadActivity(willId: string): ActivityEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(activityStorageKey(willId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<{ action: string; txHash: string; at: string }>;
+    return parsed.map((entry) => ({ ...entry, at: new Date(entry.at) }));
+  } catch {
+    return [];
+  }
+}
+
+/** localStorage key tracking whether `guardian` has already voted on `willId`. */
+function guardianVoteStorageKey(willId: string, guardian: string): string {
+  return `sorowill-guardian-voted-${willId}-${guardian}`;
+}
+
+/**
+ * Whether `guardian` has already cast their release vote for `willId` in
+ * this browser. The contract only exposes an aggregate vote count, not which
+ * specific guardians voted, so this is tracked client-side to keep the vote
+ * button correctly disabled across page reloads.
+ */
+function hasGuardianVoted(willId: string, guardian: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(guardianVoteStorageKey(willId, guardian)) === 'true';
+}
+
+/** Records that `guardian` has cast their release vote for `willId`. */
+function markGuardianVoted(willId: string, guardian: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(guardianVoteStorageKey(willId, guardian), 'true');
+}
+
 function getGuardianVoteErrorMessage(err: unknown): string {
   const message = formatError(err);
   const normalized = message.toLowerCase();

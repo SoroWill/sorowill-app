@@ -19,7 +19,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
     })
 
     it('should emit a change event when wallet account switches', () => {
-      const changeHandler = jest.fn()
+      const changeHandler = vi.fn()
       const walletChangeEvent = new Event('walletAccountChanged')
 
       document.addEventListener('walletAccountChanged', changeHandler)
@@ -54,7 +54,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
       const mockWillsA = [{ id: '1', name: 'Will A' }]
       const mockWillsB = [{ id: '2', name: 'Will B' }]
 
-      const fetchWillsByAccount = jest.fn(async (account: string) => {
+      const fetchWillsByAccount = vi.fn(async (account: string) => {
         return account === 'ACCOUNT_A' ? mockWillsA : mockWillsB
       })
 
@@ -81,7 +81,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
     })
 
     it('should prompt user to refresh data if connection is lost', async () => {
-      const showRefreshPrompt = jest.fn()
+      const showRefreshPrompt = vi.fn()
 
       const handleConnectionLoss = () => {
         showRefreshPrompt()
@@ -96,7 +96,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
       const willId = '123'
       const mockWillDetail = { id: willId, name: 'Test Will', owner: 'ACCOUNT_B' }
 
-      const refetchWillDetail = jest.fn(async () => mockWillDetail)
+      const refetchWillDetail = vi.fn(async () => mockWillDetail)
 
       const result = await refetchWillDetail()
 
@@ -105,7 +105,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
     })
 
     it('should update dashboard UI after account change and data refresh', async () => {
-      const updateDashboard = jest.fn()
+      const updateDashboard = vi.fn()
       const newWills = [{ id: '2', name: 'Will B' }]
 
       updateDashboard(newWills)
@@ -116,7 +116,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
 
   describe('User Experience on Account Switch', () => {
     it('should display a notification banner when account switches', () => {
-      const showBanner = jest.fn()
+      const showBanner = vi.fn()
       const accountB = 'GBBD47UZQ5IAMJ7MVEJFOKJZD2DGZPVJMXQFBZX3VBQFAMR7Y7QGKLM'
 
       showBanner(`Wallet account changed to ${accountB}`)
@@ -134,7 +134,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
     })
 
     it('should display loading state during data refresh', () => {
-      const showLoading = jest.fn()
+      const showLoading = vi.fn()
 
       showLoading(true)
 
@@ -148,7 +148,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
 
   describe('Error Handling', () => {
     it('should handle wallet account change detection errors gracefully', async () => {
-      const detectAccountChangeWithError = jest.fn(async () => {
+      const detectAccountChangeWithError = vi.fn(async () => {
         throw new Error('Failed to detect account change')
       })
 
@@ -162,7 +162,7 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
     })
 
     it('should retry data fetch if it fails on account change', async () => {
-      const fetchWithRetry = jest.fn()
+      const fetchWithRetry = vi.fn()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValueOnce({ data: 'success' })
 
@@ -180,6 +180,6 @@ describe('Wallet Switch Detection Mid-Session (Issue #25)', () => {
   })
 
   afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 })

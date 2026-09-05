@@ -8,7 +8,7 @@ describe('SEP-0010 Sign-in Flow (Issue #26)', () => {
         json: async () => ({ transaction: mockChallenge }),
       }
 
-      global.fetch = jest.fn(() => Promise.resolve(response as Response))
+      global.fetch = vi.fn(() => Promise.resolve(response as Response))
 
       const result = await fetch('/api/auth/challenge', {
         method: 'GET',
@@ -40,7 +40,7 @@ describe('SEP-0010 Sign-in Flow (Issue #26)', () => {
         json: async () => ({ token: mockSessionToken }),
       }
 
-      global.fetch = jest.fn(() => Promise.resolve(response as Response))
+      global.fetch = vi.fn(() => Promise.resolve(response as Response))
 
       const result = await fetch('/api/auth/signin', {
         method: 'POST',
@@ -88,7 +88,7 @@ describe('SEP-0010 Sign-in Flow (Issue #26)', () => {
 
   describe('Session Token Validation', () => {
     it('should validate that the session token is a valid JWT', () => {
-      const mockJWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJHQ1FSUUhCRzY0UlhZWFBEBkdUKPD4SRNQ....'
+      const mockJWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJHQ1FSUUhCRzY0UlhZWFBEIn0.dGVzdC1zaWduYXR1cmU'
 
       const isValidJWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/.test(mockJWT)
       expect(isValidJWT).toBe(true)
@@ -120,7 +120,7 @@ describe('SEP-0010 Sign-in Flow (Issue #26)', () => {
   })
 
   afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     sessionStorage.clear()
   })
 })

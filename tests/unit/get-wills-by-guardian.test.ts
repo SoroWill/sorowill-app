@@ -3,8 +3,8 @@ process.env.NEXT_PUBLIC_CONTRACT_ID = `C${'A'.repeat(55)}`
 
 const GUARDIAN = 'GGUARDIANADDRESS'
 
-jest.mock('@sorowill/sdk', () => ({
-  SoroWillClient: jest.fn().mockImplementation(() => ({
+vi.mock('@sorowill/sdk', () => ({
+  SoroWillClient: vi.fn().mockImplementation(() => ({
     getWill: (willId: string) => {
       const id = Number(willId)
       if (id === 35) {

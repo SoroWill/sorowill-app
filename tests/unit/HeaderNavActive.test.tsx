@@ -6,6 +6,7 @@ import ClientLayout from '@/app/layout-client';
 const mockPathname = vi.fn(() => '/dashboard');
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname(),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 }));
 
 // Mock child components to avoid pulling in their dependencies

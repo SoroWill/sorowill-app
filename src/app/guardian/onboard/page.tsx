@@ -25,19 +25,31 @@ function OnboardContent() {
       return;
     }
 
+    // The one-time mount check below and the broadcast listener both resolve
+    // asynchronously and race each other. Without this flag, a broadcast
+    // received while the mount check's promise is still pending would get
+    // silently overwritten once that stale promise finally resolves.
+    let receivedBroadcast = false;
+
     const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
     const handleMessage = (event: MessageEvent) => {
       const { type, publicKey: incomingKey } = event.data ?? {};
 
       if (type === 'wallet_connected' && incomingKey) {
+        receivedBroadcast = true;
         setPublicKey(incomingKey);
       } else if (type === 'wallet_disconnected') {
+        receivedBroadcast = true;
         setPublicKey(null);
       }
     };
 
     channel.addEventListener('message', handleMessage);
-    void safeGetPublicKey().then(setPublicKey);
+    void safeGetPublicKey().then((key) => {
+      if (!receivedBroadcast) {
+        setPublicKey(key);
+      }
+    });
 
     return () => {
       channel.removeEventListener('message', handleMessage);

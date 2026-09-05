@@ -28,7 +28,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Dashboard Page Auto-Reconnect', () => {
     it('should auto-reconnect wallet on dashboard mount', () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       const dashboardPageMounted = async () => {
         return await safeGetPublicKey()
@@ -43,7 +43,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Will Detail Page Auto-Reconnect', () => {
     it('should auto-reconnect wallet on will detail page mount', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       const willDetailPageMounted = async () => {
         const publicKey = await safeGetPublicKey()
@@ -60,8 +60,8 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
     })
 
     it('should redirect to login if wallet not connected on will detail page', async () => {
-      const safeGetPublicKey = jest.fn(async () => null)
-      const redirectToLogin = jest.fn()
+      const safeGetPublicKey = vi.fn(async () => null)
+      const redirectToLogin = vi.fn()
 
       const willDetailPageMounted = async () => {
         const publicKey = await safeGetPublicKey()
@@ -78,7 +78,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Inherit Page Auto-Reconnect', () => {
     it('should auto-reconnect wallet on inherit page mount', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       const inheritPageMounted = async () => {
         return await safeGetPublicKey()
@@ -90,8 +90,8 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
     })
 
     it('should load heir data after wallet reconnection', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
-      const fetchHeirData = jest.fn(async () => ({ status: 'active' }))
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const fetchHeirData = vi.fn(async () => ({ status: 'active' }))
 
       const inheritPageMounted = async () => {
         const publicKey = await safeGetPublicKey()
@@ -109,7 +109,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Verify Page Auto-Reconnect', () => {
     it('should auto-reconnect wallet on verify page mount', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       const verifyPageMounted = async () => {
         return await safeGetPublicKey()
@@ -121,8 +121,8 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
     })
 
     it('should load verification data after wallet reconnection', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
-      const fetchVerificationData = jest.fn(async () => ({ verified: true }))
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const fetchVerificationData = vi.fn(async () => ({ verified: true }))
 
       const verifyPageMounted = async () => {
         const publicKey = await safeGetPublicKey()
@@ -140,7 +140,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Create Will Page Auto-Reconnect', () => {
     it('should auto-reconnect wallet on create will page mount', async () => {
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       const createWillPageMounted = async () => {
         return await safeGetPublicKey()
@@ -152,9 +152,9 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
     })
 
     it('should prevent form submission if wallet not connected', async () => {
-      const safeGetPublicKey = jest.fn(async () => null)
-      const submitForm = jest.fn()
-      const showError = jest.fn()
+      const safeGetPublicKey = vi.fn(async () => null)
+      const submitForm = vi.fn()
+      const showError = vi.fn()
 
       const createWillPageSubmit = async () => {
         const publicKey = await safeGetPublicKey()
@@ -175,7 +175,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
   describe('Auto-Reconnect Consistency Across Pages', () => {
     it('should use consistent auto-reconnect logic across all pages', async () => {
       const pages = ['dashboard', 'will/[id]', 'inherit/[id]', 'verify/[id]', 'will/new']
-      const safeGetPublicKey = jest.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
+      const safeGetPublicKey = vi.fn(async () => 'GCQRQHBG64RXZXPD73KPD4RNPQDWSW6QBIVVPICMZ2ZQ7CWSQKQ5CLKM')
 
       for (let i = 0; i < pages.length; i++) {
         const result = await safeGetPublicKey()
@@ -198,7 +198,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
 
   describe('Error Handling in Auto-Reconnect', () => {
     it('should handle wallet reconnect failures gracefully', async () => {
-      const safeGetPublicKey = jest.fn(async () => {
+      const safeGetPublicKey = vi.fn(async () => {
         throw new Error('Wallet not available')
       })
 
@@ -216,7 +216,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
     })
 
     it('should not block page render if auto-reconnect fails', async () => {
-      const safeGetPublicKey = jest.fn(async () => {
+      const safeGetPublicKey = vi.fn(async () => {
         throw new Error('Wallet error')
       })
 
@@ -236,7 +236,7 @@ describe('Wallet Auto-Reconnect Audit (Issue #24)', () => {
   })
 
   afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     sessionStorage.clear()
   })
 })

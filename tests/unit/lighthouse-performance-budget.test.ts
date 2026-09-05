@@ -302,6 +302,6 @@ describe('Lighthouse CI Performance Budget (Issue #23)', () => {
   })
 
   afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 })

@@ -1,4 +1,5 @@
 import { SoroWillClient, type SoroWillNetwork, type Will } from '@sorowill/sdk';
+import { isWillNotFoundError } from '@/lib/errors';
 
 function validateStellarNetwork(value: string): SoroWillNetwork {
   if (value !== 'testnet' && value !== 'mainnet') {
@@ -119,16 +120,6 @@ const GUARDIAN_SCAN_BATCH_SIZE = 30;
 const GUARDIAN_SCAN_MAX_ID = 1000;
 
 /**
- * Best-effort heuristic distinguishing "this will ID doesn't exist" (expected
- * once we scan past the last assigned ID) from other failures such as a
- * transient RPC/network error.
- */
-function isWillNotFoundError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return /not\s*found|missing|does not exist|no such/i.test(error.message);
-}
-
-/**
  * Fetches wills by guardian by scanning will IDs in expanding batches,
  * stopping once an entire batch turns up no wills. This avoids capping the
  * scan at a fixed constant while still bounding the total work performed.
@@ -167,6 +158,50 @@ export async function getWillsByGuardian(guardianAddress: string): Promise<Guard
   }
 
   return { wills, hasErrors };
+}
+
+const ENUMERATE_BATCH_SIZE = 30;
+const ENUMERATE_MAX_ID = 1000;
+
+/**
+ * Fetches every will on the contract by scanning sequential will IDs in
+ * expanding batches, stopping once an entire batch turns up no wills. Used
+ * as a fallback when the contract doesn't expose an aggregate stats query
+ * (see StatsContent).
+ */
+export async function enumerateAllWills(): Promise<Will[]> {
+  const client = getSoroWillClient();
+  const wills: Will[] = [];
+
+  for (let batchStart = 1; batchStart <= ENUMERATE_MAX_ID; batchStart += ENUMERATE_BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + ENUMERATE_BATCH_SIZE - 1, ENUMERATE_MAX_ID);
+    let foundAnyInBatch = false;
+
+    const ids = Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => batchStart + offset);
+    await Promise.all(
+      ids.map((id) =>
+        client
+          .getWill(id.toString())
+          .then((will) => {
+            foundAnyInBatch = true;
+            if (will) {
+              wills.push(will);
+            }
+          })
+          .catch((error) => {
+            if (!isWillNotFoundError(error)) {
+              throw error;
+            }
+          })
+      )
+    );
+
+    if (!foundAnyInBatch) {
+      break;
+    }
+  }
+
+  return wills;
 }
 
 

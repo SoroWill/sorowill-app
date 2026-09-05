@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 import { getLocale } from 'next-intl/server';
 
@@ -27,7 +28,7 @@ function getLocaleFromAcceptLanguage(acceptLanguageHeader?: string): SupportedLo
 
   // Find the first preferred locale that we support
   for (const locale of preferredLocales) {
-    if ((supportedLocales as string[]).includes(locale)) {
+    if ((supportedLocales as readonly string[]).includes(locale)) {
       return locale as SupportedLocale;
     }
   }
@@ -39,7 +40,7 @@ export default getRequestConfig(async () => {
   // Try to get locale from next-intl first (set by middleware)
   try {
     const locale = await getLocale();
-    if ((supportedLocales as string[]).includes(locale)) {
+    if ((supportedLocales as readonly string[]).includes(locale)) {
       return {
         locale,
         messages: (await import(`../messages/${locale}.json`)).default,
@@ -49,8 +50,10 @@ export default getRequestConfig(async () => {
     // If getLocale fails, fall through to Accept-Language detection
   }
 
-  // Fall back to 'en' (will be used if no Accept-Language header)
-  const locale = 'en' as SupportedLocale;
+  // Fall back to parsing the raw Accept-Language header (defaults to 'en'
+  // if the header is missing or matches no supported locale).
+  const acceptLanguage = (await headers()).get('accept-language') ?? undefined;
+  const locale = getLocaleFromAcceptLanguage(acceptLanguage);
 
   return {
     locale,
