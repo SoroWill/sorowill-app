@@ -1,5 +1,6 @@
 import { SoroWillClient, type SoroWillNetwork, type Will } from '@sorowill/sdk';
 import { isWillNotFoundError } from '@/lib/errors';
+import { clearTokenDecimalsCache } from '@/lib/tokenDecimals';
 
 function validateStellarNetwork(value: string): SoroWillNetwork {
   if (value !== 'testnet' && value !== 'mainnet') {
@@ -45,6 +46,7 @@ let cachedNetwork: SoroWillNetwork | undefined;
 export function resetSoroWillClient(): void {
   cachedClient = undefined;
   cachedNetwork = undefined;
+  clearTokenDecimalsCache();
 }
 
 /** The Stellar network configured for this deployment. */

@@ -40,11 +40,63 @@ const TOKEN_DECIMALS_REGISTRY: Record<string, number> = {
 const DEFAULT_DECIMALS = 7;
 
 /**
+ * In-memory cache mapping `${network}-${contractId}` → decimal places.
+ */
+const tokenDecimalsCache = new Map<string, number>();
+
+/**
+ * Constructs a cache key that includes the network identifier and token contract ID.
+ */
+export function getDecimalsCacheKey(network: string, tokenAddress: string): string {
+  return `${network.toLowerCase()}-${tokenAddress.toLowerCase()}`;
+}
+
+/**
+ * Clears the in-memory token decimals cache. Called when network changes.
+ */
+export function clearTokenDecimalsCache(): void {
+  tokenDecimalsCache.clear();
+}
+
+/**
+ * Manually seeds or overrides the cached decimal count for a token on a given network.
+ */
+export function setCachedTokenDecimals(
+  tokenAddress: string,
+  decimals: number,
+  network: string = 'testnet',
+): void {
+  tokenDecimalsCache.set(getDecimalsCacheKey(network, tokenAddress), decimals);
+}
+
+/**
+ * Resolves the currently active network safely in both browser and node environments.
+ */
+function resolveCurrentNetwork(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const stored = window.localStorage.getItem('sorowill_network');
+    if (stored) return stored;
+  }
+  return process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet';
+}
+
+/**
  * Returns the number of decimal places for `tokenAddress`.
+ * Keys cache entries by `network-contractId` to prevent cross-network collisions.
  * Falls back to `DEFAULT_DECIMALS` (7) for unrecognised tokens.
  */
-export function getTokenDecimals(tokenAddress: string): number {
-  return TOKEN_DECIMALS_REGISTRY[tokenAddress.toLowerCase()] ?? DEFAULT_DECIMALS;
+export function getTokenDecimals(tokenAddress: string, network?: string): number {
+  const net = network ?? resolveCurrentNetwork();
+  const cacheKey = getDecimalsCacheKey(net, tokenAddress);
+
+  const cached = tokenDecimalsCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const resolved = TOKEN_DECIMALS_REGISTRY[tokenAddress.toLowerCase()] ?? DEFAULT_DECIMALS;
+  tokenDecimalsCache.set(cacheKey, resolved);
+  return resolved;
 }
 
 /**

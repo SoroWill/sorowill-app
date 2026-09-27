@@ -60,3 +60,43 @@ export function getInvalidBatchAmounts(
     return amount === undefined || !isValidAmount(amount);
   });
 }
+
+/**
+ * Formats a numeric, string, or bigint amount into a human-readable display string.
+ *
+ * Avoids truncating or rounding very small values (e.g. 0.0001 USDC) to "0" or "0.0".
+ * Values smaller than 0.01 preserve exact fractional decimals up to the specified
+ * token decimal precision. Values smaller than the minimum representable fraction
+ * (10^-decimals) fallback to scientific notation (e.g. 1.00e-8).
+ *
+ * @param amount - The numerical amount to format
+ * @param decimals - Token decimal precision (defaults to 6, e.g. for USDC)
+ * @returns Human-readable amount string
+ */
+export function formatAmount(
+  amount: number | string | bigint,
+  decimals: number = 6,
+): string {
+  const num = typeof amount === 'number'
+    ? amount
+    : typeof amount === 'bigint'
+    ? Number(amount)
+    : Number(amount);
+
+  if (isNaN(num) || num === 0) {
+    return '0';
+  }
+
+  const abs = Math.abs(num);
+  const minRepresentable = Math.pow(10, -decimals);
+
+  if (abs < minRepresentable) {
+    return num.toExponential(2);
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  }).format(num);
+}
