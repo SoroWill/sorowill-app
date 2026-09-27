@@ -150,5 +150,103 @@
     "triggeredDescription": "Se perdió una fecha límite de chequeo. El propietario aún puede demostrar que está vivo.",
     "releasedDescription": "La herencia ha sido distribuida a todos los beneficiarios.",
     "cancelledDescription": "El propietario canceló este testamento y retiró el saldo."
+  },
+  "faq": {
+    "title": "Cómo funciona y Preguntas Frecuentes",
+    "subtitle": "Todo lo que necesitas saber sobre SoroWill, el protocolo de herencia en cadena y sin intermediarios de confianza para Stellar.",
+    "lifecycleTitle": "El ciclo de vida completo",
+    "lifecycleIntro": "Así avanza tu testamento desde que lo creas hasta que se resuelve:",
+    "steps": [
+      {
+        "title": "Crear un Testamento",
+        "description": "Conecta tu monedero, deposita USDC, indica los beneficiarios con sus porcentajes, define los periodos de check-in y de gracia y, si quieres, añade guardianes. Tu testamento queda activo y bloqueado en la cadena."
+      },
+      {
+        "title": "Check-ins periódicos",
+        "description": "Antes de cada plazo de check-in (30, 60, 90, 180 o 365 días) debes demostrar que sigues activo pulsando el botón de check-in. Eso reinicia el plazo. Mientras estés activo puedes actualizar beneficiarios o ajustes en cualquier momento."
+      },
+      {
+        "title": "Si fallas un check-in",
+        "description": "Si no haces check-in antes del plazo, cualquiera puede activar el periodo de gracia. Se avisa a tus beneficiarios. Todavía tienes tiempo de responder: basta con hacer check-in y el testamento sigue activo."
+      },
+      {
+        "title": "Periodo de gracia",
+        "description": "Comienza un periodo de gracia (3, 7 o 14 días). Si haces check-in durante ese tiempo, tu testamento sigue activo. Si no respondes, el periodo de gracia vence y los fondos se liberan."
+      },
+      {
+        "title": "Liberación de fondos",
+        "description": "Cuando vence el periodo de gracia, el contrato distribuye automáticamente tus USDC entre tus beneficiarios según los porcentajes que fijaste. Después, los beneficiarios pueden reclamar su parte."
+      }
+    ],
+    "itemsTitle": "Preguntas frecuentes",
+    "items": [
+      {
+        "question": "¿Cómo funciona SoroWill?",
+        "answer": "SoroWill es un contrato inteligente en Stellar Soroban que automatiza la herencia. Bloqueas USDC en el contrato, indicas beneficiarios y periodos de check-in, y demuestras que sigues activo haciendo check-in antes de cada plazo. Si fallas un check-in, cualquiera puede activar el periodo de gracia. Si el periodo de gracia termina sin respuesta por tu parte, el contrato distribuye tus fondos automáticamente entre tus beneficiarios según los porcentajes que hayas fijado."
+      },
+      {
+        "question": "¿Qué ocurre si fallo un check-in?",
+        "answer": "Si no cumples el plazo de check-in, cualquiera puede activar un periodo de gracia (el que definiste al crear el testamento, normalmente entre 3 y 14 días). Durante ese periodo de gracia todavía puedes responder y evitar la liberación: solo tienes que entrar en SoroWill y hacer check-in otra vez. Si no respondes antes de que termine el periodo de gracia, los fondos se liberan a tus beneficiarios automáticamente."
+      },
+      {
+        "question": "¿Puedo cambiar mis beneficiarios después de crear un testamento?",
+        "answer": "Sí. Mientras estés activo (antes de fallar un check-in) puedes actualizar tu testamento con nuevos beneficiarios, ajustar porcentajes o cambiar los periodos de check-in y de gracia. Se hace creando un testamento nuevo con los ajustes clonados y cancelando el anterior."
+      },
+      {
+        "question": "¿Puedo cancelar mi testamento?",
+        "answer": "Sí. En cualquier momento mientras sigas activo (antes de que se active el periodo de gracia) puedes cancelar tu testamento y recuperar tus fondos desde la página de detalle del testamento. Una vez activado el periodo de gracia, ya no es posible cancelar."
+      },
+      {
+        "question": "¿Qué son los guardianes y qué pueden hacer?",
+        "answer": "Los guardianes son direcciones de confianza opcionales (hasta 3) que puedes designar. Dos guardianes cualesquiera pueden forzar una liberación anticipada de tu testamento si quedas incapacitado. Es una salvaguarda adicional para que los fondos lleguen a tus beneficiarios aunque tú no puedas responder."
+      },
+      {
+        "question": "¿Puedo recuperar mis fondos si se activa el periodo de gracia?",
+        "answer": "Sí. Durante el periodo de gracia (el que definiste al crear el testamento) todavía puedes hacer check-in y evitar la liberación. Una vez que el periodo de gracia vence sin check-in, los fondos se liberan de forma permanente y ya no se pueden recuperar."
+      },
+      {
+        "question": "¿Qué tokens admite SoroWill?",
+        "answer": "Actualmente SoroWill admite USDC en Stellar. Al crear un testamento indicas la dirección del contrato del token, así que asegúrate de usar la dirección correcta para tu red (testnet o mainnet)."
+      },
+      {
+        "question": "¿SoroWill es libre de intermediarios de confianza?",
+        "answer": "Sí. SoroWill no depende de terceros de confianza porque lo gobierna por completo el contrato inteligente: no hay abogados, tribunales ni intermediarios. El contrato ejecuta el resultado exactamente como lo configuraste, y toda la lógica es pública y transparente en la cadena."
+      },
+      {
+        "question": "¿Puedo ver otros testamentos o acceder al testamento de otra persona?",
+        "answer": "No. Los detalles del testamento son privados y solo puede verlos su propietario con el monedero conectado. Los beneficiarios y los guardianes pueden consultar su información correspondiente en páginas específicas."
+      },
+      {
+        "question": "¿Qué pasa si pierdo el acceso a mi monedero?",
+        "answer": "Si pierdes el acceso al monedero y no puedes hacer check-in, el periodo de gracia acabará venciendo y tus beneficiarios recibirán los fondos. Si designaste guardianes, dos de ellos pueden activar una liberación anticipada. SoroWill está pensado para que los fondos lleguen a tus beneficiarios aunque tú no puedas responder."
+      },
+      {
+        "question": "¿Pueden los beneficiarios consultar el estado de su herencia?",
+        "answer": "Sí. Los beneficiarios pueden ver el estado de los testamentos en los que aparecen usando la página de verificación, donde consultan el importe, el reparto entre beneficiarios y el estado actual del check-in."
+      },
+      {
+        "question": "¿Cómo sé que mi testamento está seguro?",
+        "answer": "Todos los testamentos se guardan en la cadena de Stellar y están protegidos por el contrato inteligente de SoroWill. Tus claves privadas siguen bajo tu control. Solo los datos del testamento están en la cadena: las direcciones de tus beneficiarios y tus ajustes son transparentes, pero no se pueden revertir una vez enviados."
+      },
+      {
+        "question": "¿Puedo usar direcciones federadas?",
+        "answer": "Sí. SoroWill admite direcciones federadas de Stellar con el formato nombre*dominio.com para beneficiarios y guardianes. Solo tienes que escribir la dirección federada y pulsar el botón Resolver para convertirla en la dirección Stellar subyacente y confirmarla."
+      },
+      {
+        "question": "¿Y si olvido mi plazo de check-in?",
+        "answer": "Tú defines tu propio periodo de check-in al crear el testamento (30, 60, 90, 180 o 365 días). Te recomendamos ponerte recordatorios en el calendario. La página de detalle del testamento muestra siempre tu próximo plazo de check-in."
+      },
+      {
+        "question": "¿Hay comisiones?",
+        "answer": "SoroWill no se queda con un porcentaje de tus fondos. Solo pagas las comisiones habituales de la red Stellar por las transacciones (check-in, creación, reclamación, etc.), que suelen ser muy pequeñas."
+      },
+      {
+        "question": "¿Cómo reclamo mi herencia?",
+        "answer": "Si eres beneficiario de un testamento ya liberado, puedes reclamar tu parte desde la página de herencia. Necesitarás tener conectado tu monedero de Stellar y completar una transacción sencilla para recibir los fondos."
+      }
+    ],
+    "ctaTitle": "¿Listo para crear tu testamento?",
+    "ctaDescription": "Asegura tu legado cripto con SoroWill.",
+    "ctaButton": "Crear un Testamento"
   }
 }

@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run check:messages",
     "build": "next build",
+    "check:messages": "node scripts/check-messages.mjs",
     "start": "next start",
     "start:e2e": "next build && next start",
     "lint": "eslint src",
