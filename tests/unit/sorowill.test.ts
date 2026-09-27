@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { SoroWillClient } from '@sorowill/sdk';
 
 // We need to test the helper functions without importing the whole module
 // since they call process.env during module load
@@ -21,7 +22,7 @@ describe('sorowill.ts helpers', () => {
       process.env.TEST_VAR = 'test-value';
 
       // Dynamically import to pick up the env var
-      const module = await import('@/lib/sorowill');
+      await import('@/lib/sorowill');
       // We'll test this indirectly through the public functions
       expect(process.env.TEST_VAR).toBe('test-value');
     });
@@ -186,18 +187,104 @@ describe('sorowill.ts helpers', () => {
     });
   });
 
-  describe('getSoroWillClient caching and invalidation', () => {
+  describe('getSoroWillClient dependency injection and testability', () => {
     it('should return a SoroWillClient singleton and reset it successfully', async () => {
       process.env.NEXT_PUBLIC_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
       const { getSoroWillClient, resetSoroWillClient } = await import('@/lib/sorowill');
-      
+
       const client1 = getSoroWillClient();
       const client2 = getSoroWillClient();
       expect(client1).toBe(client2);
-      
+
       resetSoroWillClient();
       const client3 = getSoroWillClient();
       expect(client1).not.toBe(client3);
     });
+
+    it('should accept a direct mock client instance via DI without mutating globals', async () => {
+      const { getSoroWillClient } = await import('@/lib/sorowill');
+      const mockClient = { getWill: vi.fn(), checkIn: vi.fn() } as unknown as SoroWillClient;
+
+      const client = getSoroWillClient(mockClient);
+      expect(client).toBe(mockClient);
+    });
+
+    it('should accept a context object with a mock client via DI', async () => {
+      const { getSoroWillClient } = await import('@/lib/sorowill');
+      const mockClient = { getWill: vi.fn() } as unknown as SoroWillClient;
+
+      const client = getSoroWillClient({ client: mockClient });
+      expect(client).toBe(mockClient);
+    });
+
+    it('should instantiate a client with custom network and contractId without touching global cache', async () => {
+      const { getSoroWillClient, resetSoroWillClient } = await import('@/lib/sorowill');
+      resetSoroWillClient();
+
+      const customClient = getSoroWillClient({
+        network: 'mainnet',
+        contractId: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4',
+      });
+      expect(customClient).toBeDefined();
+    });
+
+    it('should allow setting and resetting the cached client via setSoroWillClient', async () => {
+      process.env.NEXT_PUBLIC_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = 'testnet';
+      const { getSoroWillClient, setSoroWillClient, resetSoroWillClient } = await import('@/lib/sorowill');
+      const mockClient = { getWill: vi.fn() } as unknown as SoroWillClient;
+
+      setSoroWillClient(mockClient);
+      expect(getSoroWillClient()).toBe(mockClient);
+
+      resetSoroWillClient();
+      expect(getSoroWillClient()).not.toBe(mockClient);
+    });
+
+    it('should allow getWillsByGuardian to accept an injected mock client', async () => {
+      const { getWillsByGuardian } = await import('@/lib/sorowill');
+      const mockWill = {
+        id: '1',
+        owner: 'GBBD47UZQ5VOHF4AKOA7CMM7SVQE6AKMOUIVJGN7BQHMPUYKUUY7BK43',
+        guardians: ['GGUARDIAN11111111111111111111111111111111111111111111111'],
+      };
+
+      const mockClient = {
+        getWill: vi.fn().mockImplementation(async (id: string) => {
+          if (id === '1') return mockWill;
+          throw new Error('Error(Contract, #1): will not found');
+        }),
+      } as unknown as SoroWillClient;
+
+      const result = await getWillsByGuardian(
+        'GGUARDIAN11111111111111111111111111111111111111111111111',
+        mockClient,
+      );
+
+      expect(result.wills).toHaveLength(1);
+      expect(result.wills[0].id).toBe('1');
+      expect(result.hasErrors).toBe(false);
+      expect(mockClient.getWill).toHaveBeenCalled();
+    });
+
+    it('should allow enumerateAllWills to accept an injected mock client', async () => {
+      const { enumerateAllWills } = await import('@/lib/sorowill');
+      const mockWill = {
+        id: '1',
+        owner: 'GBBD47UZQ5VOHF4AKOA7CMM7SVQE6AKMOUIVJGN7BQHMPUYKUUY7BK43',
+      };
+
+      const mockClient = {
+        getWill: vi.fn().mockImplementation(async (id: string) => {
+          if (id === '1') return mockWill;
+          throw new Error('Error(Contract, #1): will not found');
+        }),
+      } as unknown as SoroWillClient;
+
+      const wills = await enumerateAllWills(mockClient);
+      expect(wills).toHaveLength(1);
+      expect(wills[0].id).toBe('1');
+    });
   });
 });
+

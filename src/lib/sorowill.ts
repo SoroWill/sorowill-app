@@ -47,6 +47,30 @@ export function resetSoroWillClient(): void {
   cachedNetwork = undefined;
 }
 
+/** Explicitly sets or overrides the cached singleton client (useful for test harnesses). */
+export function setSoroWillClient(client?: SoroWillClient): void {
+  cachedClient = client;
+  if (client) {
+    try {
+      cachedNetwork = getNetwork();
+    } catch {
+      cachedNetwork = 'testnet';
+    }
+  } else {
+    cachedNetwork = undefined;
+  }
+}
+
+/** Configuration or instance options for dependency injection. */
+export interface SoroWillClientContext {
+  /** Pre-instantiated or mocked SoroWillClient instance. */
+  client?: SoroWillClient;
+  /** Stellar network to target. */
+  network?: SoroWillNetwork;
+  /** Deployed contract ID to target. */
+  contractId?: string;
+}
+
 /** The Stellar network configured for this deployment. */
 export function getNetwork(): SoroWillNetwork {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -92,9 +116,26 @@ export function getRpcUrl(): string {
 
 /**
  * Returns a lazily-initialized, module-level singleton `SoroWillClient`
- * configured from the active network.
+ * configured from the active network, or returns/instantiates the client
+ * specified via optional dependency injection parameters.
+ *
+ * @param di Optional client instance or context/options for testing and DI without mutating global state.
  */
-export function getSoroWillClient(): SoroWillClient {
+export function getSoroWillClient(
+  di?: SoroWillClient | SoroWillClientContext,
+): SoroWillClient {
+  if (di) {
+    if ('getWill' in di || di instanceof SoroWillClient) {
+      return di as SoroWillClient;
+    }
+    if (di.client) {
+      return di.client;
+    }
+    const network = di.network ?? getNetwork();
+    const contractId = di.contractId ?? getContractId();
+    return new SoroWillClient({ network, contractId });
+  }
+
   const network = getNetwork();
   const contractId = getContractId();
   if (!cachedClient || cachedNetwork !== network) {
@@ -130,8 +171,11 @@ const GUARDIAN_SCAN_MAX_ID = 1000;
  * stopping once an entire batch turns up no wills. This avoids capping the
  * scan at a fixed constant while still bounding the total work performed.
  */
-export async function getWillsByGuardian(guardianAddress: string): Promise<GuardianWillsResult> {
-  const client = getSoroWillClient();
+export async function getWillsByGuardian(
+  guardianAddress: string,
+  client?: SoroWillClient,
+): Promise<GuardianWillsResult> {
+  const c = client ?? getSoroWillClient();
   const wills: Will[] = [];
   let hasErrors = false;
 
@@ -142,7 +186,7 @@ export async function getWillsByGuardian(guardianAddress: string): Promise<Guard
     const ids = Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => batchStart + offset);
     await Promise.all(
       ids.map((id) =>
-        client
+        c
           .getWill(id.toString())
           .then((will) => {
             foundAnyInBatch = true;
@@ -175,8 +219,8 @@ const ENUMERATE_MAX_ID = 1000;
  * as a fallback when the contract doesn't expose an aggregate stats query
  * (see StatsContent).
  */
-export async function enumerateAllWills(): Promise<Will[]> {
-  const client = getSoroWillClient();
+export async function enumerateAllWills(client?: SoroWillClient): Promise<Will[]> {
+  const c = client ?? getSoroWillClient();
   const wills: Will[] = [];
 
   for (let batchStart = 1; batchStart <= ENUMERATE_MAX_ID; batchStart += ENUMERATE_BATCH_SIZE) {
@@ -186,7 +230,7 @@ export async function enumerateAllWills(): Promise<Will[]> {
     const ids = Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => batchStart + offset);
     await Promise.all(
       ids.map((id) =>
-        client
+        c
           .getWill(id.toString())
           .then((will) => {
             foundAnyInBatch = true;
