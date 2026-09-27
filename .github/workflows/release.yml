@@ -1,0 +1,81 @@
+name: Release metadata
+
+# Issue #443: bumping the version by hand is how package.json and CHANGELOG.md
+# drifted apart in the first place. This workflow updates both together, runs
+# the same changelog gate CI runs, and opens a reviewable PR instead of pushing
+# to main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, without the leading v (e.g. 1.1.0)'
+        required: true
+        type: string
+      title:
+        description: 'Short release title (e.g. Multi-asset support)'
+        required: true
+        type: string
+      notes:
+        description: 'Release highlights, one bullet per line'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Write release notes
+        env:
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: printf '%s\n' "$RELEASE_NOTES" > "$RUNNER_TEMP/release-notes.txt"
+
+      - name: Bump package.json, package-lock.json and CHANGELOG.md
+        run: |
+          node scripts/bump-release.mjs "${{ inputs.version }}" \
+            --title "${{ inputs.title }}" \
+            --notes-file "$RUNNER_TEMP/release-notes.txt"
+
+      - name: Validate changelog
+        run: node scripts/validate-changelog.mjs
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          cat > "$RUNNER_TEMP/pr-body.md" <<EOF
+          Release metadata for v$VERSION — $TITLE.
+
+          Updates \`package.json\`, \`package-lock.json\` and \`CHANGELOG.md\` so the
+          version and the release notes cannot disagree. The changelog gate in the
+          Test workflow must pass before this can merge.
+
+          ## Highlights
+
+          $(cat "$RUNNER_TEMP/release-notes.txt")
+          EOF
+          branch="release/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): v$VERSION"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(release): v$VERSION — $TITLE" \
+            --body-file "$RUNNER_TEMP/pr-body.md"

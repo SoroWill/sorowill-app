@@ -1,50 +1,17 @@
 import { Metadata } from 'next';
 import { Footer } from '@/components/Footer';
+import { loadChangelog } from '@/lib/changelog';
 
 export const metadata: Metadata = {
   title: 'Changelog | SoroWill',
   description: 'SoroWill protocol updates and release notes',
 };
 
-const CHANGELOG_ENTRIES = [
-  {
-    version: 'v1.0.0',
-    date: 'July 2026',
-    title: 'Launch',
-    highlights: [
-      'Initial release of SoroWill on Stellar Soroban',
-      'Core features: create wills, set beneficiaries, check-in mechanism',
-      'Public stats page for protocol transparency',
-      'Non-custodial smart contracts with immutable deployment',
-      'Legal pages and privacy policy',
-      'Open source under MIT license',
-    ],
-  },
-  {
-    version: 'v0.9.0',
-    date: 'June 2026',
-    title: 'Release Candidate',
-    highlights: [
-      'Dashboard for will management',
-      'Verification flow for beneficiaries',
-      'Guardian onboarding process',
-      'Inheritance trigger mechanisms',
-      'Contract integration testing',
-    ],
-  },
-  {
-    version: 'v0.5.0',
-    date: 'April 2026',
-    title: 'Testnet Alpha',
-    highlights: [
-      'Initial smart contract deployment on Soroban testnet',
-      'Web interface prototype',
-      'Wallet integration (Freighter)',
-      'Basic check-in functionality',
-      'Beneficiary configuration',
-    ],
-  },
-];
+// Issue #443: entries used to be hardcoded here, so a release could ship
+// without the site ever mentioning it. They are now read from CHANGELOG.md —
+// the same file CI validates — which keeps the page and the release notes in
+// sync by construction.
+const CHANGELOG_ENTRIES = loadChangelog();
 
 export default function ChangelogPage() {
   return (

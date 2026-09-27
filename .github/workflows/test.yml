@@ -48,6 +48,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Issue #443: a release must not ship with missing/mismatched release
+      # notes. The build below renders /changelog from CHANGELOG.md, so a stale
+      # file would otherwise reach production silently.
+      - name: Validate changelog
+        run: node scripts/validate-changelog.mjs
+
       - name: Build
         run: npm run build
 
