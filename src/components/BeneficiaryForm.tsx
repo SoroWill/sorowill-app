@@ -6,6 +6,7 @@ import type { Beneficiary } from '@sorowill/sdk';
 
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { formatError } from '@/lib/errors';
+import { validateBeneficiaryPercentages } from '@/lib/beneficiaryValidation';
 
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
@@ -40,41 +41,12 @@ function equalSplit(count: number): number[] {
   return Array.from({ length: count }, (_, index) => base + (index >= count - remainder ? 1 : 0));
 }
 
-/**
- * Returns a human-readable validation message for the current beneficiary
- * list, or `null` when the list is valid.
- *
- * Two distinct failure modes are distinguished:
- *  1. Any percentage is non-integer   → "Percentages must be whole numbers"
- *  2. Sum is not 100 (but all integers) → "Total must equal 100%"
- */
-function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string | null {
-  if (beneficiaries.length === 0) {
-    return 'Add at least one beneficiary';
-  }
-
-  const hasInvalidRange = beneficiaries.some((b) => b.percentage < 0 || b.percentage > 100);
-  if (hasInvalidRange) {
-    return 'Percentages must be between 0% and 100%';
-  }
-
-  const hasNonInteger = beneficiaries.some((b) => !Number.isInteger(b.percentage));
-  if (hasNonInteger) {
-    return 'Percentages must be whole numbers (e.g. 33, not 33.5)';
-  }
-
-  const total = beneficiaries.reduce((sum, b) => sum + b.percentage, 0);
-  if (total !== 100) {
-    return `Total must equal 100% (currently ${total}%)`;
-  }
-
-  return null;
-}
-
 export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
-  const total = value.reduce((sum, b) => sum + b.percentage, 0);
-  const validationMessage = getBeneficiaryValidationMessage(value);
-  const isValid = validationMessage === null;
+  const validation = validateBeneficiaryPercentages(value);
+  const total = validation.totalPercentage;
+  const validationMessage = validation.message;
+  const isValid = validation.isValid;
+  const hasRoundingWarning = validation.hasRoundingWarning;
   const addressErrors = getAddressErrors(value);
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
@@ -212,7 +184,7 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
           type="button"
           onClick={applyEqualSplit}
           disabled={value.length === 0}
-          aria-label="Distribute percentages equally among all beneficiaries"
+          aria-label="Split equally — distribute percentages equally among all beneficiaries"
           className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
           Split equally
@@ -262,6 +234,7 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
                     type="number"
                     min={0}
                     max={100}
+                    step="0.01"
                     value={beneficiary.percentage}
                     onChange={(event) => {
                       const raw = event.target.value;
@@ -270,8 +243,6 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
                         return;
                       }
                       const val = Number(raw);
-                      // Clamp the range but keep fractions, so a non-integer surfaces the
-                      // "whole numbers" validation message instead of being silently truncated.
                       const clamped = isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
                       updateRow(index, { percentage: clamped });
                     }}
@@ -317,6 +288,15 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
       >
         + Add beneficiary
       </button>
+
+      {hasRoundingWarning && isValid && (
+        <p
+          className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-xs text-amber-400"
+          role="note"
+        >
+          Note: Decimal percentages are encoded into basis points for contract execution, which may slightly adjust distribution rounding.
+        </p>
+      )}
 
       <div
         className={`text-sm ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}

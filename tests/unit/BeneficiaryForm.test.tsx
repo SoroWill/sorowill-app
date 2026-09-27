@@ -75,15 +75,14 @@ describe('BeneficiaryForm', () => {
 
   // ── Issue #65: distinct messages for the two failure modes ──────────────
 
-  it('shows "must be whole numbers" message when any percentage is non-integer', () => {
-    // 33.5 + 33.5 + 33 = 100, but the fractional values make it invalid.
+  it('shows error message when any percentage exceeds 2 decimal places (#445)', () => {
     const beneficiaries: Beneficiary[] = [
-      { address: 'GAAA', percentage: 33.5 },
-      { address: 'GBBB', percentage: 33.5 },
-      { address: 'GCCC', percentage: 33 },
+      { address: 'GAAA', percentage: 33.333 },
+      { address: 'GBBB', percentage: 33.333 },
+      { address: 'GCCC', percentage: 33.334 },
     ];
     render(<BeneficiaryForm value={beneficiaries} onChange={vi.fn()} />);
-    expect(screen.getByRole('status')).toHaveTextContent('Percentages must be whole numbers');
+    expect(screen.getByRole('status')).toHaveTextContent('Percentages can have at most 2 decimal places');
     // Must NOT show the "must equal 100%" message for this case.
     expect(screen.getByRole('status')).not.toHaveTextContent('must equal 100%');
   });

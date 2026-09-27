@@ -193,3 +193,10 @@ export async function resolveFederatedAddress(address: string): Promise<string> 
     );
   }
 }
+
+/**
+ * Returns true if the address is a federated Stellar address (contains '*').
+ */
+export function isFederatedAddress(address: string): boolean {
+  return typeof address === 'string' && address.includes('*');
+}
