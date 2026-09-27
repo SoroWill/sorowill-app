@@ -61,7 +61,7 @@ describe('useKeyboardShortcuts', () => {
 
   it('should not trigger shortcuts when input element is focused', () => {
     const onNewWill = vi.fn();
-    const { container } = renderHook(() => useKeyboardShortcuts({ onNewWill }), {
+    renderHook(() => useKeyboardShortcuts({ onNewWill }), {
       wrapper: ({ children }) => {
         return <div>{children}</div>;
       },
@@ -143,5 +143,47 @@ describe('useKeyboardShortcuts', () => {
     });
 
     expect(onNewWill).toHaveBeenCalledOnce();
+  });
+
+  it('registers keydown listener once and does not re-attach on parent re-renders (#451)', () => {
+    const addListenerSpy = vi.spyOn(document, 'addEventListener');
+    const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+    let handlerA = vi.fn();
+    let handlerB = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ handler }) => useKeyboardShortcuts({ onNewWill: handler }),
+      { initialProps: { handler: handlerA } },
+    );
+
+    // Initial mount attaches keydown listener once
+    const initialKeydownListeners = addListenerSpy.mock.calls.filter(
+      ([event]) => event === 'keydown',
+    );
+    expect(initialKeydownListeners).toHaveLength(1);
+
+    // Re-render multiple times with new handler function references
+    rerender({ handler: handlerB });
+    rerender({ handler: handlerB });
+
+    // Listener count should remain exactly 1 (not re-attached)
+    const afterRerenderKeydownListeners = addListenerSpy.mock.calls.filter(
+      ([event]) => event === 'keydown',
+    );
+    expect(afterRerenderKeydownListeners).toHaveLength(1);
+    expect(removeListenerSpy).not.toHaveBeenCalled();
+
+    // Trigger keydown: verify it calls the latest handler (handlerB), not stale handlerA
+    const event = new KeyboardEvent('keydown', { key: 'n' });
+    act(() => {
+      document.dispatchEvent(event);
+    });
+
+    expect(handlerA).not.toHaveBeenCalled();
+    expect(handlerB).toHaveBeenCalledOnce();
+
+    addListenerSpy.mockRestore();
+    removeListenerSpy.mockRestore();
   });
 });
