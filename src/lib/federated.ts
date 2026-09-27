@@ -32,6 +32,27 @@ const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
 const STRICT_HOSTNAME_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*(?::\d+)?$/;
 
 /**
+ * True when `address` looks like a Stellar federated address (`name*domain.tld`):
+ * exactly one `*`, a non-empty name in front of it, and a domain that passes
+ * {@link STRICT_HOSTNAME_REGEX}.
+ *
+ * The forms use this to decide whether an entry still needs resolving before the
+ * will can be submitted. It is the synchronous half of
+ * {@link resolveFederatedAddress} and must stay in step with it: whatever this
+ * accepts is what `resolveFederatedAddress` will try to fetch.
+ */
+export function isFederatedAddress(address: string): boolean {
+  const value = (address ?? '').trim();
+  const starIndex = value.indexOf('*');
+
+  if (starIndex <= 0) return false;
+  if (value.indexOf('*', starIndex + 1) !== -1) return false;
+
+  const domain = value.slice(starIndex + 1);
+  return domain.length > 0 && STRICT_HOSTNAME_REGEX.test(domain);
+}
+
+/**
  * Resolves a Stellar federated address (e.g., "user*example.com") to a Stellar account ID.
  *
  * For non-federated addresses (those not containing a `*`), returns the input unchanged.
