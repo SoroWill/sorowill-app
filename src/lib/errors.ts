@@ -24,16 +24,19 @@ const KNOWN_ERROR_PATTERNS: ReadonlyArray<{
   friendly: string;
 }> = [
   {
-    test: (message) =>
-      message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch'),
-    friendly:
-      'Unable to reach the blockchain network. Please check your connection and try again.',
-  },
-  {
+    // Must run before the network check below: "Smart contract not found on the
+    // network" contains "network" and would otherwise be reported as a
+    // connectivity problem instead of a missing contract (#188).
     test: (message) =>
       message.toLowerCase().includes('contract') &&
       message.toLowerCase().includes('not found'),
     friendly: 'The smart contract could not be found on the network.',
+  },
+  {
+    test: (message) =>
+      message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch'),
+    friendly:
+      'Unable to reach the blockchain network. Please check your connection and try again.',
   },
   {
     test: (message) => isWillNotFoundMessage(message),
