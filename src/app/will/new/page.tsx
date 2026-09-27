@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatUSDC, toStroops, validateBeneficiaries, type Beneficiary } from '@sorowill/sdk';
 
 import { truncateAddress, safeGetPublicKey } from '@/lib/freighter';
+import { loadCloneSource } from '@/lib/cloneSource';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { GUARDIAN_THRESHOLD, MAX_GUARDIANS } from '@/lib/constants';
 import { formatError } from '@/lib/errors';
@@ -72,6 +73,7 @@ export default function NewWillPage() {
   const [gracePeriodDays, setGracePeriodDays] = useState(7);
   const [guardians, setGuardians] = useState<string[]>([]);
   const [cloneLoading, setCloneLoading] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
   const [resumeAvailable, setResumeAvailable] = useState(false);
 
   const stableGuardianIds = useStableRowIds(guardians.length);
@@ -128,24 +130,49 @@ export default function NewWillPage() {
   }, []);
 
   useEffect(() => {
-    if (cloneFromId) {
-      setCloneLoading(true);
-      getSoroWillClient()
-        .getWill(cloneFromId)
-        .then((sourceWill) => {
-          setToken(sourceWill.token);
-          setBeneficiaries(sourceWill.beneficiaries);
-          setCheckinPeriodDays(sourceWill.checkinPeriodDays);
-          setGracePeriodDays(sourceWill.gracePeriodDays);
-          setGuardians(sourceWill.guardians);
-          setCloneLoading(false);
-        })
-        .catch((err) => {
-          setError(formatError(err));
-          setCloneLoading(false);
-        });
-    }
+    if (!cloneFromId) return;
+
+    let cancelled = false;
+    setCloneLoading(true);
+    setCloneError(null);
+
+    void (async () => {
+      const client = getSoroWillClient();
+      const viewer = await safeGetPublicKey();
+      // Issue #441: the clone only proceeds when the source will was fetched
+      // *and* the connected wallet is still part of it. Otherwise the form is
+      // left empty and the user is told what happened, instead of being handed
+      // settings they may no longer have any claim to.
+      const result = await loadCloneSource((id) => client.getWill(id), cloneFromId, viewer);
+
+      if (cancelled) return;
+
+      if (!result.ok) {
+        setCloneError(result.message);
+        setCloneLoading(false);
+        return;
+      }
+
+      const sourceWill = result.will;
+      setToken(sourceWill.token);
+      setBeneficiaries(sourceWill.beneficiaries);
+      setCheckinPeriodDays(sourceWill.checkinPeriodDays);
+      setGracePeriodDays(sourceWill.gracePeriodDays);
+      setGuardians(sourceWill.guardians);
+      setCloneLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [cloneFromId]);
+
+  /** Abandons a clone that failed validation and drops `?cloneFrom` so a reload does not retry it. */
+  function dismissCloneError() {
+    setCloneError(null);
+    setCloneLoading(false);
+    router.replace('/will/new');
+  }
 
   const tokenValid = CONTRACT_ADDRESS_PATTERN.test(token.trim());
   const showTokenError = token.trim() !== '' && !tokenValid;
@@ -390,6 +417,27 @@ export default function NewWillPage() {
               Resume
             </button>
           </div>
+        </div>
+      )}
+
+      {cloneError && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-6 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="text-sm font-medium text-red-300">{cloneError}</p>
+            <p className="mt-1 text-xs text-red-300/70">
+              Nothing was copied from the original will.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={dismissCloneError}
+            className="self-start rounded-full border border-red-400/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400/70 sm:self-auto"
+          >
+            Start a new will
+          </button>
         </div>
       )}
 
