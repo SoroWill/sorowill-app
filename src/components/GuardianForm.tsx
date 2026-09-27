@@ -20,6 +20,8 @@ export interface GuardianFormProps {
   topError: string | null;
   /** Indices of blank guardian rows (shown as warning). */
   blankGuardianIndices: number[];
+  /** Connected will owner address, to prevent self-guardianship. */
+  ownerAddress?: string | null;
 
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -44,6 +46,7 @@ export function GuardianForm({
   rowErrors,
   topError,
   blankGuardianIndices,
+  ownerAddress,
   onAdd,
   onRemove,
   onUpdate,
@@ -73,6 +76,17 @@ export function GuardianForm({
 
       {guardians.map((guardian, index) => {
         const guardianId = guardianIds.get(index) || '';
+        const trimmedGuardian = guardian.trim();
+        const isOwner = Boolean(
+          ownerAddress &&
+            trimmedGuardian &&
+            trimmedGuardian.toLowerCase() === ownerAddress.trim().toLowerCase(),
+        );
+        const hasError = Boolean(rowErrors[index] || isOwner);
+        const errorMessage = isOwner
+          ? 'You cannot be your own guardian'
+          : rowErrors[index];
+
         return (
           <div key={guardianId} className="space-y-2">
             <div className="flex items-center gap-2">
@@ -85,10 +99,10 @@ export function GuardianForm({
                 value={guardian}
                 onChange={(e) => onUpdate(index, e.target.value)}
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
-                aria-describedby={rowErrors[index] ? `guardian-error-${index}` : undefined}
-                aria-invalid={rowErrors[index] ? 'true' : undefined}
+                aria-describedby={hasError ? `guardian-error-${index}` : undefined}
+                aria-invalid={hasError ? 'true' : undefined}
                 className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
-                  rowErrors[index]
+                  hasError
                     ? 'border-red-400/60 bg-red-500/5 focus:border-red-400'
                     : guardian.trim() === '' && guardians.length > 0
                     ? 'border-amber-400/40 bg-white/5 focus:border-will-purple'
@@ -130,17 +144,17 @@ export function GuardianForm({
               </div>
             )}
 
-            {rowErrors[index] ? (
+            {hasError && errorMessage ? (
               <p
                 id={`guardian-error-${index}`}
                 className="text-xs text-red-400"
                 role="alert"
               >
-                {rowErrors[index]}
+                {errorMessage}
               </p>
             ) : null}
 
-            {!rowErrors[index] && guardian.trim() === '' ? (
+            {!hasError && guardian.trim() === '' ? (
               <p className="text-xs text-amber-400/80">
                 This empty row will be excluded when the will is submitted.
               </p>

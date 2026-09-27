@@ -114,8 +114,8 @@ export function validateGuardians(
       continue;
     }
 
-    if (ownerAddress && g === ownerAddress) {
-      rowErrors[i] = 'A guardian cannot be the same as the will owner';
+    if (ownerAddress && g.toLowerCase() === ownerAddress.toLowerCase()) {
+      rowErrors[i] = 'You cannot be your own guardian';
       continue;
     }
 

@@ -156,7 +156,7 @@ describe('validateGuardians — Duplicate Detection', () => {
     const guardians = [VALID_ADDR_1, VALID_ADDR_2];
     const { rowErrors, topError } = validateGuardians(guardians, ownerAddress);
 
-    expect(rowErrors[0]).toBe('A guardian cannot be the same as the will owner');
+    expect(rowErrors[0]).toBe('You cannot be your own guardian');
     expect(rowErrors[1]).toBe('');
     expect(topError).not.toBeNull();
   });

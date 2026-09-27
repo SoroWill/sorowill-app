@@ -152,4 +152,56 @@ describe('GuardianForm — validation display', () => {
     render(<GuardianForm {...props} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Not a valid Stellar address');
   });
+
+  describe('GuardianForm — owner address validation (#446)', () => {
+    const OWNER_ADDR = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+    const OTHER_ADDR = 'GCEZWKCA5VLDGRLN5RGDQ6KFDCLRTCWDQET46Z6UTUZ65ACNCKAX2MZK';
+
+    it('rejects owner address with "You cannot be your own guardian"', () => {
+      const props = {
+        ...baseProps([OWNER_ADDR]),
+        ownerAddress: OWNER_ADDR,
+      };
+      render(<GuardianForm {...props} />);
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent('You cannot be your own guardian');
+
+      const input = screen.getByLabelText(/guardian 1 address/i);
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(input.className).toContain('border-red-400/60');
+    });
+
+    it('highlights already-added guardian that matches owner address while other guardians remain valid', () => {
+      const props = {
+        ...baseProps([OTHER_ADDR, OWNER_ADDR]),
+        ownerAddress: OWNER_ADDR,
+      };
+      render(<GuardianForm {...props} />);
+
+      const input1 = screen.getByLabelText(/guardian 1 address/i);
+      const input2 = screen.getByLabelText(/guardian 2 address/i);
+
+      expect(input1).not.toHaveAttribute('aria-invalid', 'true');
+      expect(input1.className).not.toContain('border-red-400/60');
+
+      expect(input2).toHaveAttribute('aria-invalid', 'true');
+      expect(input2.className).toContain('border-red-400/60');
+
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).toHaveTextContent('You cannot be your own guardian');
+    });
+
+    it('accepts all non-owner addresses without owner error', () => {
+      const props = {
+        ...baseProps([OTHER_ADDR]),
+        ownerAddress: OWNER_ADDR,
+      };
+      render(<GuardianForm {...props} />);
+
+      expect(screen.queryByText('You cannot be your own guardian')).toBeNull();
+      const input = screen.getByLabelText(/guardian 1 address/i);
+      expect(input).not.toHaveAttribute('aria-invalid', 'true');
+    });
+  });
 });
