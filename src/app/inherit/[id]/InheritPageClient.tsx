@@ -7,6 +7,7 @@ import { calculateShares, formatUSDC, WillStatus, type Will } from '@sorowill/sd
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError } from '@/lib/errors';
+import { reportLoadError } from '@/lib/loadErrors';
 import { graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
@@ -48,7 +49,8 @@ export default function InheritPageClient({ id }: { id: string }) {
       if (!isMounted.current) {
         return;
       }
-      setError(formatError(err));
+      // Issue #440: name the failure for the user and log the full error.
+      setError(reportLoadError(err, 'inheritance'));
     } finally {
       if (isMounted.current) {
         setLoading(false);

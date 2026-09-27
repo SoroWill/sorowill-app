@@ -11,6 +11,7 @@ import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError } from '@/lib/errors';
 import { exportWillsToCSV } from '@/lib/willExport';
+import { reportLoadError } from '@/lib/loadErrors';
 import { useToast } from '@/components/Toast';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { WillCard } from '@/components/WillCard';
@@ -134,7 +135,9 @@ export default function DashboardPage() {
       if (!isMounted.current) {
         return;
       }
-      setError(formatError(err));
+      // Issue #440: a failed initial load gets the load copy (and a full stack in
+      // the console) instead of whatever formatError made of it.
+      setError(reportLoadError(err, 'dashboard'));
     } finally {
       if (isMounted.current) {
         setLoading(false);
