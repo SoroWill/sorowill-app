@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 
 import { formatDeadline, WillStatus } from '@sorowill/sdk';
 import { getContractId, stellarExpertUrl } from '@/lib/sorowill';
+import { isValidWillId } from '@/lib/willId';
 import { getCachedWill, buildWillMetadataDescription } from '@/lib/willMetadata';
 import { isWillNotFoundError } from '@/lib/errors';
 import { nextCheckinDeadline } from '@/lib/deadlines';
@@ -25,6 +26,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   let title = 'Verify Will';
   let description = 'A public, read-only view of this will\'s on-chain state.';
   const { id } = await params;
+  if (!isValidWillId(id)) {
+    return { title, description };
+  }
 
   try {
     const will = await getCachedWill(id);
@@ -39,6 +43,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function VerifyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isValidWillId(id)) {
+    notFound();
+  }
+
   let will;
   try {
     will = await getCachedWill(id);
