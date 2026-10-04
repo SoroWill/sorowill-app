@@ -20,6 +20,15 @@ export function claimIsAvailable(status: WillStatus, grace: Date | null, now: nu
   return status === WillStatus.Triggered && grace !== null && now >= grace.getTime();
 }
 
+/**
+ * Deduplicated will-fetch cache.
+ *
+ * Maps a willId to its in-flight promise so that concurrent calls for the
+ * same id share a single RPC request. The entry is removed once the promise
+ * settles so subsequent calls after an error or a data change start fresh.
+ */
+const inflightWillCache = new Map<string, Promise<Will>>();
+
 export default function InheritPageClient({ id }: { id: string }) {
   const toast = useToast();
   const willId = id;
@@ -33,34 +42,100 @@ export default function InheritPageClient({ id }: { id: string }) {
   const [now, setNow] = useState(() => Date.now());
 
   const isMounted = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      // Abort any in-flight request on unmount.
+      abortRef.current?.abort();
     };
   }, []);
 
-  const refetch = useCallback(async () => {
-    try {
-      const fetched = await getSoroWillClient().getWill(willId);
-      if (!isMounted.current) {
-        return;
+  /**
+   * Fetch the will, deduplicating concurrent calls for the same id.
+   *
+   * When an AbortSignal is provided and the request is aborted before it
+   * resolves, the rejection is swallowed so it never reaches error state.
+   */
+  const fetchWill = useCallback(
+    (signal?: AbortSignal): Promise<Will> => {
+      const cached = inflightWillCache.get(willId);
+      if (cached) {
+        return cached;
       }
-      setWill(fetched);
-      setError(null);
-    } catch (err) {
-      if (!isMounted.current) {
-        return;
+
+      const promise = getSoroWillClient()
+        .getWill(willId)
+        .then((fetched) => {
+          inflightWillCache.delete(willId);
+          return fetched;
+        })
+        .catch((err) => {
+          inflightWillCache.delete(willId);
+          throw err;
+        });
+
+      inflightWillCache.set(willId, promise);
+
+      // If the caller provides a signal, race the promise against abort so
+      // the caller can stop waiting without cancelling the underlying RPC
+      // (the SDK does not accept an AbortSignal today).
+      if (signal) {
+        return new Promise<Will>((resolve, reject) => {
+          const onAbort = () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          };
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+          signal.addEventListener('abort', onAbort, { once: true });
+          promise.then(
+            (value) => {
+              signal.removeEventListener('abort', onAbort);
+              resolve(value);
+            },
+            (err) => {
+              signal.removeEventListener('abort', onAbort);
+              reject(err);
+            },
+          );
+        });
       }
-      console.error('Failed to load inheritance will', err);
-      setError(formatLoadError(err));
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+
+      return promise;
     },
     [willId],
+  );
+
+  const refetch = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const fetched = await fetchWill(signal);
+        if (!isMounted.current || signal?.aborted) {
+          return;
+        }
+        setWill(fetched);
+        setError(null);
+      } catch (err) {
+        if (!isMounted.current || signal?.aborted) {
+          return;
+        }
+        // Swallow AbortError — it is an expected cancellation, not a failure.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        console.error('Failed to load inheritance will', err);
+        setError(formatLoadError(err));
+      } finally {
+        if (isMounted.current && !signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [fetchWill],
   );
 
   useEffect(() => {
@@ -77,7 +152,9 @@ export default function InheritPageClient({ id }: { id: string }) {
     }
     // Cancel (ignore) the in-flight request when willId changes or on unmount
     // so stale responses never land in state.
+    abortRef.current?.abort();
     const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     void refetch(controller.signal);
     return () => {
