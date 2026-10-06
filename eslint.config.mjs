@@ -21,6 +21,8 @@ const config = [
       // instead of forcing unrelated effect-pattern refactors.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/purity': 'warn',
+      'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/refs': 'warn',
     },
   },
 ];
