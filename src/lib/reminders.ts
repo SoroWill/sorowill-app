@@ -411,7 +411,7 @@ export function buildReminderEmailContent({
   text: string;
   unsubscribeUrl: string;
 } {
-  const unsubscribeUrl = `${appUrl}/api/reminders/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const unsubscribeUrl = `${appUrl}/api/reminders/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}&lang=en`;
   const escapedWillId = escapeHtml(willId);
   const escapedUrl = escapeHtml(unsubscribeUrl);
   const deadlineStr = deadline.toISOString();
