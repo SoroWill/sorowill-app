@@ -136,7 +136,7 @@ export default function FAQPage() {
                 will remains active.
               </p>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
