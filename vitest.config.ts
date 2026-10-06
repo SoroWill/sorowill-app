@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      viem: path.resolve(__dirname, 'tests/mocks/viem.ts'),
     },
   },
   test: {
