@@ -124,7 +124,12 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const client = getSoroWillClient();
+      let client;
+      try {
+        client = getSoroWillClient();
+      } catch (initError) {
+        throw new Error(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+      }
       const [owned, inheriting, guardian] = await Promise.all([
         client.getWillsByOwner(owner),
         client.getWillsByBeneficiary(owner),
@@ -161,7 +166,14 @@ export default function DashboardPage() {
     if (!publicKey) return;
     setIsRefreshing(true);
     try {
-      const client = getSoroWillClient();
+      let client;
+      try {
+        client = getSoroWillClient();
+      } catch (initError) {
+        setIsRefreshing(false);
+        setError(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        return;
+      }
       const [owned, inheriting, guardian] = await Promise.all([
         client.getWillsByOwner(publicKey),
         client.getWillsByBeneficiary(publicKey),
