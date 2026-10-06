@@ -72,7 +72,7 @@ function CardSkeleton() {
   );
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const toast = useToast();
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -709,3 +709,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+export default DashboardPageContent;
