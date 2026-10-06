@@ -3,9 +3,9 @@ process.env.NEXT_PUBLIC_CONTRACT_ID = `C${'A'.repeat(55)}`
 
 const GUARDIAN = 'GGUARDIANADDRESS'
 
-vi.mock('@sorowill/sdk', () => ({
-  SoroWillClient: vi.fn().mockImplementation(() => ({
-    getWill: (willId: string) => {
+vi.mock('@sorowill/sdk', () => {
+  class MockSoroWillClient {
+    getWill(willId: string) {
       const id = Number(willId)
       if (id === 35) {
         return Promise.resolve({
@@ -17,9 +17,12 @@ vi.mock('@sorowill/sdk', () => ({
         return Promise.resolve({ id: willId, guardians: [] })
       }
       return Promise.reject(new Error('will not found'))
-    },
-  })),
-}))
+    }
+  }
+  return {
+    SoroWillClient: MockSoroWillClient,
+  }
+})
 
 describe('getWillsByGuardian (Issue #172)', () => {
   it('finds a will with an ID beyond the old hardcoded 1-30 scan range', async () => {

@@ -56,9 +56,9 @@ describe('Federated Address Resolution Integration (#32, #186, #187, #217, #258)
   it('substitutes resolved address into submitted guardian payload (#217)', () => {
     const guardians = ['alice*example.com'];
     const resolvedGuardians = new Map([['id-1', 'GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345']]);
-    const stableIds = ['id-1'];
+    const guardianIds = new Map([[0, 'id-1']]);
 
-    const submitted = getSubmittedGuardians(guardians, resolvedGuardians, stableIds);
+    const submitted = getSubmittedGuardians(guardians, resolvedGuardians, guardianIds);
     expect(submitted[0]).toBe('GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345');
     expect(submitted[0]).not.toContain('*');
   });
