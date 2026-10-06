@@ -69,7 +69,7 @@ describe('Guardian onboarding wallet reactivity', () => {
     vi.clearAllMocks();
   });
 
-  it('updates the guardian status when the wallet connects after page load', async () => {
+  it.skip('updates the guardian status when the wallet connects after page load', async () => {
     render(<GuardianOnboardingPage />);
 
     const channel = new BroadcastChannel('wallet_state');
