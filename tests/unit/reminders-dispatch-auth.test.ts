@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/reminders', () => ({
-  dispatchReminderEmails: vi.fn().mockResolvedValue({ sent: 1, skipped: 0, errors: [] }),
+vi.mock('@/lib/reminders/dispatch', () => ({
+  dispatchDueReminders: vi.fn().mockResolvedValue({ sent: 1, skipped: 0, errors: [] }),
 }));
 
 import { POST } from '@/app/api/reminders/dispatch/route';

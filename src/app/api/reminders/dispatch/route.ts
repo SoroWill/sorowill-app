@@ -18,6 +18,30 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aHash, bHash);
 }
 
+async function handleDispatch(request: Request) {
+  const expectedToken = process.env.CRON_SECRET;
+
+  // Fail closed: if CRON_SECRET is not configured, reject the request rather
+  // than skipping the auth check and exposing the endpoint publicly.
+  if (!expectedToken) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401 },
+    );
+  }
+
+  const authHeader = request.headers.get('authorization') ?? '';
+  const expectedHeader = `Bearer ${expectedToken}`;
+
+  if (!constantTimeEqual(authHeader, expectedHeader)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const result = await dispatchDueReminders();
+
+  return NextResponse.json(result);
+}
+
 export async function GET(request: Request) {
   const expectedToken = process.env.CRON_SECRET;
 
@@ -40,4 +64,8 @@ export async function GET(request: Request) {
   const result = await dispatchDueReminders();
 
   return NextResponse.json(result);
+}
+
+export async function POST(request: Request) {
+  return handleDispatch(request);
 }
