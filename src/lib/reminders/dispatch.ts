@@ -51,3 +51,12 @@ export async function dispatchReminderEmails(
 
   return result;
 }
+
+export async function dispatchDueReminders(): Promise<ReminderDispatchResult> {
+  // Stub: would fetch subscriptions from KV and dispatch
+  return {
+    sent: 0,
+    skipped: 0,
+    errors: [],
+  };
+}
