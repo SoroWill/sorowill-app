@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useLocale } from 'next-intl';
 
 import { supportedLocales, type SupportedLocale } from '@/i18n/negotiate';
