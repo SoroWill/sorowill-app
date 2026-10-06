@@ -5,6 +5,7 @@ import GuardianOnboardingPage from '@/app/guardian/onboard/page';
 import { safeGetPublicKey } from '@/lib/freighter';
 
 vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams('willId=abc123'),
 }));
 
@@ -69,7 +70,7 @@ describe('Guardian onboarding wallet reactivity', () => {
     vi.clearAllMocks();
   });
 
-  it.skip('updates the guardian status when the wallet connects after page load', async () => {
+  it.skip('updates the guardian status when the wallet connects after page load — requires Next.js app context', async () => {
     render(<GuardianOnboardingPage />);
 
     const channel = new BroadcastChannel('wallet_state');
