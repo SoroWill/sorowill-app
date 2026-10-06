@@ -30,6 +30,16 @@ export function useKeyboardShortcuts(props: UseKeyboardShortcutsProps) {
         return;
       }
 
+      // Don't trigger shortcuts when typing in input/textarea/contenteditable
+      const target = event.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.contentEditable === 'true')
+      ) {
+        return;
+      }
+
       const keyNewWill = keys.newWill || 'n';
       const keySearch = keys.search || '/';
       const keyHelp = keys.help || '?';
