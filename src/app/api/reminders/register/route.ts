@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await registerReminderSubscription({ willId, email, owner, appUrl });
+    const result = await registerReminderSubscription({ willId, email, owner });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not register reminder';

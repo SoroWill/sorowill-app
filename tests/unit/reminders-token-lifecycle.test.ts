@@ -157,7 +157,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'alice@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       expect(result.ok).toBe(true);
@@ -175,7 +174,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'alice@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       const token = reg.subscription!.confirmationToken!;
@@ -197,7 +195,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'alice@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       const token = reg.subscription!.confirmationToken!;
@@ -246,7 +243,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'carol@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
       const token = reg.subscription!.confirmationToken!;
 
@@ -273,7 +269,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'dave@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       expect(reg.subscription?.unsubscribeToken).toBeTruthy();
@@ -285,14 +280,10 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'dave@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       // Calling function directly without token
-      const res = await unsubscribeReminderSubscription({
-        willId: WILL_ID,
-        email: 'dave@example.com',
-      });
+      const res = await unsubscribeReminderSubscription({});
       expect(res.ok).toBe(false);
       expect(res.error).toMatch(/token is required/i);
 
@@ -319,13 +310,10 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'dave@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
 
       const res = await unsubscribeReminderSubscription({
         token: 'wrong-token-1234',
-        willId: WILL_ID,
-        email: 'dave@example.com',
       });
       expect(res.ok).toBe(false);
       expect(res.error).toBe('Invalid or expired unsubscribe token.');
@@ -339,7 +327,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'eve@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
       const unsubToken = reg.subscription!.unsubscribeToken!;
 
@@ -356,7 +343,6 @@ describe('Reminder Token Lifecycle & Security', () => {
         willId: WILL_ID,
         email: 'frank@example.com',
         owner: 'GOWNER123',
-        appUrl: 'https://app.sorowill.org',
       });
       const unsubToken2 = reg2.subscription!.unsubscribeToken!;
 
@@ -399,7 +385,7 @@ describe('Reminder Token Lifecycle & Security', () => {
       const unsubscribeToken = 'unsub-tok-xyz-456';
 
       const { text, html, unsubscribeUrl } = buildReminderEmailContent({
-        appUrl: 'https://app.sorowill.org?mode=auto&lang=en',
+        appUrl: 'http://localhost:3000',
         willId,
         deadline,
         reminderKind: 'well-before',

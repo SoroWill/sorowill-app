@@ -39,7 +39,7 @@ async function handleUnsubscribe(request: Request) {
   }
 
   try {
-    const result = await unsubscribeReminderSubscription({ token, willId, email });
+    const result = await unsubscribeReminderSubscription({ token });
     const message = result.ok
       ? 'You have been unsubscribed from check-in reminder emails for this will.'
       : result.error || 'Could not process unsubscribe request.';

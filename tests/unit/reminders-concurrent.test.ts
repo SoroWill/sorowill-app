@@ -185,13 +185,11 @@ describe('#221 concurrent register + dispatch — no writes lost', () => {
         willId: WILL_ID,
         email: 'alice@example.com',
         owner: 'GOWNER',
-        appUrl: 'http://localhost:3000',
       }),
       registerReminderSubscription({
         willId: WILL_ID,
         email: 'bob@example.com',
         owner: 'GOWNER',
-        appUrl: 'http://localhost:3000',
       }),
     ]);
 
@@ -227,7 +225,6 @@ describe('#221 concurrent register + dispatch — no writes lost', () => {
         willId: WILL_ID,
         email: 'newcomer@example.com',
         owner: 'GOWNER',
-        appUrl: 'http://localhost:3000',
       }),
       dispatchReminderEmails(),
     ]);
@@ -327,7 +324,6 @@ describe('#221 concurrent register + dispatch — no writes lost', () => {
         willId: WILL_ID,
         email: 'newcomer@example.com',
         owner: 'GOWNER',
-        appUrl: 'http://localhost:3000',
       }),
       dispatchReminderEmails(),
     ]);
@@ -362,7 +358,6 @@ describe('#221 concurrent register + dispatch — no writes lost', () => {
       willId: WILL_ID,
       email: 'alice@example.com',
       owner: 'GOWNER',
-      appUrl: 'http://localhost:3000',
     });
 
     expect(result.ok).toBe(true);
