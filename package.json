@@ -20,8 +20,8 @@
     "test:reminders": "tsx src/lib/reminders.test.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "analytics:mock": "echo 'plausible'"
-    ,"check:changelog": "node scripts/validate-changelog.mjs"
+    "analytics:mock": "echo 'plausible'",
+    "check:changelog": "node scripts/validate-changelog.mjs"
   },
   "dependencies": {
     "@sorowill/sdk": "^0.1.0",
@@ -59,6 +59,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3",
+    "vite": "^8.3.3",
     "vitest": "^5.0.2"
   },
   "engines": {

@@ -213,11 +213,11 @@ describe('Offline Shell', () => {
     expect(offlinePagePath).toContain('offline');
   });
 
-  it('should serve offline page when network request fails', () => {
+  it('should serve offline page when network request fails', async () => {
     const mockFetch = vi.fn();
     mockFetch.mockRejectedValue(new Error('Network error'));
 
-    expect(mockFetch).rejects.toThrow('Network error');
+    await expect(mockFetch()).rejects.toThrow('Network error');
   });
 
   it('should display meaningful offline message', () => {

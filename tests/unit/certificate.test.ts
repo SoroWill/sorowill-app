@@ -24,7 +24,7 @@ vi.mock('jspdf', () => {
     save: vi.fn(),
     internal: { pageSize: { getHeight: vi.fn(() => 841) } },
   };
-  return { jsPDF: vi.fn(() => mockDoc) };
+  return { jsPDF: class { constructor() { return mockDoc; } } };
 });
 
 vi.mock('qrcode', () => ({

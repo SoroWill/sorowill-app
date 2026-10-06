@@ -73,8 +73,12 @@ const STRICT_HOSTNAME_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-
  * const accountId = await resolveFederatedAddress("GXXXXXX...");
  * // Returns: "GXXXXXX..." (same as input)
  */
+export function isFederatedAddress(address: string): boolean {
+  return address.includes('*');
+}
+
 export async function resolveFederatedAddress(address: string): Promise<string> {
-  if (!address.includes('*')) {
+  if (!isFederatedAddress(address)) {
     return address;
   }
 

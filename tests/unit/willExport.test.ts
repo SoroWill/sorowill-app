@@ -8,7 +8,7 @@ function makeTestWill(overrides: Partial<Will> = {}): Will {
     owner: 'GABC...XYZ',
     status: 'Active',
     balance: 1000000000n,
-    token: 'ccw67htgnfmxkfgrr2mkrb2v6dnfgblxjofkldlnoicl5ux4yk7cpla',
+    token: 'ccw67htgnfmxkfgrr2mkrb2v6dnfgblxjofkldlnoicl5ux4yk7cplaa',
     checkinPeriodDays: 90,
     lastCheckin: Date.now() / 1000 - 86_400 * 30,
     gracePeriodDays: 7,

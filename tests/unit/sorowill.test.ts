@@ -285,7 +285,7 @@ describe('sorowill.ts helpers', () => {
       const { getContractId, resetSoroWillClient } = await import('@/lib/sorowill');
       resetSoroWillClient();
 
-      expect(() => getContractId()).toThrow(/may point at a different network/);
+      expect(() => getContractId()).toThrow(/NEXT_PUBLIC_CONTRACT_ID_MAINNET/);
     });
 
     it('prefers NEXT_PUBLIC_CONTRACT_ID_TESTNET over the generic ID on testnet', async () => {
