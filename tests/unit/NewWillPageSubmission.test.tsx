@@ -30,7 +30,16 @@ vi.mock('@/lib/federated', () => ({
   resolveFederatedAddress: vi.fn(),
 }));
 
+import { ToastProvider } from '@/components/Toast';
 import NewWillPage from '@/app/will/new/page';
+
+function Harness() {
+  return (
+    <ToastProvider>
+      <NewWillPage />
+    </ToastProvider>
+  );
+}
 
 describe('NewWillPage submission', () => {
   beforeEach(() => {
@@ -41,7 +50,7 @@ describe('NewWillPage submission', () => {
 
   it('clears the submitting state after a network error', async () => {
     const user = userEvent.setup();
-    render(<NewWillPage />);
+    render(<Harness />);
 
     await user.type(screen.getByLabelText('Token contract address'), `C${'A'.repeat(55)}`);
     await user.type(screen.getByLabelText('Amount (USDC)'), '1');
@@ -67,7 +76,7 @@ describe('NewWillPage submission', () => {
   it('clears the submitting state after a successful submission', async () => {
     const user = userEvent.setup();
     createWill.mockResolvedValue({ willId: 'will-123' });
-    render(<NewWillPage />);
+    render(<Harness />);
 
     await user.type(screen.getByLabelText('Token contract address'), `C${'A'.repeat(55)}`);
     await user.type(screen.getByLabelText('Amount (USDC)'), '1');

@@ -27,7 +27,7 @@ describe('CopyAddress clipboard error handling (#220)', () => {
     const copyBtn = screen.getByRole('button', { name: /copy/i });
     copyBtn.click();
 
-    expect(await screen.findByRole('status', { name: /error/i })).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
 
     Object.assign(navigator, { clipboard: originalClipboard });
   });

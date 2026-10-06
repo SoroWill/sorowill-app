@@ -103,7 +103,7 @@ describe('GuardianPanel', () => {
     const copyBtn = screen.getByRole('button', { name: /copy invite link for guardian 1/i });
     copyBtn.click();
 
-    expect(await screen.findByRole('status', { name: /error/i })).toHaveTextContent(
+    expect(await screen.findByRole('alert')).toHaveTextContent(
       /failed to copy invite link/i,
     );
 

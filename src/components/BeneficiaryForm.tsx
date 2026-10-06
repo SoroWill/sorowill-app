@@ -342,13 +342,25 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={addRow}
-        className="w-full rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
-      >
-        + Add beneficiary
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const splits = equalSplit(value.length);
+            onChange(value.map((b, i) => ({ ...b, percentage: splits[i] })));
+          }}
+          className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
+        >
+          Split equally
+        </button>
+        <button
+          type="button"
+          onClick={addRow}
+          className="flex-1 rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
+        >
+          + Add beneficiary
+        </button>
+      </div>
 
       <div
         className={`text-sm ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}

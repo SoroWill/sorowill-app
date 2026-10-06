@@ -27,6 +27,7 @@ vi.mock('next-intl', async (importOriginal) => {
 // ─── Toast stub ───────────────────────────────────────────────────────────────
 vi.mock('@/components/Toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
+  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // ─── Freighter stub ───────────────────────────────────────────────────────────
