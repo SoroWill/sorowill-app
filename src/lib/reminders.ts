@@ -297,6 +297,18 @@ export async function registerReminderSubscription({
   email: string;
   owner: string;
   appUrl: string;
+}): Promise<{ subscriptionKey: string }> {
+  const store = await readStore();
+  const subscriptionKey = `${willId}:${normalizeEmail(email)}`;
 
+  store.subscriptions[subscriptionKey] = {
+    willId,
+    email: normalizeEmail(email),
+    owner,
+    appUrl,
+    subscribedAt: new Date().toISOString(),
+  };
 
-/* … truncated 8338 chars — edit only what you need near the top … */
+  await writeStore(store);
+  return { subscriptionKey };
+}
