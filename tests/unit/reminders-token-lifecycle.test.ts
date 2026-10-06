@@ -98,6 +98,31 @@ function makeKvFetch(storeKey: string, lockKey: string) {
       return new Response(JSON.stringify({ result: 1 }), { status: 200 });
     }
 
+    if (command === 'eval' && method === 'POST') {
+      const evalBody = JSON.parse((init?.body as string) ?? '{}') as {
+        script?: string;
+        keys?: string[];
+        arguments?: string[];
+      };
+      const key = evalBody.keys?.[0];
+      const token = evalBody.arguments?.[0];
+      // Compare and delete: if kvLock === token, delete it
+      if (key === lockKey && kvLock === token) {
+        kvLock = null;
+        return new Response(JSON.stringify({ result: 1 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ result: 0 }), { status: 200 });
+    }
+
+    if (command === 'expire' && method === 'POST') {
+      // Lock renewal: if lock exists, keep it
+      const key = decodeURIComponent(segments[1] ?? '');
+      if (key === lockKey && kvLock !== null) {
+        return new Response(JSON.stringify({ result: 1 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ result: 0 }), { status: 200 });
+    }
+
     return new Response(JSON.stringify({ result: null }), { status: 200 });
   };
 }

@@ -28,6 +28,9 @@ export const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
  * Applied to all dynamic values interpolated into HTML email templates.
  */
 export function escapeHtml(value: string): string {
+  if (typeof value !== 'string') {
+    value = String(value);
+  }
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -297,18 +300,172 @@ export async function registerReminderSubscription({
   email: string;
   owner: string;
   appUrl: string;
-}): Promise<{ subscriptionKey: string }> {
-  const store = await readStore();
-  const subscriptionKey = `${willId}:${normalizeEmail(email)}`;
+}): Promise<ReminderRegistrationResult> {
+  if (!isValidEmail(email)) {
+    return { ok: false, error: 'Invalid email address.' };
+  }
 
-  store.subscriptions[subscriptionKey] = {
-    willId,
-    email: normalizeEmail(email),
-    owner,
-    appUrl,
-    subscribedAt: new Date().toISOString(),
+  const lockToken = await acquireLock();
+  try {
+    const store = await readStore();
+    const normalizedEmail = normalizeEmail(email);
+    const subscriptionKey = `${willId}:${normalizedEmail}`;
+    const confirmationToken = crypto.randomUUID();
+    const now = new Date();
+
+    const subscription: ReminderSubscription = {
+      willId,
+      email: normalizedEmail,
+      owner,
+      confirmed: false,
+      confirmationToken,
+      confirmationExpiresAt: new Date(now.getTime() + CONFIRMATION_TOKEN_TTL_MS).toISOString(),
+      unsubscribeToken: crypto.randomUUID(),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    store.subscriptions[subscriptionKey] = subscription;
+    await writeStore(store);
+
+    return { ok: true, subscription };
+  } finally {
+    await releaseLock(lockToken);
+  }
+}
+
+export async function confirmReminderSubscription(
+  token: string,
+): Promise<ReminderRegistrationResult> {
+  const lockToken = await acquireLock();
+  try {
+    const store = await readStore();
+    let found: { key: string; sub: ReminderSubscription } | null = null;
+
+    for (const [key, sub] of Object.entries(store.subscriptions)) {
+      if (sub.confirmationToken === token) {
+        found = { key, sub };
+        break;
+      }
+    }
+
+    if (!found) {
+      return { ok: false, error: 'Invalid or expired confirmation token.' };
+    }
+
+    const { key, sub } = found;
+    const now = new Date();
+
+    if (sub.confirmationExpiresAt && new Date(sub.confirmationExpiresAt).getTime() < now.getTime()) {
+      return { ok: false, error: 'Invalid or expired confirmation token.' };
+    }
+
+    sub.confirmed = true;
+    sub.confirmationToken = null;
+    sub.confirmationExpiresAt = null;
+    sub.updatedAt = now.toISOString();
+
+    store.subscriptions[key] = sub;
+    await writeStore(store);
+
+    return { ok: true, subscription: sub };
+  } finally {
+    await releaseLock(lockToken);
+  }
+}
+
+export async function unsubscribeReminderSubscription({
+  token,
+  willId,
+  email,
+}: {
+  token?: string;
+  willId?: string;
+  email?: string;
+}): Promise<ReminderRegistrationResult> {
+  // Token-based unsubscribe only (prevent guessing via willId+email)
+  if (!token) {
+    return { ok: false, error: 'A valid unsubscribe token is required.' };
+  }
+
+  const lockToken = await acquireLock();
+  try {
+    const store = await readStore();
+    let found: { key: string; sub: ReminderSubscription } | null = null;
+
+    for (const [key, sub] of Object.entries(store.subscriptions)) {
+      if (sub.unsubscribeToken === token) {
+        found = { key, sub };
+        break;
+      }
+    }
+
+    if (!found) {
+      return { ok: false, error: 'Invalid or expired unsubscribe token.' };
+    }
+
+    pruneSubscription(store, found.key);
+    await writeStore(store);
+
+    return { ok: true };
+  } finally {
+    await releaseLock(lockToken);
+  }
+}
+
+export function buildConfirmationEmailContent({
+  appUrl,
+  token,
+}: {
+  appUrl: string;
+  token: string;
+}): {
+  subject: string;
+  html: string;
+  text: string;
+  confirmUrl: string;
+} {
+  const confirmUrl = `${appUrl}/api/reminders/confirm?token=${encodeURIComponent(token)}`;
+  const escapedUrl = escapeHtml(confirmUrl);
+  return {
+    subject: 'Confirm your SoroWill reminder subscription',
+    html: `<p>Click <a href="${escapedUrl}">${escapedUrl}</a> to confirm your subscription.</p>`,
+    text: `Confirm your subscription: ${confirmUrl}`,
+    confirmUrl,
   };
+}
 
-  await writeStore(store);
-  return { subscriptionKey };
+export function buildReminderEmailContent({
+  appUrl,
+  willId,
+  deadline,
+  reminderKind,
+  unsubscribeToken,
+}: {
+  appUrl: string;
+  willId: string;
+  deadline: Date;
+  reminderKind: ReminderKind;
+  unsubscribeToken: string;
+}): {
+  subject: string;
+  html: string;
+  text: string;
+  unsubscribeUrl: string;
+} {
+  const unsubscribeUrl = `${appUrl}/api/reminders/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+  const escapedWillId = escapeHtml(willId);
+  const escapedUrl = escapeHtml(unsubscribeUrl);
+  const deadlineStr = deadline.toISOString();
+
+  const subject = reminderKind === 'imminent'
+    ? `🚨 Urgent: Your will check-in is due soon`
+    : `📬 Reminder: Check in with your will`;
+
+  return {
+    subject,
+    html: `<p>Will ID: will #${escapedWillId}</p><p>Deadline: ${deadlineStr}</p><p><a href="${escapedUrl}">${escapedUrl}</a></p>`,
+    text: `Will ID: will #${willId}\nDeadline: ${deadlineStr}\nUnsubscribe: ${unsubscribeUrl}`,
+    unsubscribeUrl,
+  };
 }
