@@ -8,8 +8,8 @@ describe("truncateAddress", () => {
 
   it("truncates a real 56-character Stellar address", () => {
     const address =
-      "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ2345";
+      "GCZST3WHSPDTQK37QWFC3KXZK5OJJ53FUWZPAB5XGTK47ZD5PTJUWQXI";
     expect(address).toHaveLength(56);
-    expect(truncateAddress(address)).toBe("GABCDEF...Z2345");
+    expect(truncateAddress(address)).toBe("GCZS...WQXI");
   });
 });
