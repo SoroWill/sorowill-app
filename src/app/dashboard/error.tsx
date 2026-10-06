@@ -20,7 +20,11 @@ export default function DashboardError({
 
   // Log the full error for debugging without exposing it raw to the user.
   if (typeof window !== 'undefined') {
-    console.error('[Dashboard] render error', error);
+    console.error('[Dashboard] render error:', {
+      message: error.message,
+      stack: error.stack,
+      digest: error.digest,
+    });
   }
 
   return (

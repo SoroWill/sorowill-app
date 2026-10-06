@@ -128,16 +128,23 @@ export default function DashboardPage() {
       try {
         client = getSoroWillClient();
       } catch (initError) {
-        throw new Error(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        const errorMsg = initError instanceof Error ? initError.message : String(initError);
+        console.error('[Dashboard] Client init error:', errorMsg);
+        throw new Error(`Failed to initialize Soroban client: ${errorMsg}`);
       }
+
+      console.log('[Dashboard] Client initialized, fetching wills for:', owner);
       const [owned, inheriting, guardian] = await Promise.all([
         client.getWillsByOwner(owner),
         client.getWillsByBeneficiary(owner),
         getWillsByGuardian(owner),
       ]);
+
       if (!isMounted.current) {
         return;
       }
+
+      console.log('[Dashboard] Wills loaded:', { owned: owned.length, inheriting: inheriting.length, guardian: guardian.wills.length });
       setOwnedWills(owned);
       setInheritingWills(inheriting);
       setGuardianWills(guardian.wills);
@@ -147,7 +154,7 @@ export default function DashboardPage() {
       if (!isMounted.current) {
         return;
       }
-      console.error('Failed to load dashboard wills', err);
+      console.error('[Dashboard] Failed to load wills:', err);
       setError(formatLoadError(err));
     } finally {
       if (isMounted.current) {
