@@ -27,7 +27,6 @@ export async function POST(request: Request) {
     const owner = typeof body?.owner === 'string' ? body.owner : '';
     const signature = typeof body?.signature === 'string' ? body.signature : '';
     const message = typeof body?.message === 'string' ? body.message : '';
-    const appUrl = new URL(request.url).origin;
 
     if (!willId || !email || !owner || !signature || !message) {
       return NextResponse.json(

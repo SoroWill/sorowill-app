@@ -5,8 +5,6 @@ import { unsubscribeReminderSubscription } from '@/lib/reminders';
 
 async function handleUnsubscribe(request: Request) {
   const url = new URL(request.url);
-  let willId = url.searchParams.get('willId') || undefined;
-  let email = url.searchParams.get('email') || undefined;
   let token = url.searchParams.get('token') || undefined;
 
   if (request.method === 'POST') {
@@ -15,13 +13,9 @@ async function handleUnsubscribe(request: Request) {
       if (contentType.includes('application/json')) {
         const body = await request.json();
         if (body.token) token = body.token;
-        if (body.willId) willId = body.willId;
-        if (body.email) email = body.email;
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         const formData = await request.formData();
         if (formData.get('token')) token = String(formData.get('token'));
-        if (formData.get('willId')) willId = String(formData.get('willId'));
-        if (formData.get('email')) email = String(formData.get('email'));
       }
     } catch {
       // Fall back to query parameters if body parsing fails
