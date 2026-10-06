@@ -137,6 +137,30 @@ export default function FAQPage() {
               </p>
             </div>
           </div>
+
+          <div className="flex gap-4 rounded-xl border border-white/10 bg-white/5 p-6">
+            <span className="font-mono text-sm font-semibold text-will-purple">04</span>
+            <div>
+              <h3 className="font-semibold text-will-light">Grace Period</h3>
+              <p className="mt-1 text-sm text-will-light/60">
+                A grace period (3, 7, or 14 days) begins after a missed check-in. If you check in during this
+                time, your will remains active and no funds are released. If you do not respond, the grace
+                period expires and funds are released to beneficiaries.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4 rounded-xl border border-white/10 bg-white/5 p-6">
+            <span className="font-mono text-sm font-semibold text-will-purple">05</span>
+            <div>
+              <h3 className="font-semibold text-will-light">Funds Released</h3>
+              <p className="mt-1 text-sm text-will-light/60">
+                Once the grace period expires, the contract automatically distributes your USDC to your
+                beneficiaries according to the percentages you set. Beneficiaries can then claim their
+                share through the inheritance page.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
