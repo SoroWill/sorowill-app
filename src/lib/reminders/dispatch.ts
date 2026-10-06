@@ -1,5 +1,5 @@
 import type { ReminderStore, ReminderDispatchResult } from '@/lib/reminders';
-import { getReminderKind } from '@/lib/reminders';
+import { getReminderKind, acquireLock, releaseLock } from '@/lib/reminders';
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { getSoroWillClient } from '@/lib/sorowill';
 
@@ -91,7 +91,9 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
     errors: [],
   };
 
+  const lockToken = await acquireLock();
   try {
+    // Read store AFTER acquiring lock
     const store = await readStoreFromKv();
     const client = getSoroWillClient();
 
@@ -155,6 +157,8 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
     }
   } catch (err) {
     result.errors.push(`Dispatch failed: ${String(err)}`);
+  } finally {
+    await releaseLock(lockToken);
   }
 
   return result;
