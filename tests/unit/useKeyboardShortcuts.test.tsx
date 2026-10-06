@@ -61,7 +61,7 @@ describe('useKeyboardShortcuts', () => {
 
   it('should not trigger shortcuts when input element is focused', () => {
     const onNewWill = vi.fn();
-    const { container } = renderHook(() => useKeyboardShortcuts({ onNewWill }), {
+    renderHook(() => useKeyboardShortcuts({ onNewWill }), {
       wrapper: ({ children }) => {
         return <div>{children}</div>;
       },
@@ -179,7 +179,7 @@ describe('useKeyboardShortcuts', () => {
       rerender({ nonce: 3 });
       rerender({ nonce: 4 });
 
-      const keydownAddCalls = addSpy.mock.calls.filter(([type]) => type === 'keydown');
+      const keydownAddCalls = addSpy.mock.calls.filter(([type]: [string]) => type === 'keydown');
       expect(keydownAddCalls).toHaveLength(1);
       expect(removeSpy).not.toHaveBeenCalled();
     });
@@ -195,7 +195,7 @@ describe('useKeyboardShortcuts', () => {
       rerender({ nonce: 2 });
       rerender({ nonce: 3 });
 
-      const keydownAddCalls = addSpy.mock.calls.filter(([type]) => type === 'keydown');
+      const keydownAddCalls = addSpy.mock.calls.filter(([type]: [string]) => type === 'keydown');
       expect(keydownAddCalls).toHaveLength(1);
       expect(removeSpy).not.toHaveBeenCalled();
     });
@@ -237,7 +237,7 @@ describe('useKeyboardShortcuts', () => {
 
       expect(onNewWill).toHaveBeenCalledOnce();
 
-      const keydownAddCalls = addSpy.mock.calls.filter(([type]) => type === 'keydown');
+      const keydownAddCalls = addSpy.mock.calls.filter(([type]: [string]) => type === 'keydown');
       expect(keydownAddCalls).toHaveLength(1);
     });
 
@@ -246,7 +246,7 @@ describe('useKeyboardShortcuts', () => {
 
       unmount();
 
-      const keydownRemoveCalls = removeSpy.mock.calls.filter(([type]) => type === 'keydown');
+      const keydownRemoveCalls = removeSpy.mock.calls.filter(([type]: [string]) => type === 'keydown');
       expect(keydownRemoveCalls).toHaveLength(1);
     });
   });

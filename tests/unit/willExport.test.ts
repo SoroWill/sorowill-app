@@ -7,17 +7,17 @@ function makeTestWill(overrides: Partial<Will> = {}): Will {
     id: 'will-123',
     owner: 'GABC...XYZ',
     status: 'Active',
-    balance: 1000000000n,
+    balance: '1000000000',
     token: 'ccw67htgnfmxkfgrr2mkrb2v6dnfgblxjofkldlnoicl5ux4yk7cplaa',
     checkinPeriodDays: 90,
     lastCheckin: Date.now() / 1000 - 86_400 * 30,
     gracePeriodDays: 7,
     beneficiaries: [
-      { address: 'GDEF...ABC', share: 5000n },
-      { address: 'GHIJ...DEF', share: 5000n },
+      { address: 'GDEF...ABC', percentage: 50 },
+      { address: 'GHIJ...DEF', percentage: 50 },
     ],
     guardians: [
-      { address: 'GKLI...GHI', verified: true },
+      'GKLI...GHI',
     ],
     guardianVotes: 0,
     ...overrides,
@@ -67,7 +67,7 @@ describe('willExport', () => {
     });
 
     it('should format balance correctly in CSV', () => {
-      const wills = [makeTestWill({ balance: 500000000n })];
+      const wills = [makeTestWill({ balance: '500000000' })];
       const csv = exportWillsToCSV(wills);
 
       expect(csv).toContain('500');
@@ -77,8 +77,8 @@ describe('willExport', () => {
       const wills = [
         makeTestWill({
           beneficiaries: [
-            { address: 'GBENEFICIARY1', share: 5000n },
-            { address: 'GBENEFICIARY2', share: 5000n },
+            { address: 'GBENEFICIARY1', percentage: 50 },
+            { address: 'GBENEFICIARY2', percentage: 50 },
           ],
         }),
       ];
@@ -92,8 +92,8 @@ describe('willExport', () => {
       const wills = [
         makeTestWill({
           guardians: [
-            { address: 'GGUARDIAN1', verified: true },
-            { address: 'GGUARDIAN2', verified: false },
+            'GGUARDIAN1',
+            'GGUARDIAN2',
           ],
         }),
       ];
@@ -170,8 +170,8 @@ describe('willExport', () => {
     it('should verify all beneficiary addresses are present', () => {
       const original = makeTestWill({
         beneficiaries: [
-          { address: 'GBEN1', share: 5000n },
-          { address: 'GBEN2', share: 5000n },
+          { address: 'GBEN1', percentage: 50 },
+          { address: 'GBEN2', percentage: 50 },
         ],
       });
       const exported = {
@@ -187,8 +187,8 @@ describe('willExport', () => {
     it('should detect missing beneficiaries in export', () => {
       const original = makeTestWill({
         beneficiaries: [
-          { address: 'GBEN1', share: 5000n },
-          { address: 'GBEN2', share: 5000n },
+          { address: 'GBEN1', percentage: 50 },
+          { address: 'GBEN2', percentage: 50 },
         ],
       });
       const exported = {

@@ -7,11 +7,13 @@ vi.mock('@/lib/reminders/dispatch', () => ({
 import { GET } from './route';
 import { dispatchDueReminders } from '@/lib/reminders/dispatch';
 
+const mockDispatchDueReminders = vi.mocked(dispatchDueReminders);
+
 describe('GET /api/reminders/dispatch', () => {
   const originalSecret = process.env.CRON_SECRET;
 
   beforeEach(() => {
-    dispatchDueReminders.mockReset();
+    mockDispatchDueReminders.mockReset();
   });
 
   afterEach(() => {
@@ -32,7 +34,7 @@ describe('GET /api/reminders/dispatch', () => {
     const response = await GET(request);
 
     expect(response.status).toBeGreaterThanOrEqual(400);
-    expect(dispatchDueReminders).not.toHaveBeenCalled();
+    expect(mockDispatchDueReminders).not.toHaveBeenCalled();
   });
 
   it('rejects the request when the bearer token does not match', async () => {
@@ -46,12 +48,12 @@ describe('GET /api/reminders/dispatch', () => {
     const response = await GET(request);
 
     expect(response.status).toBe(401);
-    expect(dispatchDueReminders).not.toHaveBeenCalled();
+    expect(mockDispatchDueReminders).not.toHaveBeenCalled();
   });
 
   it('dispatches reminder emails when the bearer token matches', async () => {
     process.env.CRON_SECRET = 'super-secret';
-    dispatchDueReminders.mockResolvedValue({ sent: 0 });
+    mockDispatchDueReminders.mockResolvedValue({ sent: 0, skipped: 0, errors: [] });
 
     const request = new Request('http://localhost/api/reminders/dispatch', {
       method: 'GET',
@@ -61,6 +63,6 @@ describe('GET /api/reminders/dispatch', () => {
     const response = await GET(request);
 
     expect(response.status).toBe(200);
-    expect(dispatchDueReminders).toHaveBeenCalledTimes(1);
+    expect(mockDispatchDueReminders).toHaveBeenCalledTimes(1);
   });
 });

@@ -48,6 +48,13 @@ const CHANGELOG_ENTRIES = [
   },
 ];
 
+const ROADMAP_ITEMS = [
+  'Email reminders and push notifications',
+  'Multi-signature support for guardianship',
+  'Recovery key management and export',
+  'Advanced analytics and activity dashboard',
+];
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -71,8 +78,8 @@ export default function ChangelogPage() {
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <h2 className="text-2xl font-bold text-will-light">v{entry.version}</h2>
-                {entry.sections[0] && (
-                  <p className="text-sm text-will-light/60">{entry.sections[0].heading}</p>
+                {entry.title && (
+                  <p className="text-sm text-will-light/60">{entry.title}</p>
                 )}
               </div>
               {entry.date && (
@@ -82,23 +89,16 @@ export default function ChangelogPage() {
               )}
             </div>
 
-            {entry.sections.map((section) => (
-              <div key={section.heading} className="mt-4">
-                {entry.sections.length > 1 && (
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-will-light/50">
-                    {section.heading}
-                  </h3>
-                )}
-                <ul className="space-y-3">
-                  {section.items.map((item) => (
-                    <li key={item} className="flex gap-3 text-will-light/80">
-                      <span className="shrink-0 text-will-purple">▸</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            <div className="mt-4">
+              <ul className="space-y-3">
+                {entry.highlights.map((item) => (
+                  <li key={item} className="flex gap-3 text-will-light/80">
+                    <span className="shrink-0 text-will-purple">▸</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             {index === 0 && (
               <div className="mt-4 rounded-lg border border-will-purple/30 bg-will-purple/10 p-3">

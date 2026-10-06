@@ -79,7 +79,7 @@ beforeEach(() => {
     'GPUBKEY1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234',
   );
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  console.error.mockClear?.();
+  vi.clearAllMocks();
 });
 
 afterEach(() => {

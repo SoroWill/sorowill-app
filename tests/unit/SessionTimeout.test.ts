@@ -63,13 +63,13 @@ class SessionTimeoutManager {
 
 describe('Session Timeout / Idle Wallet Disconnect', () => {
   let manager: SessionTimeoutManager;
-  let onWarning: ReturnType<typeof vi.fn>;
-  let onTimeout: ReturnType<typeof vi.fn>;
+  let onWarning: (() => void) & ReturnType<typeof vi.fn>;
+  let onTimeout: (() => void) & ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    onWarning = vi.fn();
-    onTimeout = vi.fn();
+    onWarning = vi.fn() as any;
+    onTimeout = vi.fn() as any;
 
     manager = new SessionTimeoutManager({
       idleTimeoutMs: 15 * 60 * 1000, // 15 minutes

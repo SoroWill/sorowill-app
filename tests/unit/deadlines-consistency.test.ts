@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { nextCheckinDeadline, graceDeadline, formatCheckinLabel } from '@/lib/deadlines';
-import { generateWillCertificatePDF } from '@/lib/certificate';
 import { WillStatus, type Will } from '@sorowill/sdk';
 
 function makeTestWill(overrides: Partial<Will> = {}): Will {

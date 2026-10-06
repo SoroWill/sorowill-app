@@ -71,11 +71,11 @@ describe('i18n message parity (#442)', () => {
       const faq = messages.faq as Record<string, unknown> | undefined;
       expect(faq, 'faq namespace must exist in messages').toBeDefined();
 
-      expect(Object.keys(faq)).toEqual(
+      expect(Object.keys(faq!)).toEqual(
         expect.arrayContaining(['items']),
       );
 
-      const items = faq.items as Array<{ question: string; answer: string }>;
+      const items = faq!.items as Array<{ question: string; answer: string }>;
       expect(Array.isArray(items)).toBe(true);
       expect(items.length).toBeGreaterThan(0);
 

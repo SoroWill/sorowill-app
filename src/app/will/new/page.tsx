@@ -611,7 +611,6 @@ export default function NewWillPage() {
                   max={3650}
                   step={1}
                   value={checkinPeriodDays}
-                  step={1}
                   onChange={(e) => {
                     setCheckinPeriodError(null);
                     const parsed = parsePeriodInput(e.target.value);
@@ -678,7 +677,6 @@ export default function NewWillPage() {
                   max={3650}
                   step={1}
                   value={gracePeriodDays}
-                  step={1}
                   onChange={(e) => {
                     setGracePeriodError(null);
                     const parsed = parsePeriodInput(e.target.value);

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Will } from '@sorowill/sdk';
+import { WillStatus } from '@sorowill/sdk';
 
 vi.mock('react', () => ({
   cache: (fn: Function) => fn,
@@ -21,7 +22,7 @@ const UNKNOWN_TOKEN = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4'
 function makeWill(overrides: Partial<Will> = {}): Will {
   return {
     id: '1',
-    status: 'Active',
+    status: WillStatus.Active,
     // 1,234.5678901 in 7-decimal base units (1_234_567_8901n).
     balance: '12345678901',
     token: UNKNOWN_TOKEN,
@@ -75,7 +76,7 @@ describe('buildWillMetadataDescription (#348)', () => {
 
   it('includes status and beneficiary count in a stable format', () => {
     const will = makeWill({
-      status: 'Triggered',
+      status: WillStatus.Triggered,
       beneficiaries: [
         { address: 'GBBD47UZQ5VOHF4AKOA7CMM7SVQE6AKMOUIVJGN7BQHMPUYKUUY7BK43', percentage: 50 },
         { address: 'GCZST3WHSPDTQK37QWFC3KXZK5OJJ53FUWZPAB5XGTK47ZD5PTJUWQXI', percentage: 50 },

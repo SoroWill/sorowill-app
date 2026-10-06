@@ -599,8 +599,8 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center pt-2 border-t border-white/10">
             <span className="text-sm font-semibold text-will-light">
               Total Amount:{' '}
-              {formatAmount(
-                Object.values(batchAmounts).reduce((sum, val) => sum + (Number(val) || 0), 0),
+              {formatUSDC(
+                BigInt(Object.values(batchAmounts).reduce((sum, val) => sum + (Number(val) || 0), 0)),
               )}{' '}
               USDC
               {invalidBatchWillIds.length > 0 && (

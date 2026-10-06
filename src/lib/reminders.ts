@@ -124,8 +124,6 @@ const TERMINAL_WILL_STATUSES: ReadonlySet<WillStatus> = new Set([
   WillStatus.Triggered,
   WillStatus.Released,
   WillStatus.Cancelled,
-  WillStatus.Archived,
-  WillStatus.Settled,
 ]);
 
 function isTerminalWillStatus(status: WillStatus): boolean {

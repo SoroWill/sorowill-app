@@ -16,8 +16,12 @@ import {
   parseChangelogTopVersion,
   versionHasEntries,
   validateChangelog,
+  // @ts-ignore - MJS files don't have type declarations
 } from '../../scripts/validate-changelog.mjs';
-import { prependChangelogEntry } from '../../scripts/bump-version.mjs';
+import {
+  prependChangelogEntry,
+  // @ts-ignore - MJS files don't have type declarations
+} from '../../scripts/bump-version.mjs';
 
 // ---------------------------------------------------------------------------
 // Fixtures

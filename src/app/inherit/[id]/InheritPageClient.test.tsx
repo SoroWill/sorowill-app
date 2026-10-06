@@ -144,7 +144,7 @@ describe('InheritPageClient', () => {
     await waitFor(() => expect(mockGetWill).toHaveBeenCalledTimes(1));
 
     // Resolve the first fetch; the cache entry is removed.
-    resolveGetWill(makeWill({ id: 42 }));
+    resolveGetWill(makeWill({ id: '42' }));
 
     // A manual refetch after the first settles starts a fresh request.
     await waitFor(() => {
@@ -183,7 +183,7 @@ describe('InheritPageClient', () => {
     unmount();
 
     // Resolving after unmount must not throw (state updates are guarded).
-    resolveGetWill(makeWill({ id: 7 }));
+    resolveGetWill(makeWill({ id: '7' }));
     await new Promise((r) => setTimeout(r, 20));
   });
 });
