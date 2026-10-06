@@ -9,7 +9,7 @@ describe('Federated Address Resolution Integration (#32, #186, #187, #217, #258)
 
   it('resolves federated address with valid TTL and regex validation', async () => {
     const mockToml = 'FEDERATION_SERVER = "https://example.com/federation"';
-    const mockAccount = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const mockAccount = 'GDZST3WHSPDTQK37QWFC3KXZK5OJJ53FUWZPAB5XGTK47ZD5PTJUWQUA';
 
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes('stellar.toml')) {
@@ -55,11 +55,12 @@ describe('Federated Address Resolution Integration (#32, #186, #187, #217, #258)
 
   it('substitutes resolved address into submitted guardian payload (#217)', () => {
     const guardians = ['alice*example.com'];
-    const resolvedGuardians = new Map([['id-1', 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA']]);
+    const mockAccount = 'GDZST3WHSPDTQK37QWFC3KXZK5OJJ53FUWZPAB5XGTK47ZD5PTJUWQUA';
+    const resolvedGuardians = new Map([['id-1', mockAccount]]);
     const guardianIds = new Map([[0, 'id-1']]);
 
     const submitted = getSubmittedGuardians(guardians, resolvedGuardians, guardianIds);
-    expect(submitted[0]).toBe('GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF12345');
+    expect(submitted[0]).toBe(mockAccount);
     expect(submitted[0]).not.toContain('*');
   });
 });
