@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ThemeProvider, useTheme } from '@/components/ThemeProvider';
 
 function stubPrefersDark(prefersDark: boolean) {
@@ -51,7 +52,7 @@ describe('ThemeProvider (#320)', () => {
   it('writes the toggled theme exactly once under StrictMode', () => {
     stubPrefersDark(true);
     document.documentElement.setAttribute('data-theme', 'dark');
-    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    const setItem = vi.spyOn(localStorage, 'setItem');
 
     render(
       <StrictMode>
@@ -60,11 +61,16 @@ describe('ThemeProvider (#320)', () => {
         </ThemeProvider>
       </StrictMode>,
     );
+
+    // Clear any calls from initialization
+    setItem.mockClear();
+
     fireEvent.click(screen.getByRole('button'));
 
     expect(screen.getByRole('button')).toHaveTextContent('light');
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-    expect(setItem.mock.calls.filter(([key]) => key === 'theme')).toEqual([['theme', 'light']]);
+    expect(setItem).toHaveBeenCalledWith('theme', 'light');
+    expect(setItem).toHaveBeenCalledTimes(1);
   });
 
   it('restores the saved preference on mount across a reload (#394)', () => {
