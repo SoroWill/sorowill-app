@@ -311,18 +311,30 @@ export async function registerReminderSubscription({
     const store = await readStore();
     const normalizedEmail = normalizeEmail(email);
     const subscriptionKey = `${willId}:${normalizedEmail}`;
-    const confirmationToken = crypto.randomUUID();
     const now = new Date();
+
+    // Check if subscription already exists
+    const existing = store.subscriptions[subscriptionKey];
+
+    if (existing && existing.confirmed) {
+      // Preserve existing confirmed subscription but update updatedAt
+      existing.updatedAt = now.toISOString();
+      await writeStore(store);
+      return { ok: true, subscription: existing };
+    }
+
+    const confirmationToken = crypto.randomUUID();
+    const createdAt = existing?.createdAt || now.toISOString();
 
     const subscription: ReminderSubscription = {
       willId,
       email: normalizedEmail,
       owner,
-      confirmed: false,
-      confirmationToken,
-      confirmationExpiresAt: new Date(now.getTime() + CONFIRMATION_TOKEN_TTL_MS).toISOString(),
-      unsubscribeToken: crypto.randomUUID(),
-      createdAt: now.toISOString(),
+      confirmed: existing?.confirmed ?? false,
+      confirmationToken: existing?.confirmationToken || confirmationToken,
+      confirmationExpiresAt: existing?.confirmationExpiresAt || new Date(now.getTime() + CONFIRMATION_TOKEN_TTL_MS).toISOString(),
+      unsubscribeToken: existing?.unsubscribeToken || crypto.randomUUID(),
+      createdAt,
       updatedAt: now.toISOString(),
     };
 
