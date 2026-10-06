@@ -31,7 +31,8 @@
     "next-intl": "^4.13.4",
     "qrcode": "^1.5.4",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "viem": "^2.57.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
