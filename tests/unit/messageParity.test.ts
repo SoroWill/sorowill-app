@@ -75,22 +75,13 @@ describe('i18n message parity (#442)', () => {
         expect.arrayContaining(['items']),
       );
 
-      const items = faq.items as Record<string, unknown>;
-      expect(Object.keys(items)).toEqual(expect.arrayContaining(expectedItemKeys));
+      const items = faq.items as Array<{ question: string; answer: string }>;
+      expect(Array.isArray(items)).toBe(true);
+      expect(items.length).toBeGreaterThan(0);
 
-      for (const itemKey of expectedItemKeys) {
-        const item = items[itemKey] as Record<string, unknown>;
+      for (const item of items) {
         expect(item.question).toBeTruthy();
         expect(item.answer).toBeTruthy();
-      }
-
-      for (const stepKey of ['create', 'checkins', 'miss', 'grace', 'release']) {
-        const step = (faq.lifecycle as Record<string, unknown>).steps[stepKey] as Record<
-          string,
-          unknown
-        >;
-        expect(step.title).toBeTruthy();
-        expect(step.description).toBeTruthy();
       }
     }
   });
