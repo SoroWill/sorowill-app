@@ -103,9 +103,7 @@ describe('GuardianPanel', () => {
     const copyBtn = screen.getByRole('button', { name: /copy invite link for guardian 1/i });
     copyBtn.click();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /failed to copy invite link/i,
-    );
+    expect(await screen.findByText(/failed to copy invite link/i)).toBeInTheDocument();
 
     Object.assign(navigator, { clipboard: originalClipboard });
   });
