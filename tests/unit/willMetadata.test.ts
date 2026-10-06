@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { Will } from '@sorowill/sdk';
+
+vi.mock('react', () => ({
+  cache: (fn: Function) => fn,
+}));
+
+vi.mock('@/lib/sorowill', () => ({
+  getSoroWillClient: () => ({}),
+  getNetwork: () => 'testnet',
+}));
 
 import { buildWillMetadataDescription } from '@/lib/willMetadata';
 
