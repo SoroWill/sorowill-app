@@ -8,7 +8,7 @@ import { formatUSDC, toStroops, validateBeneficiaries, type Beneficiary } from '
 import { truncateAddress, safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { GUARDIAN_THRESHOLD, MAX_GUARDIANS } from '@/lib/constants';
-import { formatError, isWillNotFoundMessage } from '@/lib/errors';
+import { formatError, isWillNotFoundMessage, classifyCloneError, type CloneErrorKind } from '@/lib/errors';
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { isValidAmount } from '@/lib/amount';
@@ -185,15 +185,7 @@ export default function NewWillPage() {
           setCloneLoading(false);
         })
         .catch((err) => {
-          const raw = err instanceof Error ? err.message.toLowerCase() : '';
-          const message = /permission|unauthoriz|forbidden|access denied/.test(raw)
-            ? 'You no longer have access to this will.'
-            : isWillNotFoundMessage(raw)
-              ? 'Will has been deleted.'
-              : /network|fetch|timeout/.test(raw)
-                ? 'Unable to fetch will — try again.'
-                : formatError(err);
-          setError(message);
+          setCloneError(classifyCloneError(err));
           setCloneLoading(false);
         });
     }
