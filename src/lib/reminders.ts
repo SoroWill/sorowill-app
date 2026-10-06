@@ -1,7 +1,4 @@
-import { WillStatus, type Will } from '@sorowill/sdk';
 
-import { nextCheckinDeadline } from '@/lib/deadlines';
-import { getSoroWillClient } from '@/lib/sorowill';
 export { dispatchReminderEmails, dispatchReminderBatch, dispatchDueReminders } from '@/lib/reminders/dispatch';
 
 export type ReminderKind = 'well-before' | 'imminent';
@@ -78,9 +75,6 @@ const KV_LOCK_TTL_SECONDS = 30;
 const KV_LOCK_RETRY_DELAY_MS = 100;
 /** Maximum number of acquire retries before giving up. */
 const KV_LOCK_MAX_RETRIES = 20;
-/** Renew the lock when remaining TTL drops below this threshold (seconds). */
-const KV_LOCK_RENEW_THRESHOLD_SECONDS = 10;
-
 function kvConfig(): { url: string; token: string; storeKey: string; lockKey: string } {
   const url = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
@@ -95,13 +89,6 @@ function kvConfig(): { url: string; token: string; storeKey: string; lockKey: st
   return { url, token, storeKey, lockKey: `${storeKey}:lock` };
 }
 
-function getAppBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL;
-  if (configured) return configured.replace(/\/$/, '');
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'http://localhost:3000';
-}
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -112,22 +99,6 @@ function isValidEmail(email: string): boolean {
 
 export function getReminderKind(daysRemaining: number): ReminderKind {
   return daysRemaining <= 14 ? 'imminent' : 'well-before';
-}
-
-/**
- * Terminal will statuses for which reminder subscriptions and history are no
- * longer meaningful. Once a will reaches one of these states it will never
- * become Active again, so its subscription and history entries are pruned from
- * the store to keep it (and the per-run RPC calls it drives) bounded.
- */
-const TERMINAL_WILL_STATUSES: ReadonlySet<WillStatus> = new Set([
-  WillStatus.Triggered,
-  WillStatus.Released,
-  WillStatus.Cancelled,
-]);
-
-function isTerminalWillStatus(status: WillStatus): boolean {
-  return TERMINAL_WILL_STATUSES.has(status);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,16 +187,6 @@ export async function acquireLock(): Promise<string> {
   );
 }
 
-/**
- * Renew the distributed lock TTL if it is close to expiring.
- * Uses Upstash REST EXPIRE to extend the lock by another KV_LOCK_TTL_SECONDS.
- * Returns true if the lock was renewed or still has plenty of time left.
- */
-async function renewLock(lockKey: string): Promise<boolean> {
-  return true; // Stub for now
-}
-
-
 // ---------------------------------------------------------------------------
 // Store read / write
 // ---------------------------------------------------------------------------
@@ -285,12 +246,10 @@ export async function registerReminderSubscription({
   willId,
   email,
   owner,
-  appUrl,
 }: {
   willId: string;
   email: string;
   owner: string;
-  appUrl: string;
 }): Promise<ReminderRegistrationResult> {
   if (!isValidEmail(email)) {
     return { ok: false, error: 'Invalid email address.' };
@@ -379,12 +338,8 @@ export async function confirmReminderSubscription(
 
 export async function unsubscribeReminderSubscription({
   token,
-  willId,
-  email,
 }: {
   token?: string;
-  willId?: string;
-  email?: string;
 }): Promise<ReminderRegistrationResult> {
   // Token-based unsubscribe only (prevent guessing via willId+email)
   if (!token) {

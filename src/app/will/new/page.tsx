@@ -8,7 +8,7 @@ import { formatUSDC, toStroops, validateBeneficiaries, type Beneficiary } from '
 import { truncateAddress, safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { GUARDIAN_THRESHOLD, MAX_GUARDIANS } from '@/lib/constants';
-import { formatError, isWillNotFoundMessage, classifyCloneError, type CloneErrorKind } from '@/lib/errors';
+import { formatError, classifyCloneError, type CloneErrorKind } from '@/lib/errors';
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { isValidAmount } from '@/lib/amount';

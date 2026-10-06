@@ -107,7 +107,7 @@ export async function dispatchReminderEmails(): Promise<ReminderDispatchResult> 
 
     // Process each batch
     for (const batch of batches) {
-      for (const [subKey, subscription] of batch) {
+      for (const [, subscription] of batch) {
         // Skip unconfirmed subscriptions
         if (!subscription.confirmed) {
           result.skipped++;

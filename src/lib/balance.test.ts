@@ -53,7 +53,7 @@ describe('getUserBalance', () => {
   });
 
   it('returns null when only spoofed USDC exists', async () => {
-    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL): Promise<Response> => {
       const path = new URL(typeof input === 'string' ? input : input.toString()).pathname;
       const segments = path.split('/').filter(Boolean);
       if (segments[0] === 'accounts') {
@@ -74,7 +74,7 @@ describe('getUserBalance', () => {
   });
 
   it('returns null for non-existent account', async () => {
-    vi.stubGlobal('fetch', async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+    vi.stubGlobal('fetch', async (): Promise<Response> => {
       return new Response('Not Found', { status: 404 });
     });
 
@@ -89,7 +89,7 @@ describe('getUserBalance', () => {
       window.localStorage.setItem('sorowill_network', 'mainnet');
     }
 
-    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL): Promise<Response> => {
       const path = new URL(typeof input === 'string' ? input : input.toString()).pathname;
       const segments = path.split('/').filter(Boolean);
       if (segments[0] === 'accounts') {
