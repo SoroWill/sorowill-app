@@ -2,6 +2,7 @@ import { WillStatus, type Will } from '@sorowill/sdk';
 
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { getSoroWillClient } from '@/lib/sorowill';
+export { dispatchReminderEmails, dispatchReminderBatch, dispatchDueReminders } from '@/lib/reminders/dispatch';
 
 export type ReminderKind = 'well-before' | 'imminent';
 
