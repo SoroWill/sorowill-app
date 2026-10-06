@@ -53,30 +53,6 @@ export function useKeyboardShortcuts(props: UseKeyboardShortcutsProps) {
       return;
     }
 
-      const {
-        onNewWill: currentOnNewWill,
-        onSearch: currentOnSearch,
-        onHelp: currentOnHelp,
-        shortcuts: currentShortcuts,
-      } = latestRef.current;
-
-      // Define default keys and overrides
-      const keyNewWill = currentShortcuts?.newWill ?? 'n';
-      const keySearch = currentShortcuts?.search ?? '/';
-      const keyHelp = currentShortcuts?.help ?? '?';
-
-      if (event.key === keyNewWill && currentOnNewWill) {
-        event.preventDefault();
-        currentOnNewWill();
-      } else if (event.key === keySearch && currentOnSearch) {
-        event.preventDefault();
-        currentOnSearch();
-      } else if (event.key === keyHelp && currentOnHelp) {
-        event.preventDefault();
-        currentOnHelp();
-      }
-    }
-
     // Define default keys and overrides
     const keyNewWill = shortcuts.newWill || 'n';
     const keySearch = shortcuts.search || '/';
