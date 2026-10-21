@@ -366,6 +366,7 @@ export default function NewWillPage() {
     try {
       const resolved = await resolveFederatedAddress(address);
       setResolvedGuardians((prev) => new Map(prev).set(id, resolved));
+      toast.success(`Resolved ${address} to ${resolved}`);
       setGuardianResolutionError((prev) => {
         const next = new Map(prev);
         next.delete(id);

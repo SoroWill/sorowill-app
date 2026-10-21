@@ -102,10 +102,18 @@ export const GuardianRow = memo(function GuardianRow({
       </div>
 
       {resolvedAddress && (
-        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2">
-          <p className="text-xs text-emerald-400">Resolved address:</p>
-          <p className="font-mono text-xs text-emerald-300">
-            {resolvedAddress}
+        <div
+          className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2"
+          role="status"
+        >
+          <p className="text-xs text-emerald-400">
+            <span aria-hidden="true">✓</span> Resolved
+          </p>
+          <p className="break-all font-mono text-xs text-emerald-300/80">
+            Original: {guardian}
+          </p>
+          <p className="break-all font-mono text-xs text-emerald-300">
+            Resolved address: {resolvedAddress}
           </p>
         </div>
       )}
@@ -256,10 +264,18 @@ export function GuardianForm({
             </div>
 
             {resolvedGuardians.has(guardianId) && (
-              <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2">
-                <p className="text-xs text-emerald-400">Resolved address:</p>
-                <p className="font-mono text-xs text-emerald-300">
-                  {resolvedGuardians.get(guardianId)}
+              <div
+                className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2"
+                role="status"
+              >
+                <p className="text-xs text-emerald-400">
+                  <span aria-hidden="true">✓</span> Resolved
+                </p>
+                <p className="break-all font-mono text-xs text-emerald-300/80">
+                  Original: {guardian}
+                </p>
+                <p className="break-all font-mono text-xs text-emerald-300">
+                  Resolved address: {resolvedGuardians.get(guardianId)}
                 </p>
               </div>
             )}
