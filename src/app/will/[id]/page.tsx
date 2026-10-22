@@ -24,6 +24,7 @@ import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
+import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
 
 interface ActivityEntry {
@@ -151,6 +152,12 @@ export default function WillDetailPage() {
     return () => {
       isMounted.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void syncServerClock().then(() => {
+      if (isMounted.current) setLastFetchTime(new Date());
+    });
   }, []);
 
   const refetch = useCallback(async () => {
@@ -364,10 +371,10 @@ export default function WillDetailPage() {
   const isTopUpValid = isTopUpAmountValid(topUpAmount);
 
   const checkinDeadline = nextCheckinDeadline(will);
-  const checkinOverdue = will.status === WillStatus.Active && Date.now() >= checkinDeadline.getTime();
+  const checkinOverdue = will.status === WillStatus.Active && serverNow() >= checkinDeadline.getTime();
 
   const grace = graceDeadline(will);
-  const graceExpired = will.status === WillStatus.Triggered && grace !== null && Date.now() >= grace.getTime();
+  const graceExpired = will.status === WillStatus.Triggered && grace !== null && serverNow() >= grace.getTime();
 
   const shares = calculateShares(will.balance, will.beneficiaries);
   const beneficiaryMap = new Map(will.beneficiaries.map((b) => [b.address, b.percentage]));

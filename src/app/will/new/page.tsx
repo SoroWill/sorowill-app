@@ -630,6 +630,11 @@ export default function NewWillPage() {
                 aria-describedby="token-help token-error"
                 aria-invalid={showTokenError}
               />
+              {token.trim() === '' && step === 0 ? (
+                <p id="token-error" role="alert" className="mt-1 text-xs text-red-400">
+                  Token contract address is required.
+                </p>
+              ) : null}
               {showTokenError ? (
                 <p id="token-error" role="alert" className="mt-1 text-xs text-red-400">
                   That doesn&apos;t look like a Stellar contract address. It should start with
@@ -918,6 +923,11 @@ export default function NewWillPage() {
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
+      {!cloneError && step < STEP_LABELS.length - 1 && !canGoNext && (
+        <p id="step-invalid-hint" role="alert" className="text-xs text-red-400">
+          Fix the highlighted fields on this step to continue.
+        </p>
+      )}
       {!cloneError && (
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
         <button
@@ -931,8 +941,13 @@ export default function NewWillPage() {
         {step < STEP_LABELS.length - 1 ? (
           <button
             type="button"
-            onClick={() => setStep((s) => Math.min(STEP_LABELS.length - 1, s + 1))}
+            onClick={() => {
+              // Never advance past a step whose fields are invalid.
+              if (!canGoNext) return;
+              setStep((s) => Math.min(STEP_LABELS.length - 1, s + 1));
+            }}
             disabled={!canGoNext}
+            aria-describedby={!canGoNext ? 'step-invalid-hint' : undefined}
             className="w-full rounded-full bg-will-purple px-5 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
           >
             Next

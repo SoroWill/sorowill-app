@@ -55,3 +55,29 @@ export async function getUserBalance(
     return null;
   }
 }
+
+/**
+ * Returns true when `address` exists as an account on the configured network.
+ * Network failures resolve to `null` so callers can distinguish "does not
+ * exist" (false) from "could not check" (null).
+ */
+export async function accountExists(
+  address: string,
+  signal?: AbortSignal,
+): Promise<boolean | null> {
+  try {
+    const horizonUrl =
+      getNetwork() === 'mainnet'
+        ? 'https://horizon.stellar.org'
+        : 'https://horizon-testnet.stellar.org';
+    const response = await fetch(`${horizonUrl}/accounts/${address}`, {
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)])
+        : AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (response.status === 404) return false;
+    return response.ok ? true : null;
+  } catch {
+    return null;
+  }
+}

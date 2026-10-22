@@ -9,7 +9,47 @@ import { formatCheckinLabel } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { StatusBanner } from './StatusBanner';
 
+/**
+ * Splits `text` into segments, flagging case-insensitive occurrences of
+ * `query` so callers can render them highlighted (#752).
+ */
+export function splitHighlight(text: string, query: string): { text: string; match: boolean }[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [{ text, match: false }];
+  const lower = text.toLowerCase();
+  const parts: { text: string; match: boolean }[] = [];
+  let cursor = 0;
+  let idx = lower.indexOf(needle, cursor);
+  while (idx !== -1) {
+    if (idx > cursor) parts.push({ text: text.slice(cursor, idx), match: false });
+    parts.push({ text: text.slice(idx, idx + needle.length), match: true });
+    cursor = idx + needle.length;
+    idx = lower.indexOf(needle, cursor);
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), match: false });
+  return parts.length ? parts : [{ text, match: false }];
+}
+
+function Highlight({ text, query }: { text: string; query?: string }) {
+  if (!query) return <>{text}</>;
+  return (
+    <>
+      {splitHighlight(text, query).map((part, i) =>
+        part.match ? (
+          <mark key={i} className="rounded bg-will-purple/40 px-0.5 text-will-light">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 export interface WillCardProps {
+  /** Active dashboard search term; matching will IDs and addresses are highlighted. */
+  searchQuery?: string;
   will: Will;
   /** Shown only when the viewer owns this will and it is still active. */
   onCheckIn?: (willId: string) => void;
@@ -26,7 +66,15 @@ function WillCardComponent({
   checkingIn = false,
   connectedAddress,
   showEntitledShare = false,
+  searchQuery,
 }: WillCardProps) {
+  const needle = searchQuery?.trim().toLowerCase() ?? '';
+  const matchedWhat = needle
+    ? [
+        will.id.toLowerCase().includes(needle) ? 'will ID' : null,
+        will.beneficiaries?.some((b) => b.address.toLowerCase().includes(needle)) ? 'beneficiary address' : null,
+      ].filter(Boolean)
+    : [];
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
 
@@ -65,7 +113,7 @@ function WillCardComponent({
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link href={`/will/${will.id}`} className="font-semibold text-will-light hover:underline">
-            Will #{will.id}
+            Will #<Highlight text={will.id} query={searchQuery} />
           </Link>
           <StatusBanner status={will.status} compact />
         </div>
@@ -86,10 +134,16 @@ function WillCardComponent({
           <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
             {will.beneficiaries.map((beneficiary) => (
               <li key={beneficiary.address} className="truncate">
-                {beneficiary.address}
+                <Highlight text={beneficiary.address} query={searchQuery} />
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {matchedWhat.length ? (
+          <p className="text-xs text-will-light/60">
+            Matched {matchedWhat.join(' and ')} for &ldquo;{searchQuery?.trim()}&rdquo;
+          </p>
         ) : null}
 
         {will.status === WillStatus.Active ? (
@@ -166,7 +220,8 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
     prev.onCheckIn === next.onCheckIn &&
     prev.checkingIn === next.checkingIn &&
     prev.connectedAddress === next.connectedAddress &&
-    prev.showEntitledShare === next.showEntitledShare
+    prev.showEntitledShare === next.showEntitledShare &&
+    prev.searchQuery === next.searchQuery
   );
 }
 

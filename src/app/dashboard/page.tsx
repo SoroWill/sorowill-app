@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +12,7 @@ import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError, formatLoadError, classifyCheckInError } from '@/lib/errors';
 import { exportWillsToCSV } from '@/lib/willExport';
 import { getSafeBalance } from '@/lib/tokenDecimals';
+import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import { useToast } from '@/components/Toast';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { WillCard } from '@/components/WillCard';
@@ -84,6 +85,15 @@ function DashboardPageOld() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [checkedWallet, setCheckedWallet] = useState(false);
   const [tab, setTab] = useState<Tab>('owned');
+
+  // Restore the last selected tab after mount (avoids an SSR hydration mismatch).
+  useEffect(() => {
+    setTab(loadDashboardTab());
+  }, []);
+
+  useEffect(() => {
+    saveDashboardTab(tab);
+  }, [tab]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [ownedWills, setOwnedWills] = useState<Will[]>([]);
@@ -328,9 +338,11 @@ function DashboardPageOld() {
   const baseList =
     tab === 'owned' ? ownedWills : tab === 'inheriting' ? inheritingWills : guardianWills;
 
-  const activeList = filterWills(baseList, search, statusFilter);
-  const visibleWills = activeList.slice(0, visibleCount);
-  const hasMoreWills = activeList.length > visibleWills.length;
+  // Only recompute when the list or filters change, not on unrelated state updates.
+  const activeList = useMemo(
+    () => filterWills(baseList, search, statusFilter),
+    [baseList, search, statusFilter],
+  );
 
   const handleExportCSV = useCallback(() => {
     let csv: string;
@@ -730,6 +742,7 @@ function DashboardPageOld() {
                     checkingIn={checkingInId === will.id}
                     connectedAddress={publicKey}
                     showEntitledShare={tab === 'inheriting'}
+                    searchQuery={search}
                   />
                 </div>
               </div>
