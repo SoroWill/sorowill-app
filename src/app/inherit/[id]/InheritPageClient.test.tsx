@@ -18,6 +18,7 @@ vi.mock('@/lib/freighter', () => ({
 vi.mock('@/lib/errors', () => ({
   formatError: vi.fn((e: unknown) => String(e)),
   formatLoadError: vi.fn(() => 'load failed'),
+  isWillNotFoundError: vi.fn((e: unknown) => e instanceof Error && /not found/i.test(e.message)),
 }));
 
 vi.mock('@/lib/deadlines', () => ({
@@ -101,6 +102,15 @@ describe('InheritPageClient', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('shows a not-found state and no claim form when the will does not exist', async () => {
+    mockGetWill.mockRejectedValue(new Error('Will not found'));
+
+    render(<InheritPageClient id="999" />);
+
+    expect(await screen.findByText('Will not found')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /claim inheritance/i })).not.toBeInTheDocument();
   });
 
   it('sends exactly one getWill request on mount', async () => {

@@ -6,7 +6,7 @@ import { calculateShares, formatUSDC, WillStatus, type Will } from '@sorowill/sd
 
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
-import { formatError, formatLoadError } from '@/lib/errors';
+import { formatError, formatLoadError, isWillNotFoundError } from '@/lib/errors';
 import { graceDeadline } from '@/lib/deadlines';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { accountExists } from '@/lib/balance';
@@ -45,6 +45,7 @@ export default function InheritPageClient({ id }: { id: string }) {
   const [will, setWill] = useState<Will | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
@@ -128,12 +129,18 @@ export default function InheritPageClient({ id }: { id: string }) {
         }
         setWill(fetched);
         setError(null);
+        setNotFound(false);
       } catch (err) {
         if (!isMounted.current || signal?.aborted) {
           return;
         }
         // Swallow AbortError — it is an expected cancellation, not a failure.
         if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        if (isWillNotFoundError(err)) {
+          setNotFound(true);
+          setWill(null);
           return;
         }
         console.error('Failed to load inheritance will', err);
@@ -231,6 +238,17 @@ export default function InheritPageClient({ id }: { id: string }) {
       <div className="space-y-4">
         <div className="skeleton h-10 w-full rounded-xl" />
         <div className="skeleton h-32 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (notFound && !will) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+        <h1 className="text-lg font-semibold text-will-light">Will not found</h1>
+        <p className="mt-2 text-sm text-will-light/60">
+          Will #{willId} does not exist, so there is nothing to claim.
+        </p>
       </div>
     );
   }

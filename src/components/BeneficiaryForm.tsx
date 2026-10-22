@@ -143,7 +143,12 @@ function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string |
 
   const total = sumPercentages(beneficiaries);
   if (Math.abs(total - 100) > PERCENTAGE_SUM_EPSILON) {
-    return `Total must equal 100% (currently ${total}%)`;
+    const unallocated = Math.round((100 - total) * 100) / 100;
+    const leftover =
+      unallocated > 0
+        ? `${unallocated}% would be left undistributed (dust)`
+        : `${-unallocated}% is over-allocated`;
+    return `Total must equal 100% (currently ${total}%) — shares are exact to 2 decimals, not rounded, so ${leftover}. Example of a valid split: 33.33 + 33.33 + 33.34 = 100`;
   }
 
   return null;
@@ -449,7 +454,17 @@ export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
         {isValid ? (
           <>Total: {total}% ✓</>
         ) : (
-          <>Total: {total}% — {validationMessage}</>
+          <>
+            Total: {total}% — {validationMessage}{' '}
+            <a
+              href="https://github.com/SoroWill/sorowill-app#beneficiary-percentages"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              Learn how percentages work
+            </a>
+          </>
         )}
       </div>
     </fieldset>

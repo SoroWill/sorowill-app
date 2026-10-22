@@ -105,6 +105,21 @@ function WillCardComponent({
     }
   }, [showEntitledShare, connectedAddress, will.balance, will.beneficiaries]);
 
+  // Memoized so the list is only rebuilt when the beneficiaries change.
+  const beneficiaryList = useMemo(
+    () =>
+      will.beneficiaries?.length ? (
+        <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
+          {will.beneficiaries.map((beneficiary) => (
+            <li key={beneficiary.address} className="truncate">
+              {beneficiary.address}
+            </li>
+          ))}
+        </ul>
+      ) : null,
+    [will.beneficiaries],
+  );
+
   return (
     <article
       className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-will-purple/40 sm:flex-row sm:items-center sm:justify-between"

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { WillStatus, type Will, formatUSDC, toStroops } from '@sorowill/sdk';
 
-import { safeGetPublicKey } from '@/lib/freighter';
+import { normalizeWalletNetwork, safeGetPublicKey, safeGetWalletNetwork } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError, formatLoadError, classifyCheckInError } from '@/lib/errors';
@@ -431,6 +431,25 @@ function DashboardPageOld() {
             className="text-xs font-semibold bg-emerald-500 text-white rounded-full px-3 py-1 hover:bg-emerald-500/80 transition"
           >
             View Role
+          </button>
+        </div>
+      )}
+
+      {networkChangedTo && (
+        <div
+          role="status"
+          className="flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-300 text-sm"
+        >
+          <span>
+            Wallet network changed to <strong>{networkChangedTo}</strong>. Will IDs are network-specific, so your
+            wills were reloaded.
+          </span>
+          <button
+            type="button"
+            onClick={() => setNetworkChangedTo(null)}
+            className="text-xs font-semibold underline"
+          >
+            Dismiss
           </button>
         </div>
       )}
