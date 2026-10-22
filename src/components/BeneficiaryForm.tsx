@@ -53,6 +53,23 @@ export function getAddressTypeMismatchError(
 }
 
 /**
+ * Suggests a corrected address for a near-miss (stray quotes/whitespace or
+ * lowercase letters), or `null` when no simple fix produces a valid address.
+ */
+export function suggestAddressFix(address: string): string | null {
+  const cleaned = address.replace(/[\s"'`]/g, '').toUpperCase();
+  return cleaned !== address && isValidStellarAddress(cleaned) ? cleaned : null;
+}
+
+/** Splits pasted text into candidate addresses (newline, comma, semicolon or space separated). */
+export function parsePastedAddresses(text: string): string[] {
+  return text
+    .split(/[\s,;]+/)
+    .map((t) => t.replace(/^["'`]+|["'`]+$/g, ''))
+    .filter(Boolean);
+}
+
+/**
  * The SDK's `Beneficiary.percentage` field is typed as `number`, but some
  * SDK versions/boundaries (e.g. values round-tripped through Soroban
  * contract calls) may hand back a `bigint` instead. Converting at this
@@ -77,7 +94,10 @@ function getAddressErrors(
       // address; the contract rejects the raw form, so block submission.
       errors[i] = 'Federated address must be resolved before submitting — click Resolve';
     } else if (b.address && !isFederatedAddress(b.address) && !isValidStellarAddress(b.address, addressType)) {
-      errors[i] = getAddressTypeMismatchError(b.address, addressType) ?? 'Invalid Stellar address';
+      const suggestion = suggestAddressFix(b.address);
+      errors[i] =
+        getAddressTypeMismatchError(b.address, addressType) ??
+        (suggestion ? `Invalid Stellar address — did you mean ${suggestion}?` : 'Invalid Stellar address');
     }
   });
   return errors;
@@ -161,7 +181,12 @@ function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string |
 
   const total = sumPercentages(beneficiaries);
   if (Math.abs(total - 100) > PERCENTAGE_SUM_EPSILON) {
-    return `Total must equal 100% (currently ${total}%)`;
+    const unallocated = Math.round((100 - total) * 100) / 100;
+    const leftover =
+      unallocated > 0
+        ? `${unallocated}% would be left undistributed (dust)`
+        : `${-unallocated}% is over-allocated`;
+    return `Total must equal 100% (currently ${total}%) — shares are exact to 2 decimals, not rounded, so ${leftover}. Example of a valid split: 33.33 + 33.33 + 33.34 = 100`;
   }
 
   return null;
@@ -269,6 +294,17 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
     }
   }
 
+  // Pasting several addresses at once fills one row per address; each is then
+  // validated like a typed address, so invalid ones surface an error immediately.
+  function handleAddressPaste(index: number, event: React.ClipboardEvent<HTMLInputElement>) {
+    const tokens = parsePastedAddresses(event.clipboardData.getData('text'));
+    if (tokens.length < 2) return;
+    event.preventDefault();
+    const [first, ...rest] = tokens;
+    const updated = value.map((row, i) => (i === index ? { ...row, address: first } : row));
+    onChange([...updated, ...rest.map((address) => ({ address, percentage: 0 }))]);
+  }
+
   function addRow() {
     onChange([...value, { address: '', percentage: 0 }]);
   }
@@ -337,6 +373,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
+                  onPaste={(event) => handleAddressPaste(index, event)}
                   aria-invalid={addressErrors[index] ? 'true' : undefined}
                   aria-describedby={addressErrors[index] ? `beneficiary-address-error-${index}` : undefined}
                   className={`w-full rounded-lg border ${
@@ -455,7 +492,17 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
         {isValid ? (
           <>Total: {total}% ✓</>
         ) : (
-          <>Total: {total}% — {validationMessage}</>
+          <>
+            Total: {total}% — {validationMessage}{' '}
+            <a
+              href="https://github.com/SoroWill/sorowill-app#beneficiary-percentages"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              Learn how percentages work
+            </a>
+          </>
         )}
       </div>
     </fieldset>

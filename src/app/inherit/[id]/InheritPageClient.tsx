@@ -6,7 +6,7 @@ import { calculateShares, formatUSDC, WillStatus, type Will } from '@sorowill/sd
 
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
-import { formatError, formatLoadError } from '@/lib/errors';
+import { formatError, formatLoadError, isWillNotFoundError } from '@/lib/errors';
 import { graceDeadline } from '@/lib/deadlines';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { accountExists } from '@/lib/balance';
@@ -21,6 +21,12 @@ function isValidWillId(id: string): boolean {
 
 export function claimIsAvailable(status: WillStatus, grace: Date | null, now: number): boolean {
   return status === WillStatus.Triggered && grace !== null && now >= grace.getTime();
+}
+
+/** Address that released the will, when the SDK/contract exposes it. */
+export function getClaimedBy(will: Will): string | null {
+  const w = will as Will & { releasedBy?: string | null; claimedBy?: string | null };
+  return w.releasedBy ?? w.claimedBy ?? null;
 }
 
 /**
@@ -39,6 +45,7 @@ export default function InheritPageClient({ id }: { id: string }) {
   const [will, setWill] = useState<Will | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
@@ -122,12 +129,18 @@ export default function InheritPageClient({ id }: { id: string }) {
         }
         setWill(fetched);
         setError(null);
+        setNotFound(false);
       } catch (err) {
         if (!isMounted.current || signal?.aborted) {
           return;
         }
         // Swallow AbortError — it is an expected cancellation, not a failure.
         if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        if (isWillNotFoundError(err)) {
+          setNotFound(true);
+          setWill(null);
           return;
         }
         console.error('Failed to load inheritance will', err);
@@ -229,6 +242,17 @@ export default function InheritPageClient({ id }: { id: string }) {
     );
   }
 
+  if (notFound && !will) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+        <h1 className="text-lg font-semibold text-will-light">Will not found</h1>
+        <p className="mt-2 text-sm text-will-light/60">
+          Will #{willId} does not exist, so there is nothing to claim.
+        </p>
+      </div>
+    );
+  }
+
   if (error && !will) {
     return (
       <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center">
@@ -261,6 +285,7 @@ export default function InheritPageClient({ id }: { id: string }) {
         )
     : undefined;
 
+  const claimedBy = getClaimedBy(will);
   const grace = graceDeadline(will);
   const canClaim = claimIsAvailable(will.status, grace, now);
   const secondsUntilClaim = grace ? Math.max(0, Math.ceil((grace.getTime() - now) / 1000)) : 0;
@@ -319,8 +344,25 @@ export default function InheritPageClient({ id }: { id: string }) {
       </div>
 
       {will.status === WillStatus.Released ? (
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-will-light/70">
-          This will has already been distributed to all beneficiaries in a single transaction.
+        <div className="space-y-3">
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="w-full cursor-not-allowed rounded-full bg-will-purple px-4 py-3 text-sm font-semibold text-white opacity-40"
+          >
+            Already claimed
+          </button>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-will-light/70">
+            This will has already been distributed to all beneficiaries in a single transaction.
+            {claimedBy ? (
+              <span className="mt-2 block text-xs">
+                Claimed by <CopyAddress address={claimedBy} className="text-will-light/80" />
+              </span>
+            ) : claimTxHash && publicKey ? (
+              <span className="mt-2 block text-xs">Claimed by you ({truncateAddress(publicKey)})</span>
+            ) : null}
+          </div>
         </div>
       ) : canClaim ? (
         <button

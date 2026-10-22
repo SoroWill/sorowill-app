@@ -52,12 +52,17 @@ function formatExportBalance(balance: Will['balance'] | null | undefined, token:
   return formatTokenBalance(raw, token);
 }
 
-/** Formats a unix-seconds timestamp as ISO 8601; empty for missing/invalid values. */
-function formatExportTimestamp(value: number | bigint | string | null | undefined): string {
+/** ISO 8601 timestamp (unix seconds, bigint, string or Date input); empty for missing/invalid values. */
+function formatExportTimestamp(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
-  const seconds = Number(value);
-  if (!Number.isFinite(seconds)) return '';
-  const date = new Date(seconds * 1000);
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds)) return '';
+    date = new Date(seconds * 1000);
+  }
   return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
 
@@ -72,11 +77,11 @@ export function exportWillsToCSV(wills: Will[]): string {
     'Token',
     'Check-in Period (days)',
     'Grace Period (days)',
+    'Last Check-in',
     'Beneficiaries',
     'Guardians',
     'Beneficiary Percentages',
     'Beneficiary Notes',
-    'Last Check-in',
     'Guardian Votes',
     'Will Notes',
     'Memo',
@@ -106,12 +111,10 @@ export function exportWillsToCSV(wills: Will[]): string {
       .join(';');
 
     const extra = will as unknown as {
-      lastCheckin?: number | bigint | string | null;
       guardianVotes?: number | bigint | null;
       notes?: string | null;
       memo?: string | null;
     };
-    const lastCheckinStr = formatExportTimestamp(extra.lastCheckin);
 
     return [
       escapeCSVField(will.id),
@@ -121,11 +124,11 @@ export function exportWillsToCSV(wills: Will[]): string {
       escapeCSVField(will.token),
       escapeCSVField(will.checkinPeriodDays),
       escapeCSVField(will.gracePeriodDays),
+      escapeCSVField(formatExportTimestamp(will.lastCheckin)),
       escapeCSVField(beneficiariesStr),
       escapeCSVField(guardiansStr),
       escapeCSVField(percentagesStr),
       escapeCSVField(beneficiaryNotesStr),
-      escapeCSVField(lastCheckinStr),
       escapeCSVField(extra.guardianVotes),
       escapeCSVField(extra.notes),
       escapeCSVField(extra.memo),

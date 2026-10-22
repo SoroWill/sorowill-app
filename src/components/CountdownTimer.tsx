@@ -28,6 +28,11 @@ function describeRemaining(
   return `${plural(days, 'day')} ${plural(hours, 'hour')} ${plural(minutes, 'minute')} remaining`;
 }
 
+/**
+ * `deadline` must be an absolute instant computed in UTC epoch milliseconds
+ * (see `src/lib/deadlines.ts`). The remaining time is a pure difference of
+ * epoch values, so it is identical in every viewer timezone.
+ */
 export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
   const t = useTranslations('common');
   const computeSeconds = () => Math.floor((deadline.getTime() - Date.now()) / 1000);
@@ -125,6 +130,10 @@ export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
         {overdue ? `${t('overdue')} — ` : ''}
         {pad(days)}:{pad(hours)}:{pad(minutes)}:{pad(seconds)}
       </span>
+      <time dateTime={deadline.toISOString()} className="text-xs text-will-light/60">
+        Due {deadline.toLocaleString()}
+        {overdue ? '' : ` (${plural(Math.ceil(secondsLeft / 86_400), 'day')} left)`}
+      </time>
     </div>
   );
 }

@@ -53,9 +53,11 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
   }
 
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
+    <span className={`inline-flex max-w-full flex-wrap items-center gap-1 ${className}`}>
       {displayLabel !== null && (
-        <span className="font-mono">{displayLabel}</span>
+        <span className="min-w-0 max-w-full truncate font-mono" title={address}>
+          {displayLabel}
+        </span>
       )}
       <button
         type="button"

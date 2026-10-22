@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { WillCard } from '@/components/WillCard';
+import { WillCard, willCardPropsAreEqual } from '@/components/WillCard';
 import { WillStatus, type Will } from '@sorowill/sdk';
 
 vi.mock('next/link', () => ({
@@ -42,6 +42,11 @@ function makeWill(overrides: Record<string, unknown> = {}): Will {
 }
 
 describe('WillCard', () => {
+  it('shows the creation time as relative time', () => {
+    render(<WillCard will={makeWill({ createdAt: new Date(Date.now() - 62 * 86_400_000) })} />);
+    expect(screen.getByText('Created 2 months ago')).toBeInTheDocument();
+  });
+
   it('renders will ID and balance', () => {
     render(<WillCard will={makeWill({ id: '42', balance: '500000000' })} />);
     expect(screen.getByText('Will #42')).toBeInTheDocument();
@@ -103,5 +108,18 @@ describe('WillCard', () => {
     const list = screen.getByRole('list', { name: /beneficiaries/i });
     expect(list).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('does not re-render when an unrelated parent update passes an equivalent will', () => {
+    const beneficiaries = [{ address: 'GBENEF1', percentage: 100 }];
+    const will = makeWill({ beneficiaries });
+    const refetched = makeWill({ beneficiaries: [{ address: 'GBENEF1', percentage: 100 }], lastCheckin: will.lastCheckin });
+    expect(willCardPropsAreEqual({ will }, { will: refetched })).toBe(true);
+    expect(
+      willCardPropsAreEqual(
+        { will },
+        { will: makeWill({ beneficiaries: [{ address: 'GOTHER', percentage: 100 }], lastCheckin: will.lastCheckin }) },
+      ),
+    ).toBe(false);
   });
 });

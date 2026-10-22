@@ -62,6 +62,15 @@ npm run dev
 | `CRON_SECRET` | Bearer token for authenticating automated reminder dispatch requests from GitHub Actions (required if using the automated GitHub Actions trigger; see [Reminder delivery](#reminder-delivery)). **Must be at least 32 random characters** (e.g. `openssl rand -hex 32`); shorter secrets are rejected with a warning because they weaken the timing-safe comparison. |
 | `NEXT_PUBLIC_APP_URL` | Optional public base URL used to build the unsubscribe link in reminder emails (defaults to `VERCEL_URL` or `http://localhost:3000`) |
 
+## Beneficiary Percentages
+
+Beneficiary percentages must add up to exactly 100%. Each percentage may have up to
+two decimal places and is stored as basis points (percentage x 100, so 33.33% is
+3333), and all shares must sum to exactly 10,000 basis points. Splitting among three
+beneficiaries as 33 + 33 + 33 totals only 99%, leaving 1% of the balance
+undistributed (dust). A valid split is 33.33 + 33.33 + 33.34, which totals exactly
+100%. Use "Distribute equally" to have the form assign the remainder for you.
+
 ## Design Tokens
 
 The app uses custom theme tokens defined in `tailwind.config.ts`:

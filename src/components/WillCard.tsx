@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
 
-import { formatCheckinLabel } from '@/lib/deadlines';
+import { formatCheckinLabel, formatRelativeTime, parseCreatedAt, type WillWithCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { StatusBanner } from './StatusBanner';
 
@@ -105,6 +105,21 @@ function WillCardComponent({
     }
   }, [showEntitledShare, connectedAddress, will.balance, will.beneficiaries]);
 
+  // Memoized so the list is only rebuilt when the beneficiaries change.
+  const beneficiaryList = useMemo(
+    () =>
+      will.beneficiaries?.length ? (
+        <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
+          {will.beneficiaries.map((beneficiary) => (
+            <li key={beneficiary.address} className="truncate">
+              {beneficiary.address}
+            </li>
+          ))}
+        </ul>
+      ) : null,
+    [will.beneficiaries],
+  );
+
   return (
     <article
       className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-will-purple/40 sm:flex-row sm:items-center sm:justify-between"
@@ -126,6 +141,14 @@ function WillCardComponent({
               <span className="font-medium text-indigo-300">
                 Your share: {formatUSDC(BigInt(userShare.share))} USDC
               </span>
+            </>
+          ) : null}
+          {createdAt ? (
+            <>
+              <span className="text-will-light/40">•</span>
+              <time dateTime={createdAt.toISOString()} title={createdAt.toLocaleString()}>
+                Created {formatRelativeTime(createdAt)}
+              </time>
             </>
           ) : null}
         </div>
@@ -213,6 +236,7 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
       a.checkinPeriodDays === b.checkinPeriodDays &&
       a.lastCheckin?.getTime() === b.lastCheckin?.getTime() &&
       a.triggerTime?.getTime() === b.triggerTime?.getTime() &&
+      parseCreatedAt(a.createdAt)?.getTime() === parseCreatedAt(b.createdAt)?.getTime() &&
       sameBeneficiaries(a.beneficiaries, b.beneficiaries));
 
   return (

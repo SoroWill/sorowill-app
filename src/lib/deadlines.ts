@@ -4,6 +4,13 @@ import { isWillNotFoundMessage } from '@/lib/errors';
 /**
  * Time model for deadline math
  *
+ * UTC requirement: every deadline is an absolute instant in UTC epoch
+ * milliseconds, matching the contract's UTC ledger timestamps. Never derive a
+ * deadline from local-time getters/setters (`getDate()`, `setHours()`,
+ * `new Date(y, m, d)`, ...) — they depend on the viewer's timezone and would
+ * make the remaining time disagree with the contract. Local time may only be
+ * used for display. Use `formatDeadlineUtc` to show the deadline in UTC.
+ *
  * All deadlines are computed as `instant + days * MS_PER_DAY` on epoch
  * milliseconds, which mirrors the contract (`period_days * 86_400` added to a
  * ledger timestamp in seconds).
@@ -30,6 +37,11 @@ const MS_PER_DAY = 86_400 * 1000;
 
 function addDays(instant: Date, days: number): Date {
   return new Date(instant.getTime() + days * MS_PER_DAY);
+}
+
+/** Formats a deadline as an unambiguous UTC string, e.g. "2026-01-08 12:00 UTC". */
+export function formatDeadlineUtc(deadline: Date): string {
+  return `${deadline.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
 export function nextCheckinDeadline(will: Will): Date {
@@ -131,4 +143,46 @@ export function formatCheckinLabel(secondsLeft: number): string {
 
   const daysLeft = Math.floor(secondsLeft / 86_400);
   return `Check-in due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+}
+
+/**
+ * A Will as returned by the SDK, optionally carrying its creation timestamp
+ * (a Date, ISO string, or epoch seconds/milliseconds).
+ */
+export type WillWithCreatedAt = Will & { createdAt?: Date | string | number | null };
+
+export function parseCreatedAt(value: unknown): Date | null {
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === 'string') {
+    date = new Date(value);
+  } else if (typeof value === 'number') {
+    date = new Date(value < 1_000_000_000_000 ? value * 1000 : value);
+  } else {
+    return null;
+  }
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 365 * 86_400],
+  ['month', 30 * 86_400],
+  ['week', 7 * 86_400],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
+];
+
+/** Formats a past date as relative time, e.g. "2 months ago". */
+export function formatRelativeTime(date: Date, now: number = Date.now()): string {
+  const diffSeconds = Math.round((date.getTime() - now) / 1000);
+  const abs = Math.abs(diffSeconds);
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  for (const [unit, size] of RELATIVE_UNITS) {
+    if (abs >= size) {
+      return rtf.format(Math.trunc(diffSeconds / size), unit);
+    }
+  }
+  return rtf.format(0, 'second');
 }

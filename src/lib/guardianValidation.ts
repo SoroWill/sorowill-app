@@ -98,9 +98,22 @@ export interface GuardianValidationResult {
   topError: string | null;
 }
 
+/** Builds the error shown when a guardian address is known to live on another network (#740). */
+export function wrongNetworkGuardianError(found: string, expected: string): string {
+  return `This address is on ${found}, but the will is on ${expected}`;
+}
+
+/**
+ * @param network         Network the will is being created on.
+ * @param addressNetworks Networks each address is known to belong to (e.g. from an
+ *                        account lookup). Addresses on a different network than
+ *                        `network` are rejected. Unknown addresses are accepted.
+ */
 export function validateGuardians(
   guardians: string[],
   ownerAddress: string | null,
+  network?: string | null,
+  addressNetworks: Record<string, string> = {},
 ): GuardianValidationResult {
   const rowErrors: string[] = guardians.map(() => '');
   let topError: string | null = null;
@@ -114,6 +127,12 @@ export function validateGuardians(
 
     if (!isValidStellarAddress(g)) {
       rowErrors[i] = 'Not a valid Stellar address (must start with G and be 56 characters)';
+      continue;
+    }
+
+    const knownNetwork = addressNetworks[g];
+    if (network && knownNetwork && knownNetwork !== network) {
+      rowErrors[i] = wrongNetworkGuardianError(knownNetwork, network);
       continue;
     }
 

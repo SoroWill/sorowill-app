@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import InheritPageClient, { claimIsAvailable } from './InheritPageClient';
+import InheritPageClient, { claimIsAvailable, getClaimedBy } from './InheritPageClient';
 import { WillStatus, type Will } from '@sorowill/sdk';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ vi.mock('@/lib/freighter', () => ({
 vi.mock('@/lib/errors', () => ({
   formatError: vi.fn((e: unknown) => String(e)),
   formatLoadError: vi.fn(() => 'load failed'),
+  isWillNotFoundError: vi.fn((e: unknown) => e instanceof Error && /not found/i.test(e.message)),
 }));
 
 vi.mock('@/lib/deadlines', () => ({
@@ -83,6 +84,13 @@ describe('claimIsAvailable', () => {
   });
 });
 
+describe('getClaimedBy', () => {
+  it('returns the releasing address when present, else null', () => {
+    expect(getClaimedBy(makeWill({ releasedBy: 'GCLAIMER' } as Partial<Will>))).toBe('GCLAIMER');
+    expect(getClaimedBy(makeWill())).toBeNull();
+  });
+});
+
 describe('InheritPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,6 +102,15 @@ describe('InheritPageClient', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('shows a not-found state and no claim form when the will does not exist', async () => {
+    mockGetWill.mockRejectedValue(new Error('Will not found'));
+
+    render(<InheritPageClient id="999" />);
+
+    expect(await screen.findByText('Will not found')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /claim inheritance/i })).not.toBeInTheDocument();
   });
 
   it('sends exactly one getWill request on mount', async () => {
@@ -184,5 +201,16 @@ describe('InheritPageClient', () => {
     // Resolving after unmount must not throw (state updates are guarded).
     resolveGetWill(makeWill({ id: '7' }));
     await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it('disables the claim form and shows who claimed an already released will', async () => {
+    mockGetWill.mockResolvedValue(
+      makeWill({ status: WillStatus.Released, releasedBy: 'GCLAIMER' } as Partial<Will>),
+    );
+
+    render(<InheritPageClient id="5" />);
+
+    const button = await screen.findByRole('button', { name: /already claimed/i });
+    expect(button).toBeDisabled();
   });
 });

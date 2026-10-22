@@ -124,4 +124,11 @@ describe('CountdownTimer', () => {
     clearIntervalSpy.mockRestore();
     vi.useRealTimers();
   });
+
+  it('shows the absolute deadline and days until it', () => {
+    const future = new Date(Date.now() + 2 * 86_400_000 + 60_000);
+    render(<CountdownTimer deadline={future} />);
+    expect(screen.getByText(new RegExp(`Due ${future.toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))).toBeInTheDocument();
+    expect(screen.getByText(/3 days left/)).toBeInTheDocument();
+  });
 });

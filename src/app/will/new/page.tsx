@@ -29,10 +29,13 @@ import {
   saveDraft,
   type FormStateDraft,
 } from '@/lib/draftValidation';
+import { shouldWarnOnClone } from '@/lib/cloneWarning';
 import { useToast } from '@/components/Toast';
 
 const CHECKIN_OPTIONS = [30, 60, 90, 180, 365];
 const GRACE_OPTIONS = [3, 7, 14];
+// Max time to wait for federated guardian resolution on submit (#737).
+const GUARDIAN_RESOLVE_TIMEOUT_MS = 5000;
 
 // Soroban persistent storage has a TTL measured in ledgers; when it runs out,
 // the entry is archived and must be restored before the contract can read it.
@@ -79,6 +82,14 @@ function isUnsafeCheckinPeriod(days: number): boolean {
   return days > SAFE_CHECKIN_WINDOW_DAYS;
 }
 
+/** Returns an error message when the grace period is longer than the check-in period. */
+export function getGracePeriodRelationError(checkinDays: number, graceDays: number): string | null {
+  if (graceDays > checkinDays) {
+    return `Grace period (${graceDays} days) must not be longer than the check-in period (${checkinDays} days). Shorten the grace period or lengthen the check-in period.`;
+  }
+  return null;
+}
+
 export function getSubmittedGuardians(
   guardians: string[],
   resolvedGuardians: Map<string, string>,
@@ -110,6 +121,8 @@ export default function NewWillPage() {
   const [guardians, setGuardians] = useState<string[]>([]);
   const [cloneLoading, setCloneLoading] = useState(false);
   const [cloneError, setCloneError] = useState<CloneErrorKind | null>(null);
+  // Set when the source will is released/cancelled so we can warn before reuse (#736).
+  const [cloneWarning, setCloneWarning] = useState<string | null>(null);
   const [resumeAvailable, setResumeAvailable] = useState(false);
   // Validated draft captured on mount, before the autosave effect below
   // overwrites localStorage with the fresh form's defaults.
@@ -132,6 +145,7 @@ export default function NewWillPage() {
   const [ownerAddress, setOwnerAddress] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [resolvingOnSubmit, setResolvingOnSubmit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkinPeriodError, setCheckinPeriodError] = useState<string | null>(null);
   const [gracePeriodError, setGracePeriodError] = useState<string | null>(null);
@@ -230,6 +244,11 @@ export default function NewWillPage() {
           setCheckinPeriodDays(sourceWill.checkinPeriodDays);
           setGracePeriodDays(sourceWill.gracePeriodDays);
           setGuardians(sourceWill.guardians);
+          setCloneWarning(
+            shouldWarnOnClone(sourceWill.status)
+              ? `The will you are copying from has been ${String(sourceWill.status).toLowerCase()}.`
+              : null,
+          );
           setCloneLoading(false);
         })
         .catch((err) => {
@@ -286,13 +305,15 @@ export default function NewWillPage() {
     // The user must click "Resolve" before the address is replaced with the real G... key.
     beneficiaries.every((b) => !isFederatedAddress(b.address));
 
-  const { rowErrors: guardianRowErrors, topError: guardianTopError } = validateGuardians(guardians, ownerAddress);
+  const { rowErrors: guardianRowErrors, topError: guardianTopError } = validateGuardians(guardians, ownerAddress, formNetworkRef.current);
   // Step 3 is valid when there are no row-level errors (blank rows are a
   // warning, not a blocking error — the user sees the warning and can proceed).
   const guardiansValid = guardianTopError === null;
 
   const checkinPeriodUnsafe = isUnsafeCheckinPeriod(checkinPeriodDays);
-  const timingValid = checkinPeriodError === null && gracePeriodError === null && !checkinPeriodUnsafe;
+  const graceRelationError = getGracePeriodRelationError(checkinPeriodDays, gracePeriodDays);
+  const timingValid =
+    checkinPeriodError === null && gracePeriodError === null && !checkinPeriodUnsafe && graceRelationError === null;
 
   const canGoNext = [isAmountValid, beneficiariesValid, timingValid, guardiansValid, true][step];
 
@@ -434,6 +455,43 @@ export default function NewWillPage() {
     return null;
   }
 
+  /** Returns the final guardian list, or null (with `error` set) if resolution failed or timed out. */
+  async function resolveGuardiansForSubmit(): Promise<string[] | null> {
+    const pending = guardians
+      .map((guardian, index) => ({ guardian, id: stableGuardianIds.get(index) }))
+      .filter(({ guardian, id }) => isFederatedAddress(guardian) && !(id && resolvedGuardians.has(id)));
+    if (pending.length === 0) {
+      return getSubmittedGuardians(guardians, resolvedGuardians, stableGuardianIds);
+    }
+
+    setResolvingOnSubmit(true);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Resolving guardian addresses timed out after 5 seconds. Please try again.')),
+          GUARDIAN_RESOLVE_TIMEOUT_MS,
+        );
+      });
+      const results = await Promise.race([
+        Promise.all(pending.map(async ({ guardian, id }) => [id, await resolveFederatedAddress(guardian)] as const)),
+        timeout,
+      ]);
+      const merged = new Map(resolvedGuardians);
+      for (const [id, address] of results) {
+        if (id) merged.set(id, address);
+      }
+      setResolvedGuardians(merged);
+      return getSubmittedGuardians(guardians, merged, stableGuardianIds);
+    } catch (err) {
+      setError(formatError(err));
+      return null;
+    } finally {
+      clearTimeout(timer);
+      setResolvingOnSubmit(false);
+    }
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     setError(null);
@@ -445,6 +503,13 @@ export default function NewWillPage() {
     }
     if (!Number.isInteger(checkinPeriodDays) || checkinPeriodDays <= 0 || !Number.isInteger(gracePeriodDays) || gracePeriodDays <= 0) {
       setError('Check-in and grace periods must be positive whole numbers.');
+      setSubmitting(false);
+      return;
+    }
+
+    const relationError = getGracePeriodRelationError(checkinPeriodDays, gracePeriodDays);
+    if (relationError) {
+      setError(relationError);
       setSubmitting(false);
       return;
     }
@@ -483,6 +548,13 @@ export default function NewWillPage() {
         return;
       }
 
+      // Resolve any federated guardians that the user has not resolved yet,
+      // showing a loading state and failing after a 5s timeout.
+      const submittedGuardians = await resolveGuardiansForSubmit();
+      if (!submittedGuardians) {
+        return;
+      }
+
       const client = getSoroWillClient();
       const { willId } = await client.createWill({
         token,
@@ -490,7 +562,7 @@ export default function NewWillPage() {
         beneficiaries,
         checkinPeriodDays,
         gracePeriodDays,
-        guardians: getSubmittedGuardians(guardians, resolvedGuardians, stableGuardianIds),
+        guardians: submittedGuardians,
       });
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
@@ -588,6 +660,11 @@ export default function NewWillPage() {
                       setCheckinPeriodDays(sourceWill.checkinPeriodDays);
                       setGracePeriodDays(sourceWill.gracePeriodDays);
                       setGuardians(sourceWill.guardians);
+                      setCloneWarning(
+                        shouldWarnOnClone(sourceWill.status)
+                          ? `The will you are copying from has been ${String(sourceWill.status).toLowerCase()}.`
+                          : null,
+                      );
                       setCloneLoading(false);
                     })
                     .catch((err) => {
@@ -607,6 +684,39 @@ export default function NewWillPage() {
               className="rounded-full border border-red-400/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400/70"
             >
               Go back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!cloneLoading && !cloneError && cloneWarning && (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-300"
+        >
+          <p>{cloneWarning} Copying its settings may not be what you intended.</p>
+          <div className="mt-3 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setCloneWarning(null)}
+              className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90"
+            >
+              Continue with copy
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCloneWarning(null);
+                setToken('');
+                setBeneficiaries([{ address: '', percentage: 100 }]);
+                setCheckinPeriodDays(90);
+                setGracePeriodDays(7);
+                setGuardians([]);
+                router.replace('/will/new');
+              }}
+              className="rounded-full border border-amber-400/40 px-4 py-2 text-sm text-amber-300 transition hover:border-amber-400/70"
+            >
+              Start fresh
             </button>
           </div>
         </div>
@@ -825,6 +935,34 @@ export default function NewWillPage() {
                   </p>
                 ) : null}
               </div>
+              {graceRelationError ? (
+                <p id="grace-relation-error" role="alert" className="mt-2 text-xs text-red-400">
+                  {graceRelationError}
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-will-light/80" data-testid="timing-timeline">
+              <p className="font-medium text-will-light">What happens if you miss a check-in</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>You must check in at least once every {checkinPeriodDays} days.</li>
+                <li>
+                  If a check-in deadline passes, anyone can start the {gracePeriodDays}-day grace period.
+                </li>
+                <li>
+                  If you check in during the grace period, the will stays active. If you do not, your funds are
+                  released to your beneficiaries.
+                </li>
+              </ol>
+              <p className="mt-3 text-xs text-will-light/70">
+                Example: you check in today. If you then stay inactive, your check-in is due in {checkinPeriodDays}{' '}
+                days, and your funds are released {checkinPeriodDays + gracePeriodDays} days from today (
+                {checkinPeriodDays} + {gracePeriodDays}) unless you check in before then.
+              </p>
+              <p className="mt-2 text-xs">
+                <a href="/faq" target="_blank" rel="noopener noreferrer" className="text-will-purple hover:underline">
+                  Learn more about check-in and grace periods
+                </a>
+              </p>
             </div>
           </fieldset>
         ) : null}
@@ -956,10 +1094,10 @@ export default function NewWillPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting || guardianTopError !== null || !isAmountValid}
+            disabled={submitting || resolvingOnSubmit || guardianTopError !== null || !isAmountValid}
             className="w-full rounded-full bg-will-purple px-5 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
-            {submitting ? 'Creating…' : 'Create Will'}
+            {resolvingOnSubmit ? 'Resolving addresses…' : submitting ? 'Creating…' : 'Create Will'}
           </button>
         )}
       </div>
