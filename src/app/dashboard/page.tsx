@@ -22,6 +22,9 @@ import { WillCard } from '@/components/WillCard';
 // @sorowill/sdk exposes an event subscription/query API — SoroWillClient
 // currently only exposes will reads/writes, no event history.
 
+/** Number of wills rendered per page; "Load more" advances the cursor by this much. */
+const WILLS_PAGE_SIZE = 20;
+
 type Tab = 'owned' | 'inheriting' | 'guardianship';
 type StatusFilter = 'all' | WillStatus;
 
@@ -103,6 +106,13 @@ function DashboardPageOld() {
   const [guardianScanWarning, setGuardianScanWarning] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Cursor into the filtered list: only the first `visibleCount` wills are rendered.
+  const [visibleCount, setVisibleCount] = useState(WILLS_PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(WILLS_PAGE_SIZE);
+  }, [tab, search, statusFilter]);
+
   const [refreshDurationMs, setRefreshDurationMs] = useState<number | null>(null);
   const [isStale, setIsStale] = useState(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
@@ -776,7 +786,7 @@ function DashboardPageOld() {
           </div>
         ) : (
           <div className="space-y-3">
-            {activeList.map((will) => (
+            {visibleWills.map((will) => (
               <div key={will.id} className="flex items-center gap-3">
                 {tab === 'owned' && isMultiSelectMode && (
                   <input
@@ -798,6 +808,15 @@ function DashboardPageOld() {
                 </div>
               </div>
             ))}
+            {hasMoreWills && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((count) => count + WILLS_PAGE_SIZE)}
+                className="w-full rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
+              >
+                Load more ({visibleWills.length} of {activeList.length})
+              </button>
+            )}
           </div>
         )}
       </div>

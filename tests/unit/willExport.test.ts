@@ -53,6 +53,29 @@ describe('willExport', () => {
       expect(headers).toContain('Guardians');
     });
 
+    it('should export metadata, notes and memo in separate columns', () => {
+      const will = makeTestWill({
+        lastCheckin: 1_700_000_000,
+        guardianVotes: 2,
+        beneficiaries: [
+          { address: 'GA', percentage: 60, note: 'Eldest' },
+          { address: 'GB', percentage: 40, note: 'Youngest' },
+        ],
+      } as Partial<Will>);
+      Object.assign(will, { notes: 'Family will', memo: 'memo-1' });
+      const [header, row] = exportWillsToCSV([will]).split('\n');
+      const headers = header.split(',');
+      const values = row.split(',');
+      const col = (name: string) => values[headers.indexOf(name)];
+
+      expect(col('Beneficiary Percentages')).toBe('60;40');
+      expect(col('Beneficiary Notes')).toBe('Eldest;Youngest');
+      expect(col('Last Check-in')).toBe('2023-11-14T22:13:20.000Z');
+      expect(col('Guardian Votes')).toBe('2');
+      expect(col('Will Notes')).toBe('Family will');
+      expect(col('Memo')).toBe('memo-1');
+    });
+
     it('should export multiple wills', () => {
       const wills = [
         makeTestWill({ id: 'will-1' }),

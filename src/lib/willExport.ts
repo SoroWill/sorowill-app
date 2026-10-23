@@ -52,10 +52,17 @@ function formatExportBalance(balance: Will['balance'] | null | undefined, token:
   return formatTokenBalance(raw, token);
 }
 
-/** ISO-8601 timestamp of the last check-in, or empty when missing/invalid. */
-function formatLastCheckin(value: unknown): string {
+/** ISO 8601 timestamp (unix seconds, bigint, string or Date input); empty for missing/invalid values. */
+function formatExportTimestamp(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
-  const date = value instanceof Date ? value : new Date(value as string | number);
+  let date: Date;
+  if (value instanceof Date) {
+    date = value;
+  } else {
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds)) return '';
+    date = new Date(seconds * 1000);
+  }
   return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
 
@@ -73,6 +80,11 @@ export function exportWillsToCSV(wills: Will[]): string {
     'Last Check-in',
     'Beneficiaries',
     'Guardians',
+    'Beneficiary Percentages',
+    'Beneficiary Notes',
+    'Guardian Votes',
+    'Will Notes',
+    'Memo',
   ];
 
   const rows = wills.map((will) => {
@@ -86,6 +98,24 @@ export function exportWillsToCSV(wills: Will[]): string {
       .map((g) => (typeof g === 'string' ? g : (g as { address?: string })?.address || ''))
       .join(';');
 
+    const beneficiaryList = Array.isArray(will.beneficiaries) ? will.beneficiaries : [];
+    const percentagesStr = beneficiaryList
+      .map((b) => (typeof b === 'string' ? '' : String((b as { percentage?: unknown })?.percentage ?? '')))
+      .join(';');
+    const beneficiaryNotesStr = beneficiaryList
+      .map((b) => {
+        if (typeof b === 'string') return '';
+        const extra = b as { note?: unknown; notes?: unknown; memo?: unknown };
+        return String(extra.note ?? extra.notes ?? extra.memo ?? '');
+      })
+      .join(';');
+
+    const extra = will as unknown as {
+      guardianVotes?: number | bigint | null;
+      notes?: string | null;
+      memo?: string | null;
+    };
+
     return [
       escapeCSVField(will.id),
       escapeCSVField(will.owner),
@@ -94,9 +124,14 @@ export function exportWillsToCSV(wills: Will[]): string {
       escapeCSVField(will.token),
       escapeCSVField(will.checkinPeriodDays),
       escapeCSVField(will.gracePeriodDays),
-      escapeCSVField(formatLastCheckin(will.lastCheckin)),
+      escapeCSVField(formatExportTimestamp(will.lastCheckin)),
       escapeCSVField(beneficiariesStr),
       escapeCSVField(guardiansStr),
+      escapeCSVField(percentagesStr),
+      escapeCSVField(beneficiaryNotesStr),
+      escapeCSVField(extra.guardianVotes),
+      escapeCSVField(extra.notes),
+      escapeCSVField(extra.memo),
     ].join(',');
   });
 

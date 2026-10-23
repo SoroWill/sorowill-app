@@ -10,11 +10,46 @@ import { formatError } from '@/lib/errors';
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
   onChange: (beneficiaries: Beneficiary[]) => void;
+  /**
+   * Kind of address the selected token accepts for beneficiaries: `account`
+   * (classic `G...`, the default) or `contract` (`C...`). Addresses of the
+   * other kind are flagged because the contract would reject them.
+   */
+  addressType?: BeneficiaryAddressType;
 }
 
-function isValidStellarAddress(address: string): boolean {
+export type BeneficiaryAddressType = 'account' | 'contract';
+
+const ADDRESS_PATTERNS: Record<BeneficiaryAddressType, RegExp> = {
+  account: /^G[0-9A-Z]{55}$/,
+  contract: /^C[0-9A-Z]{55}$/,
+};
+
+const ADDRESS_TYPE_LABELS: Record<BeneficiaryAddressType, string> = {
+  account: 'a Stellar account address starting with G',
+  contract: 'a contract address starting with C',
+};
+
+function isValidStellarAddress(address: string, addressType: BeneficiaryAddressType = 'account'): boolean {
   if (!address) return false;
-  return /^G[0-9A-Z]{55}$/.test(address);
+  return ADDRESS_PATTERNS[addressType].test(address);
+}
+
+/**
+ * Returns an error when `address` is well-formed but of the wrong kind for the
+ * selected token (e.g. a `G...` account where a `C...` contract is required).
+ */
+export function getAddressTypeMismatchError(
+  address: string,
+  addressType: BeneficiaryAddressType,
+): string | null {
+  const other: BeneficiaryAddressType = addressType === 'account' ? 'contract' : 'account';
+  if (!isValidStellarAddress(address, addressType) && isValidStellarAddress(address, other)) {
+    return `The selected token requires ${ADDRESS_TYPE_LABELS[addressType]}; the contract will reject this ${
+      other === 'account' ? 'account (G...)' : 'contract (C...)'
+    } address`;
+  }
+  return null;
 }
 
 /**
@@ -46,7 +81,10 @@ export function toPercentageNumber(percentage: Beneficiary['percentage'] | bigin
   return typeof percentage === 'bigint' ? Number(percentage) : percentage;
 }
 
-function getAddressErrors(beneficiaries: Beneficiary[]): Record<number, string> {
+function getAddressErrors(
+  beneficiaries: Beneficiary[],
+  addressType: BeneficiaryAddressType = 'account',
+): Record<number, string> {
   const errors: Record<number, string> = {};
   beneficiaries.forEach((b, i) => {
     if (b.percentage > 0 && !b.address.trim()) {
@@ -55,11 +93,11 @@ function getAddressErrors(beneficiaries: Beneficiary[]): Record<number, string> 
       // A federated address (name*domain) is only valid once resolved to a G...
       // address; the contract rejects the raw form, so block submission.
       errors[i] = 'Federated address must be resolved before submitting — click Resolve';
-    } else if (b.address && !isFederatedAddress(b.address) && !isValidStellarAddress(b.address)) {
+    } else if (b.address && !isFederatedAddress(b.address) && !isValidStellarAddress(b.address, addressType)) {
       const suggestion = suggestAddressFix(b.address);
-      errors[i] = suggestion
-        ? `Invalid Stellar address — did you mean ${suggestion}?`
-        : 'Invalid Stellar address';
+      errors[i] =
+        getAddressTypeMismatchError(b.address, addressType) ??
+        (suggestion ? `Invalid Stellar address — did you mean ${suggestion}?` : 'Invalid Stellar address');
     }
   });
   return errors;
@@ -154,13 +192,13 @@ function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string |
   return null;
 }
 
-export function BeneficiaryForm({ value, onChange }: BeneficiaryFormProps) {
+export function BeneficiaryForm({ value, onChange, addressType = 'account' }: BeneficiaryFormProps) {
   // Derived validation only depends on `value`; memoize so unrelated re-renders
   // (e.g. resolution state changes) don't re-validate large beneficiary lists.
   const total = useMemo(() => sumPercentages(value), [value]);
   const validationMessage = useMemo(() => getBeneficiaryValidationMessage(value), [value]);
   const isValid = validationMessage === null;
-  const addressErrors = useMemo(() => getAddressErrors(value), [value]);
+  const addressErrors = useMemo(() => getAddressErrors(value, addressType), [value, addressType]);
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
 
