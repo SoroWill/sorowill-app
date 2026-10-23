@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { isFederatedAddress } from '@/lib/federated';
@@ -44,6 +44,22 @@ interface GuardianRowProps {
   onResolve: (index: number, address: string) => void;
 }
 
+const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
+
+/**
+ * Returns validation feedback for a guardian input value.
+ * Empty strings are not flagged here (blank rows are handled separately).
+ */
+export function getAddressFeedback(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '' || isFederatedAddress(trimmed)) return '';
+  if (STELLAR_ADDRESS_RE.test(trimmed)) return '';
+  if (trimmed.startsWith('G')) {
+    return 'Stellar addresses must be 56 characters starting with G (A–Z, 2–7).';
+  }
+  return 'Enter a Stellar address (G…) or a federated address (name*domain.com).';
+}
+
 /**
  * A single guardian row. Memoized so editing one guardian only re-renders that
  * row — all props are primitives or stable callbacks, so shallow equality suffices.
@@ -59,6 +75,7 @@ export const GuardianRow = memo(function GuardianRow({
   onRemove,
   onResolve,
 }: GuardianRowProps) {
+  const formatHint = getAddressFeedback(guardian);
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -237,6 +254,8 @@ export function GuardianForm({
                 value={guardian}
                 onChange={(e) => onUpdate(index, e.target.value)}
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
+                spellCheck={false}
+                autoComplete="off"
                 aria-label={`Guardian ${index + 1} address`}
                 aria-describedby={rowError ? `guardian-error-${index}` : undefined}
                 aria-invalid={rowError ? 'true' : undefined}
@@ -298,6 +317,12 @@ export function GuardianForm({
                 role="alert"
               >
                 {rowError}
+              </p>
+            ) : null}
+
+            {!rowError && getAddressFeedback(guardian) ? (
+              <p className="text-xs text-amber-400/80" role="status">
+                {getAddressFeedback(guardian)}
               </p>
             ) : null}
 

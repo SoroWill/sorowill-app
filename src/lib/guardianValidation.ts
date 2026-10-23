@@ -1,6 +1,19 @@
 import { MAX_GUARDIANS } from '@/lib/constants';
 
 // ---------------------------------------------------------------------------
+// Federated address notation (name*domain.tld)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when `address` uses Stellar federation notation: `name*domain`.
+ * Federated addresses are resolved to G-addresses by the caller; this only
+ * checks the syntax.
+ */
+export function isFederatedAddress(address: string): boolean {
+  return /^[A-Za-z0-9._-]+\*[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(address);
+}
+
+// ---------------------------------------------------------------------------
 // CRC16-CCITT (XModem variant) used by Stellar StrKey encoding
 // ---------------------------------------------------------------------------
 
@@ -124,6 +137,12 @@ export function validateGuardians(
   for (let i = 0; i < guardians.length; i++) {
     const g = guardians[i].trim();
     if (g === '') continue;
+
+    if (isFederatedAddress(g)) {
+      // Accepted syntactically; resolution to a G-address happens upstream.
+      validCount++;
+      continue;
+    }
 
     if (!isValidStellarAddress(g)) {
       rowErrors[i] = 'Not a valid Stellar address (must start with G and be 56 characters)';
