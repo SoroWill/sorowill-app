@@ -46,6 +46,64 @@ export const FEDERATION_DOMAIN = 'stellar.org';
 const STRICT_HOSTNAME_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*(?::\d+)?$/;
 
 /**
+ * Result of validating a federated or public-key address for form feedback.
+ */
+export type AddressValidationResult =
+  | { valid: true; kind: 'public-key' | 'federated' }
+  | { valid: false; reason: string };
+
+/**
+ * Validates an address for UI feedback without performing any network calls.
+ *
+ * - Public keys must match the Stellar G-address format (56 chars, base32).
+ * - Federated addresses must have exactly one `*`, a non-empty name, and a
+ *   strictly-validated hostname on the right (#339).
+ *
+ * @param address - The raw user-entered address.
+ * @returns A validation result describing whether the address is usable and why not.
+ */
+export function validateStellarAddress(address: string): AddressValidationResult {
+  const trimmed = address.trim();
+
+  if (!trimmed) {
+    return { valid: false, reason: 'Address is required' };
+  }
+
+  if (!isFederatedAddress(trimmed)) {
+    if (STELLAR_PUBLIC_KEY_REGEX.test(trimmed)) {
+      return { valid: true, kind: 'public-key' };
+    }
+    return {
+      valid: false,
+      reason: 'Enter a Stellar public key (starts with G, 56 characters) or a federated address (name*domain)',
+    };
+  }
+
+  const starCount = (trimmed.match(/\*/g) ?? []).length;
+  if (starCount !== 1) {
+    return { valid: false, reason: 'Federated address must contain exactly one "*"' };
+  }
+
+  const starIndex = trimmed.indexOf('*');
+  const name = trimmed.slice(0, starIndex);
+  const domain = trimmed.slice(starIndex + 1);
+
+  if (!name) {
+    return { valid: false, reason: 'Name before "*" must not be empty' };
+  }
+
+  if (!domain) {
+    return { valid: false, reason: 'Domain after "*" must not be empty' };
+  }
+
+  if (!STRICT_HOSTNAME_REGEX.test(domain)) {
+    return { valid: false, reason: `"${domain}" is not a valid domain` };
+  }
+
+  return { valid: true, kind: 'federated' };
+}
+
+/**
  * Resolves a Stellar federated address (e.g., "user*example.com") to a Stellar account ID.
  *
  * For non-federated addresses (those not containing a `*`), returns the input unchanged.
