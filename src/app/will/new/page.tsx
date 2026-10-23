@@ -119,6 +119,7 @@ export default function NewWillPage() {
   const [checkinPeriodDays, setCheckinPeriodDays] = useState(90);
   const [gracePeriodDays, setGracePeriodDays] = useState(7);
   const [guardians, setGuardians] = useState<string[]>([]);
+  const lastSavedDraftRef = useRef<string | null>(null);
   const [cloneLoading, setCloneLoading] = useState(false);
   const [cloneError, setCloneError] = useState<CloneErrorKind | null>(null);
   // Set when the source will is released/cancelled so we can warn before reuse (#736).
@@ -274,7 +275,12 @@ export default function NewWillPage() {
       guardians,
     };
     if (typeof window !== 'undefined') {
-      saveDraft(localStorage, state);
+      // Skip redundant writes when the serialized state has not changed.
+      const serialized = JSON.stringify(state);
+      if (lastSavedDraftRef.current === serialized) return;
+      if (saveDraft(localStorage, state)) {
+        lastSavedDraftRef.current = serialized;
+      }
     }
   }, [step, token, amount, beneficiaries, checkinPeriodDays, gracePeriodDays, guardians]);
 

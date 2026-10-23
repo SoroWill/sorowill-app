@@ -195,6 +195,11 @@ export function GuardianForm({
           onClick={handleAdd}
           disabled={guardians.length >= MAX_GUARDIANS}
           aria-label={`Add guardian (${guardians.length} of ${MAX_GUARDIANS})`}
+          title={
+            guardians.length >= MAX_GUARDIANS
+              ? `Maximum of ${MAX_GUARDIANS} guardians reached`
+              : undefined
+          }
           className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
           + Add guardian

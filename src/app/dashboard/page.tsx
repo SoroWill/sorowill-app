@@ -10,6 +10,7 @@ import { normalizeWalletNetwork, safeGetPublicKey, safeGetWalletNetwork } from '
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError, formatLoadError, classifyCheckInError } from '@/lib/errors';
+import { getUserBalance } from '@/lib/balance';
 import { exportWillsToCSV } from '@/lib/willExport';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
@@ -122,6 +123,18 @@ function DashboardPageOld() {
   const [selectedWillIds, setSelectedWillIds] = useState<string[]>([]);
   const [batchAmounts, setBatchAmounts] = useState<Record<string, string>>({});
   const [batchSubmitting, setBatchSubmitting] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!publicKey) return;
+    let cancelled = false;
+    void getUserBalance(publicKey).then((b) => {
+      if (!cancelled) setWalletBalance(b);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey]);
   const [batchResults, setBatchResults] = useState<
     Record<string, { status: 'success' | 'error'; message: string; txHash?: string }>
   >({});
@@ -327,6 +340,10 @@ function DashboardPageOld() {
   async function handleSubmitBatchTopUp(e: React.FormEvent) {
     e.preventDefault();
     if (selectedWillIds.length === 0) return;
+    if (batchExceedsBalance) {
+      toast.error('Total top-up amount exceeds your available balance.');
+      return;
+    }
 
     setBatchSubmitting(true);
     setBatchResults({});
@@ -372,20 +389,18 @@ function DashboardPageOld() {
   );
 
   const handleExportCSV = useCallback(() => {
-    let csv: string;
     try {
-      csv = exportWillsToCSV(activeList);
+      const csv = exportWillsToCSV(activeList);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sorowill-wills-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error(formatError(error));
-      return;
+      toast.error(`CSV export failed: ${formatError(error)}`);
     }
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sorowill-wills-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }, [activeList, toast]);
 
   const isFiltering = search.trim() !== '' || statusFilter !== 'all';
@@ -409,6 +424,18 @@ function DashboardPageOld() {
   );
 
   const invalidBatchWillIds = getInvalidBatchAmounts(selectedWillIds, batchAmounts);
+  const batchTotal = selectedWillIds.reduce((sum, id) => {
+    const amt = batchAmounts[id];
+    return amt && isValidAmount(amt) ? sum + toStroops(amt) : sum;
+  }, 0n);
+  let batchExceedsBalance = false;
+  if (walletBalance !== null) {
+    try {
+      batchExceedsBalance = batchTotal > toStroops(walletBalance);
+    } catch {
+      batchExceedsBalance = false;
+    }
+  }
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, tabName: Tab) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -722,10 +749,12 @@ function DashboardPageOld() {
           <div className="flex justify-between items-center pt-2 border-t border-white/10">
             <span className="text-sm font-semibold text-will-light">
               Total Amount:{' '}
-              {formatUSDC(
-                BigInt(Object.values(batchAmounts).reduce((sum, val) => sum + (Number(val) || 0), 0)),
-              )}{' '}
-              USDC
+              {formatUSDC(batchTotal)} USDC
+              {batchExceedsBalance && (
+                <span className="block text-xs font-normal text-red-400">
+                  Total exceeds your available balance ({walletBalance} USDC).
+                </span>
+              )}
               {invalidBatchWillIds.length > 0 && (
                 <span className="block text-xs font-normal text-red-400">
                   Enter a valid amount for every selected will (no scientific notation).
@@ -734,7 +763,7 @@ function DashboardPageOld() {
             </span>
             <button
               type="submit"
-              disabled={batchSubmitting || invalidBatchWillIds.length > 0}
+              disabled={batchSubmitting || invalidBatchWillIds.length > 0 || batchExceedsBalance}
               className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60"
             >
               {batchSubmitting ? 'Submitting Batch…' : 'Submit Batch Top-up'}
