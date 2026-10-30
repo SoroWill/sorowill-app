@@ -1,5 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { CountdownTimer } from '@/components/CountdownTimer';
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}));
 
 describe('CountdownTimer accessible name (#315)', () => {
   it('exposes a timer describing the remaining time in words', () => {

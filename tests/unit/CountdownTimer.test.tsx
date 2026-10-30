@@ -2,6 +2,10 @@ import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CountdownTimer } from '@/components/CountdownTimer';
 
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
