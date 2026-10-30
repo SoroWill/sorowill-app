@@ -9,7 +9,8 @@ import { WillStatus, type Will, formatUSDC, toStroops } from '@sorowill/sdk';
 import { normalizeWalletNetwork, safeGetPublicKey, safeGetWalletNetwork } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
-import { formatError, formatLoadError, classifyCheckInError } from '@/lib/errors';
+import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';
+import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
 import { exportWillsToCSV } from '@/lib/willExport';
 import { getSafeBalance } from '@/lib/tokenDecimals';
@@ -116,6 +117,7 @@ function DashboardPageOld() {
 
   const [refreshDurationMs, setRefreshDurationMs] = useState<number | null>(null);
   const [isStale, setIsStale] = useState(false);
+  const [networkChangedTo, setNetworkChangedTo] = useState<string | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   // Batch top-up state
@@ -201,8 +203,8 @@ function DashboardPageOld() {
       if (!signal.aborted) {
         setLoading(false);
       }
-      if (loadWillsAbortRef.current === controller) {
-        loadWillsAbortRef.current = null;
+      if (loadControllerRef.current === controller) {
+        loadControllerRef.current = null;
       }
     }
   }, []);
@@ -300,11 +302,8 @@ function DashboardPageOld() {
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Check-in successful');
     } catch (err) {
-      const { kind, message } = classifyCheckInError(err);
-      const displayMessage =
-        kind === 'network'
-          ? 'Network error — check your connection and try again'
-          : `Check-in rejected by the contract: ${message}`;
+      const displayMessage = formatCheckInError(err);
+      const kind = classifyCheckInError(err);
       console.error(`[Dashboard] Check-in failed (${kind}):`, err);
       setError(displayMessage);
       toast.error(displayMessage);
@@ -386,6 +385,16 @@ function DashboardPageOld() {
   const activeList = useMemo(
     () => filterWills(baseList, search, statusFilter),
     [baseList, search, statusFilter],
+  );
+
+  const visibleWills = useMemo(
+    () => activeList.slice(0, visibleCount),
+    [activeList, visibleCount],
+  );
+
+  const hasMoreWills = useMemo(
+    () => activeList.length > visibleCount,
+    [activeList, visibleCount],
   );
 
   const handleExportCSV = useCallback(() => {

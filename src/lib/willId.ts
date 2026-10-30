@@ -10,3 +10,8 @@ export function isValidWillId(id: string): boolean {
 export function isValidContractAddress(address: string): boolean {
   return /^C[A-Z2-7]{55}$/.test(address);
 }
+
+/** Generates a unique client-side ID for UI elements (e.g., toast messages). */
+export function generateClientId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}

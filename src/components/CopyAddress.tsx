@@ -33,7 +33,6 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
     };
   }, []);
   const toast = useToast();
-  const t = useTranslations('common');
 
   const displayLabel = label !== undefined ? label : truncateAddress(address);
 

@@ -36,6 +36,8 @@ const CHECKIN_OPTIONS = [30, 60, 90, 180, 365];
 const GRACE_OPTIONS = [3, 7, 14];
 // Max time to wait for federated guardian resolution on submit (#737).
 const GUARDIAN_RESOLVE_TIMEOUT_MS = 5000;
+// Debounce duration for balance check after amount field change (ms).
+const BALANCE_CHECK_DEBOUNCE_MS = 500;
 
 // Soroban persistent storage has a TTL measured in ledgers; when it runs out,
 // the entry is archived and must be restored before the contract can read it.
