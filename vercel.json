@@ -1,9 +1,0 @@
-{
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm ci",
-  "env": {
-    "VITE_CONFIG_NATIVE_IGNORE_WARNING": "true"
-  },
-  "nodeVersion": "20.x"
-}
