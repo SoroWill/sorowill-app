@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
-import { isValidContractAddress } from '@/lib/willId';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { getSoroWillClient } from '@/lib/sorowill';

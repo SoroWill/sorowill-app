@@ -75,7 +75,6 @@ export const GuardianRow = memo(function GuardianRow({
   onRemove,
   onResolve,
 }: GuardianRowProps) {
-  const formatHint = getAddressFeedback(guardian);
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">

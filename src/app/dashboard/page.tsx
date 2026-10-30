@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { WillStatus, type Will, formatUSDC, toStroops } from '@sorowill/sdk';
 
-import { normalizeWalletNetwork, safeGetPublicKey, safeGetWalletNetwork } from '@/lib/freighter';
+import { safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 import {
-  checkWalletPublicKey,
   safeConnectWallet,
   safeGetPublicKey,
   truncateAddress,

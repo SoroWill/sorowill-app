@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
 
-import { formatCheckinLabel, formatRelativeTime, parseCreatedAt, type WillWithCreatedAt } from '@/lib/deadlines';
+import { formatCheckinLabel, formatRelativeTime, parseCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { StatusBanner } from './StatusBanner';
 
@@ -106,20 +106,6 @@ function WillCardComponent({
     }
   }, [showEntitledShare, connectedAddress, will.balance, will.beneficiaries]);
 
-  // Memoized so the list is only rebuilt when the beneficiaries change.
-  const beneficiaryList = useMemo(
-    () =>
-      will.beneficiaries?.length ? (
-        <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
-          {will.beneficiaries.map((beneficiary) => (
-            <li key={beneficiary.address} className="truncate">
-              {beneficiary.address}
-            </li>
-          ))}
-        </ul>
-      ) : null,
-    [will.beneficiaries],
-  );
 
   return (
     <article

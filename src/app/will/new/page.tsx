@@ -6,9 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatUSDC, toStroops, validateBeneficiaries, type Beneficiary } from '@sorowill/sdk';
 
 import {
-  normalizeWalletNetwork,
   safeGetPublicKey,
-  safeGetWalletNetwork,
   truncateAddress,
 } from '@/lib/freighter';
 import { getNetwork, getSoroWillClient } from '@/lib/sorowill';
@@ -429,39 +427,6 @@ export default function NewWillPage() {
     setGuardians((prev) => prev.filter((_, i) => i !== index));
   }
 
-  /**
-   * Re-validates the whole form and the wallet/network state immediately
-   * before submission. Each step is validated when the user advances, but the
-   * review step can be left open indefinitely, so the network or wallet may
-   * have changed since then (#700). Returns an error message, or null if the
-   * will is still valid to submit.
-   */
-  async function validateBeforeSubmit(): Promise<string | null> {
-    if (!isAmountValid) {
-      return 'The token address or amount is no longer valid. Go back to the Amount step to fix it.';
-    }
-    if (!beneficiariesValid) {
-      return 'The beneficiaries are no longer valid. Go back to the Beneficiaries step to fix them.';
-    }
-
-    const appNetwork = getNetwork();
-    if (appNetwork !== formNetworkRef.current) {
-      return `The app network changed from ${formNetworkRef.current} to ${appNetwork} while you were reviewing. Switch back to ${formNetworkRef.current} or start the will again on ${appNetwork}.`;
-    }
-
-    const [publicKey, walletInfo] = await Promise.all([safeGetPublicKey(), safeGetWalletNetwork()]);
-    if (!publicKey || !walletInfo) {
-      return 'Your wallet is no longer connected. Reconnect Freighter and try again.';
-    }
-    if (ownerAddress && publicKey !== ownerAddress) {
-      return 'The connected wallet account changed while you were reviewing. Switch back to the original account or start again.';
-    }
-    if (normalizeWalletNetwork(walletInfo.network) !== appNetwork) {
-      return `Your wallet is connected to ${walletInfo.network}, but this will is being created on ${appNetwork}. Switch your Freighter network to ${appNetwork} and try again.`;
-    }
-
-    return null;
-  }
 
   /** Returns the final guardian list, or null (with `error` set) if resolution failed or timed out. */
   async function resolveGuardiansForSubmit(): Promise<string[] | null> {
