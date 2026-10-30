@@ -14,7 +14,7 @@ vi.mock('@/lib/sorowill', () => ({
 vi.mock('viem', () => ({ verifyMessage: vi.fn(async () => true) }));
 
 import { POST } from '@/app/api/reminders/register/route';
-import { checkRateLimit, resetRateLimits } from '@/lib/rate-limit';
+import { checkRateLimit, resetRateLimits, buildRateLimitKey } from '@/lib/rate-limit';
 
 const VALID_WILL_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
 
