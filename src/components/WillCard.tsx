@@ -75,6 +75,7 @@ function WillCardComponent({
         will.beneficiaries?.some((b) => b.address.toLowerCase().includes(needle)) ? 'beneficiary address' : null,
       ].filter(Boolean)
     : [];
+  const createdAt = useMemo(() => parseCreatedAt(will), [will]);
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
 
@@ -96,7 +97,7 @@ function WillCardComponent({
   const userShare = useMemo(() => {
     if (!showEntitledShare || !connectedAddress || !will.beneficiaries?.length) return null;
     try {
-      const shares = calculateShares(getSafeBalance(will.balance), will.beneficiaries);
+      const shares = calculateShares(will.balance.toString(), will.beneficiaries);
       return shares.find(
         (s) => s.address.toLowerCase() === connectedAddress.toLowerCase(),
       );
@@ -236,7 +237,7 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
       a.checkinPeriodDays === b.checkinPeriodDays &&
       a.lastCheckin?.getTime() === b.lastCheckin?.getTime() &&
       a.triggerTime?.getTime() === b.triggerTime?.getTime() &&
-      parseCreatedAt(a.createdAt)?.getTime() === parseCreatedAt(b.createdAt)?.getTime() &&
+      parseCreatedAt(a)?.getTime() === parseCreatedAt(b)?.getTime() &&
       sameBeneficiaries(a.beneficiaries, b.beneficiaries));
 
   return (
