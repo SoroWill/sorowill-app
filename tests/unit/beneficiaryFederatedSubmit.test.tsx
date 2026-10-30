@@ -155,7 +155,7 @@ describe('BeneficiaryForm — submit blocked for unresolved federated address (#
     const beneficiaries: Beneficiary[] = [{ address: 'alice*domain.com', percentage: 100 }];
 
     render(
-      <BeneficiaryForm value={beneficiaries} onChange={vi.fn()} onSubmit={onSubmit} />,
+      <BeneficiaryForm value={beneficiaries} onChange={vi.fn()} />,
     );
 
     // Per-row error is visible.
@@ -180,7 +180,7 @@ describe('BeneficiaryForm — submit blocked for unresolved federated address (#
     vi.mocked(resolveFederatedAddress).mockResolvedValue(RESOLVED_STELLAR_ADDRESS);
 
     const { rerender } = render(
-      <BeneficiaryForm value={beneficiaries} onChange={onChange} onSubmit={onSubmit} />,
+      <BeneficiaryForm value={beneficiaries} onChange={onChange} />,
     );
 
     await user.click(screen.getByRole('button', { name: 'Resolve' }));
@@ -190,7 +190,7 @@ describe('BeneficiaryForm — submit blocked for unresolved federated address (#
     const resolved: Beneficiary[] = [
       { address: RESOLVED_STELLAR_ADDRESS, percentage: 100 },
     ];
-    rerender(<BeneficiaryForm value={resolved} onChange={onChange} onSubmit={onSubmit} />);
+    rerender(<BeneficiaryForm value={resolved} onChange={onChange} />);
 
     // Error is gone.
     expect(

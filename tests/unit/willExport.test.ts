@@ -61,7 +61,7 @@ describe('willExport', () => {
           { address: 'GA', percentage: 60, note: 'Eldest' },
           { address: 'GB', percentage: 40, note: 'Youngest' },
         ],
-      } as Partial<Will>);
+      } as unknown as Partial<Will>);
       Object.assign(will, { notes: 'Family will', memo: 'memo-1' });
       const [header, row] = exportWillsToCSV([will]).split('\n');
       const headers = header.split(',');

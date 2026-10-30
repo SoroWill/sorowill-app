@@ -83,8 +83,8 @@ describe('#680 — rate-limit key construction avoids collisions', () => {
     const now = 1_000_000;
     // Naive concatenation with ':' would make these two keys identical:
     //   'a:b' + ':' + 'c'  ===  'a' + ':' + 'b:c'
-    const key1 = buildRateLimitKey(['a:b', 'c']);
-    const key2 = buildRateLimitKey(['a', 'b:c']);
+    const key1 = buildRateLimitKey('a:b', 'c');
+    const key2 = buildRateLimitKey('a', 'b:c');
     expect(key1).not.toBe(key2);
 
     for (let i = 0; i < 3; i++) {
@@ -95,8 +95,8 @@ describe('#680 — rate-limit key construction avoids collisions', () => {
   });
 
   it('validates that the separator does not appear in any key part', () => {
-    expect(() => buildRateLimitKey(['a:b', 'c'], ':')).toThrow();
-    expect(() => buildRateLimitKey(['a', 'b:c'], ':')).toThrow();
-    expect(() => buildRateLimitKey(['a', 'b'], ':')).not.toThrow();
+    expect(() => buildRateLimitKey('a:b', 'c')).toThrow();
+    expect(() => buildRateLimitKey('a', 'b:c')).toThrow();
+    expect(() => buildRateLimitKey('a', 'b')).not.toThrow();
   });
 });
