@@ -1,7 +1,89 @@
 
 export { dispatchReminderEmails, dispatchReminderBatch, dispatchDueReminders } from '@/lib/reminders/dispatch';
 
+import { parseRetryAfter } from '@/lib/rate-limit';
+
 export type ReminderKind = 'well-before' | 'imminent';
+
+/**
+ * Rate limit details surfaced when a reminders request is rejected with 429.
+ * `retryAfterMs` is the parsed Retry-After wait (0 when the header is absent
+ * or unparseable) and `message` is a user-facing countdown string.
+ */
+export interface ReminderRateLimitInfo {
+  retryAfterMs: number;
+  message: string;
+}
+
+export interface ReminderRateLimitError extends Error {
+  status: 429;
+  retryAfterMs: number;
+  retryAfterSeconds: number;
+  rateLimit: ReminderRateLimitInfo;
+}
+
+/** Formats a user-facing retry message, e.g. "Rate limited. Retry in 30s". */
+export function formatRetryAfterMessage(retryAfterMs: number): string {
+  const seconds = Math.max(0, Math.ceil(retryAfterMs / 1000));
+  return `Rate limited. Retry in ${seconds}s`;
+}
+
+/**
+ * Builds a 429 error carrying the parsed Retry-After wait so callers can show
+ * a countdown and schedule an automatic retry.
+ */
+export function createReminderRateLimitError(
+  response: { headers: { get(name: string): string | null } },
+  fallbackMessage = 'Too many reminder requests. Please try again later.',
+): ReminderRateLimitError {
+  const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'));
+  const message = retryAfterMs > 0 ? formatRetryAfterMessage(retryAfterMs) : fallbackMessage;
+  const error = new Error(message) as ReminderRateLimitError;
+  error.name = 'ReminderRateLimitError';
+  error.status = 429;
+  error.retryAfterMs = retryAfterMs;
+  error.retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+  error.rateLimit = { retryAfterMs, message };
+  return error;
+}
+
+export function isReminderRateLimitError(error: unknown): error is ReminderRateLimitError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { status?: unknown }).status === 429 &&
+    typeof (error as { retryAfterMs?: unknown }).retryAfterMs === 'number'
+  );
+}
+
+/**
+ * Runs `task`, and if it fails with a 429 that carries a Retry-After wait,
+ * waits that long and retries once. The returned result's `rateLimit` is
+ * cleared (undefined) once the retry succeeds so stale countdown messages
+ * are not shown to the user.
+ */
+export async function withReminderRateLimitRetry<T>(
+  task: () => Promise<T>,
+  options: { maxRetries?: number } = {},
+): Promise<{ result?: T; rateLimit?: ReminderRateLimitInfo; error?: unknown }> {
+  const maxRetries = options.maxRetries ?? 1;
+  let attempt = 0;
+  for (;;) {
+    try {
+      const result = await task();
+      return { result };
+    } catch (error) {
+      if (!isReminderRateLimitError(error) || attempt >= maxRetries || error.retryAfterMs <= 0) {
+        return {
+          error,
+          rateLimit: isReminderRateLimitError(error) ? error.rateLimit : undefined,
+        };
+      }
+      attempt += 1;
+      await new Promise<void>((resolve) => setTimeout(resolve, error.retryAfterMs));
+    }
+  }
+}
 
 export interface ReminderSubscription {
   willId: string;
