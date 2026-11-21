@@ -474,6 +474,14 @@ export default function NewWillPage() {
       setSubmitting(false);
       return;
     }
+    const submittedToken = token.trim();
+    // The step-level UI validation is helpful feedback, but this guard is the
+    // authoritative boundary before an untrusted value reaches the SDK.
+    if (!CONTRACT_ADDRESS_PATTERN.test(submittedToken)) {
+      setError('Enter a valid Stellar contract address before creating a will.');
+      setSubmitting(false);
+      return;
+    }
     if (!Number.isInteger(checkinPeriodDays) || checkinPeriodDays <= 0 || !Number.isInteger(gracePeriodDays) || gracePeriodDays <= 0) {
       setError('Check-in and grace periods must be positive whole numbers.');
       setSubmitting(false);
@@ -530,7 +538,7 @@ export default function NewWillPage() {
 
       const client = getSoroWillClient();
       const { willId } = await client.createWill({
-        token,
+        token: submittedToken,
         amount: toStroops(amount).toString(),
         beneficiaries,
         checkinPeriodDays,
