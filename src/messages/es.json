@@ -29,7 +29,11 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
-    "copyAddress": "Copiar {address}"
+    "copyAddress": "Copiar {address}",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "lastRefreshed": "Última actualización: {time}",
+    "neverRefreshed": "Aún no actualizado"
   },
   "landing": {
     "heroTitle": "Protege tu herencia criptográfica",
@@ -103,7 +107,10 @@
     "details": "Detalles",
     "usdcLocked": "{amount} USDC bloqueado",
     "checkInDue": "Chequeo vencido en {days} día{days, plural, =1 {} other {s}}",
-    "checkInOverdue": "Chequeo vencido"
+    "checkInOverdue": "Chequeo vencido",
+    "refreshWillData": "Actualizar datos del testamento",
+    "lastRefreshed": "Última actualización: {time}",
+    "autoRefreshHint": "Se actualiza automáticamente cada 30 segundos"
   },
   "willDetail": {
     "willNumber": "Testamento #{id}",
@@ -143,6 +150,25 @@
     "releaseEarlyTitle": "Liberar anticipadamente al beneficiario",
     "amountUSDC": "Monto (USDC)",
     "recipientAddress": "Dirección del destinatario"
+  },
+  "verify": {
+    "accountBalance": "Saldo de la cuenta",
+    "balanceLoading": "Cargando saldo…",
+    "balanceError": "No se pudo cargar el saldo de la cuenta.",
+    "requiredAmount": "Monto requerido: {amount} USDC",
+    "lowBalanceWarning": "Tu saldo es bajo. Necesitas al menos {amount} USDC para completar esta operación.",
+    "insufficientBalance": "Saldo insuficiente para completar esta operación.",
+    "fundAccount": "Fondear cuenta",
+    "fundAccountDescription": "Añade fondos a tu cuenta Stellar para continuar."
+  },
+  "inherit": {
+    "guardianAccountCheck": "Verificando cuenta del tutor…",
+    "guardianAccountExists": "La cuenta del tutor está financiada y lista.",
+    "guardianAccountNotFound": "Esta cuenta aún no existe en la red Stellar.",
+    "guardianAccountNotFunded": "La cuenta del tutor no está financiada. Debe tener al menos {amount} XLM para activarse.",
+    "guardianSetupInstructions": "Pídele al tutor que fondee su cuenta con al menos {amount} XLM. Puede usar el Friendbot en testnet o transferir XLM desde un exchange o monedero existente.",
+    "fundWithFriendbot": "Fondear con Friendbot",
+    "guardianAccountCheckError": "No se pudo verificar la cuenta del tutor. Inténtalo de nuevo."
   },
   "faq": {
     "title": "Cómo funciona y Preguntas Frecuentes",

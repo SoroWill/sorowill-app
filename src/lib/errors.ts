@@ -1,3 +1,5 @@
+import { NextResponse } from 'next/server';
+
 /**
  * Shared check for whether an error message indicates the will does not
  * exist on chain (contract-level "will not found" / "WillNotFound", error
@@ -237,4 +239,65 @@ export function formatError(error: unknown): string {
 export function formatLoadError(error: unknown): string {
   if (error instanceof Error && /permission|unauthoriz|forbidden/i.test(error.message)) return 'You do not have permission to view this will.';
   return 'Could not load will — check your connection.';
+}
+
+/**
+ * Standardized API error schema
+ * -----------------------------
+ * Every API route under `src/app/api/*` returns errors in the same JSON
+ * shape so clients can handle them uniformly:
+ *
+ * ```json
+ * {
+ *   "error": {
+ *     "code": "not_found",
+ *     "message": "This will was not found on the blockchain."
+ *   }
+ * }
+ * ```
+ *
+ * - `code`    — a stable, machine-readable category (see `ApiErrorCode`).
+ * - `message` — a human-readable, user-safe description.
+ *
+ * The HTTP status code is derived from the category via
+ * `API_ERROR_STATUS` so status codes stay consistent across endpoints.
+ */
+export type ApiErrorCode =
+  | 'validation'
+  | 'unauthorized'
+  | 'not_found'
+  | 'rate_limited'
+  | 'server_error';
+
+/** Canonical HTTP status code for each API error category. */
+export const API_ERROR_STATUS: Readonly<Record<ApiErrorCode, number>> = {
+  validation: 400,
+  unauthorized: 401,
+  not_found: 404,
+  rate_limited: 429,
+  server_error: 500,
+};
+
+/** The JSON body shape returned by every API error response. */
+export interface ApiErrorBody {
+  error: {
+    code: ApiErrorCode;
+    message: string;
+  };
+}
+
+/**
+ * Builds a standardized API error response.
+ *
+ * @param code    Machine-readable error category.
+ * @param message Human-readable, user-safe message.
+ * @param status  Optional explicit HTTP status; defaults to the canonical
+ *                status for `code` from `API_ERROR_STATUS`.
+ */
+export function apiError(
+  code: ApiErrorCode,
+  message: string,
+  status: number = API_ERROR_STATUS[code],
+): NextResponse<ApiErrorBody> {
+  return NextResponse.json<ApiErrorBody>({ error: { code, message } }, { status });
 }
