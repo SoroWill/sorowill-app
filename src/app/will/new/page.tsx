@@ -264,25 +264,44 @@ export default function NewWillPage() {
   const isAmountZero = amount.trim() !== '' && Number(amount) === 0;
   const showAmountError = amount.trim() !== '' && (isAmountZero || !isValidAmount(amount));
   const isAmountValid = isValidAmount(amount) && !isAmountZero && tokenValid;
+  // Keep the latest form state in a ref so the 30s autosave interval below can
+  // serialize it without being torn down and recreated on every keystroke.
+  const formStateRef = useRef<FormState>({
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  });
+  formStateRef.current = {
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  };
+
+  // Auto-save the draft to localStorage every 30s so work is not lost if the
+  // user closes the browser mid-creation (#799).
   useEffect(() => {
-    const state: FormState = {
-      step,
-      token,
-      amount,
-      beneficiaries,
-      checkinPeriodDays,
-      gracePeriodDays,
-      guardians,
-    };
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined' || cloneFromId) return;
+
+    const interval = setInterval(() => {
+      const state = formStateRef.current;
       // Skip redundant writes when the serialized state has not changed.
       const serialized = JSON.stringify(state);
       if (lastSavedDraftRef.current === serialized) return;
       if (saveDraft(localStorage, state)) {
         lastSavedDraftRef.current = serialized;
       }
-    }
-  }, [step, token, amount, beneficiaries, checkinPeriodDays, gracePeriodDays, guardians]);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [cloneFromId]);
 
   function resumeDraft() {
     const state = pendingDraftRef.current;
