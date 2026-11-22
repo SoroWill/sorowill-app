@@ -13,12 +13,14 @@ import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
 import { exportWillsToCSV } from '@/lib/willExport';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
+import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BatchTopUpPanel } from '@/components/BatchTopUpPanel';
 import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { WillCard } from '@/components/WillCard';
+import { CountdownTimer } from '@/components/CountdownTimer';
 
 // TODO(#5): Add an activity feed (check-ins, top-ups, guardian votes) once
 // @sorowill/sdk exposes an event subscription/query API — SoroWillClient
@@ -295,11 +297,25 @@ function DashboardPageOld() {
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Check-in successful');
     } catch (err) {
-      const displayMessage = formatCheckInError(err);
       const kind = classifyCheckInError(err);
       console.error(`[Dashboard] Check-in failed (${kind}):`, err);
-      setError(displayMessage);
-      toast.error(displayMessage);
+
+      if (kind === 'status-changed' || isWillStatusChangedError(err)) {
+        // The will's status changed server-side (e.g. it was released) between
+        // load and this check-in attempt. Surface a specific message and
+        // refetch so the dashboard reflects the authoritative status.
+        const displayMessage = formatCheckInError(err);
+        setError(displayMessage);
+        toast.error(displayMessage);
+        if (publicKey) {
+          await loadWills(publicKey);
+        }
+        channelRef.current?.postMessage({ type: 'wills-changed' });
+      } else {
+        const displayMessage = formatCheckInError(err);
+        setError(displayMessage);
+        toast.error(displayMessage);
+      }
     } finally {
       setCheckingInId(null);
     }
@@ -342,6 +358,33 @@ function DashboardPageOld() {
   }, [activeList, toast]);
 
   const isFiltering = search.trim() !== '' || statusFilter !== 'all';
+
+  // #785: expiration countdown for the soonest-expiring active owned will.
+  const nextDeadlineWill = useMemo(() => {
+    let soonest: { will: Will; deadline: Date } | null = null;
+    for (const will of ownedWills) {
+      if (will.status !== WillStatus.Active) continue;
+      const deadline = nextCheckinDeadline(will);
+      if (!deadline) continue;
+      if (!soonest || deadline.getTime() < soonest.deadline.getTime()) {
+        soonest = { will, deadline };
+      }
+    }
+    return soonest;
+  }, [ownedWills]);
+
+  const nextDeadlineGrace = useMemo(
+    () => (nextDeadlineWill ? graceDeadline(nextDeadlineWill.will) : null),
+    [nextDeadlineWill],
+  );
+
+  const daysUntilNextDeadline = useMemo(() => {
+    if (!nextDeadlineWill) return null;
+    return (nextDeadlineWill.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  }, [nextDeadlineWill]);
+
+  const showDeadlineWarning =
+    daysUntilNextDeadline !== null && daysUntilNextDeadline < 7;
 
   if (checkedWallet && !publicKey) {
     return (
@@ -422,6 +465,36 @@ function DashboardPageOld() {
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-300 text-sm">
           ⚠️ Some guardianship data could not be loaded due to a network error. Your guardian list above may be
           incomplete — try refreshing.
+        </div>
+      )}
+
+      {/* #785: Expiration countdown for the soonest-expiring active will */}
+      {nextDeadlineWill && (
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-will-light/50">
+                Will #{nextDeadlineWill.will.id}
+              </p>
+              <p className="text-sm font-semibold text-will-light">Next check-in due</p>
+            </div>
+            <CountdownTimer deadline={nextDeadlineWill.deadline} />
+          </div>
+          {nextDeadlineGrace && (
+            <div className="mt-3 flex flex-col gap-3 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-will-light">Grace period ends</p>
+              <CountdownTimer deadline={nextDeadlineGrace} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {showDeadlineWarning && (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-300 text-sm"
+        >
+          ⚠️ Your will #{nextDeadlineWill?.will.id} expires in less than 7 days. Check in soon to keep it active.
         </div>
       )}
 
