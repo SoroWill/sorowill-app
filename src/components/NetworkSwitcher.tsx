@@ -6,6 +6,7 @@ import { clearTokenDecimalsCache } from '@/lib/tokenDecimals';
 import { type SoroWillNetwork } from '@sorowill/sdk';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { useMounted } from '@/lib/useMounted';
+import { TESTNET_WARNING } from '@/components/NetworkBadge';
 
 export function NetworkSwitcher() {
   const [network, setNetwork] = useState<SoroWillNetwork>('testnet');
@@ -49,6 +50,7 @@ export function NetworkSwitcher() {
     <div className="relative inline-flex items-center">
       <select
         aria-label="Stellar network"
+        title={network === 'testnet' ? TESTNET_WARNING : undefined}
         value={network}
         onChange={handleNetworkChange}
         className={`rounded-full border px-3 py-1 text-xs font-semibold bg-will-dark cursor-pointer focus:outline-none transition-all duration-200 ${
