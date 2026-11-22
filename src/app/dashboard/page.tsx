@@ -11,7 +11,7 @@ import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
-import { exportWillsToCSV } from '@/lib/willExport';
+import { exportFileName, exportWillsToCSV, exportWillsToJSON } from '@/lib/willExport';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
@@ -357,6 +357,21 @@ function DashboardPageOld() {
     }
   }, [activeList, toast]);
 
+  const handleExportJSON = useCallback(() => {
+    try {
+      const json = exportWillsToJSON(activeList);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = exportFileName('json');
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(`JSON export failed: ${formatError(error)}`);
+    }
+  }, [activeList, toast]);
+
   const isFiltering = search.trim() !== '' || statusFilter !== 'all';
 
   // #785: expiration countdown for the soonest-expiring active owned will.
@@ -524,6 +539,15 @@ function DashboardPageOld() {
               className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
             >
               Export CSV ({activeList.length})
+            </button>
+          )}
+          {tab === 'owned' && ownedWills.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            >
+              Export JSON ({activeList.length})
             </button>
           )}
           <button
