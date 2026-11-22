@@ -4,25 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { WillStatus, type Will, formatUSDC, toStroops } from '@sorowill/sdk';
+import { WillStatus, type Will } from '@sorowill/sdk';
 
 import { safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
-import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
-import {
-  formatError,
-  formatLoadError,
-  classifyCheckInError,
-  formatCheckInError,
-  isWillStatusChangedError,
-} from '@/lib/errors';
+import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
 import { exportWillsToCSV } from '@/lib/willExport';
-import { getSafeBalance } from '@/lib/tokenDecimals';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
+import { BatchTopUpPanel } from '@/components/BatchTopUpPanel';
+import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { WillCard } from '@/components/WillCard';
@@ -128,11 +122,6 @@ function DashboardPageOld() {
   const [networkChangedTo, setNetworkChangedTo] = useState<string | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
-  // Batch top-up state
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [selectedWillIds, setSelectedWillIds] = useState<string[]>([]);
-  const [batchAmounts, setBatchAmounts] = useState<Record<string, string>>({});
-  const [batchSubmitting, setBatchSubmitting] = useState(false);
   const [walletBalance, setWalletBalance] = useState<string | null>(null);
 
   useEffect(() => {
@@ -145,9 +134,7 @@ function DashboardPageOld() {
       cancelled = true;
     };
   }, [publicKey]);
-  const [batchResults, setBatchResults] = useState<
-    Record<string, { status: 'success' | 'error'; message: string; txHash?: string }>
-  >({});
+  const batchTopUp = useBatchTopUp(walletBalance);
 
   // Each loadWills call owns an AbortController; starting a new load or
   // unmounting aborts the previous one so stale results never hit state.
@@ -334,74 +321,10 @@ function DashboardPageOld() {
     }
   }, [publicKey, loadWills, toast]);
 
-  // Handle individual selection toggle
-  function handleToggleSelectWill(willId: string) {
-    setSelectedWillIds((prev) => {
-      if (prev.includes(willId)) {
-        const next = prev.filter((id) => id !== willId);
-        const nextAmounts = { ...batchAmounts };
-        delete nextAmounts[willId];
-        setBatchAmounts(nextAmounts);
-        return next;
-      } else {
-        return [...prev, willId];
-      }
-    });
-  }
-
-  // Handle amount change for specific will
-  function handleAmountChange(willId: string, amount: string) {
-    setBatchAmounts((prev) => ({
-      ...prev,
-      [willId]: amount,
-    }));
-  }
-
-  // Execute batch top-up sequentially to avoid sequence number issues
-  async function handleSubmitBatchTopUp(e: React.FormEvent) {
-    e.preventDefault();
-    if (selectedWillIds.length === 0) return;
-    if (batchExceedsBalance) {
-      toast.error('Total top-up amount exceeds your available balance.');
-      return;
-    }
-
-    setBatchSubmitting(true);
-    setBatchResults({});
-    const client = getSoroWillClient();
-    const results: typeof batchResults = {};
-
-    for (const willId of selectedWillIds) {
-      const amount = batchAmounts[willId];
-      if (!amount || !isValidAmount(amount)) {
-        results[willId] = { status: 'error', message: 'Invalid or missing amount' };
-        continue;
-      }
-
-      try {
-        const res = await client.topUp(willId, toStroops(amount).toString());
-        results[willId] = { status: 'success', message: 'Top-up successful', txHash: res.txHash };
-      } catch (err) {
-        results[willId] = {
-          status: 'error',
-          message: formatError(err),
-        };
-      }
-    }
-
-    setBatchResults(results);
-    setBatchSubmitting(false);
-
-    // Refresh data
-    if (publicKey) {
-      await loadWills(publicKey);
-    }
-  }
-
-
-
-  const baseList =
-    tab === 'owned' ? ownedWills : tab === 'inheriting' ? inheritingWills : guardianWills;
+  const baseList = useMemo(
+    () => (tab === 'owned' ? ownedWills : tab === 'inheriting' ? inheritingWills : guardianWills),
+    [guardianWills, inheritingWills, ownedWills, tab],
+  );
 
   // Only recompute when the list or filters change, not on unrelated state updates.
   const activeList = useMemo(
@@ -477,23 +400,12 @@ function DashboardPageOld() {
   // getWillsByGuardian returns every will the address is listed on, including
   // Cancelled/Released ones. Only wills still in force (Active or in their
   // grace period) represent a live guardian responsibility.
-  const activeGuardianWills = guardianWills.filter(
-    (will) => will.status === WillStatus.Active || will.status === WillStatus.Triggered,
+  const activeGuardianWills = useMemo(
+    () => guardianWills.filter(
+      (will) => will.status === WillStatus.Active || will.status === WillStatus.Triggered,
+    ),
+    [guardianWills],
   );
-
-  const invalidBatchWillIds = getInvalidBatchAmounts(selectedWillIds, batchAmounts);
-  const batchTotal = selectedWillIds.reduce((sum, id) => {
-    const amt = batchAmounts[id];
-    return amt && isValidAmount(amt) ? sum + toStroops(amt) : sum;
-  }, 0n);
-  let batchExceedsBalance = false;
-  if (walletBalance !== null) {
-    try {
-      batchExceedsBalance = batchTotal > toStroops(walletBalance);
-    } catch {
-      batchExceedsBalance = false;
-    }
-  }
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, tabName: Tab) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -506,7 +418,7 @@ function DashboardPageOld() {
             ? 'guardianship'
             : 'owned';
       setTab(newTab);
-      setIsMultiSelectMode(false);
+      batchTopUp.reset();
     }
   };
   return (
@@ -521,7 +433,7 @@ function DashboardPageOld() {
           <button
             onClick={() => {
               setTab('guardianship');
-              setIsMultiSelectMode(false);
+              batchTopUp.reset();
             }}
             className="text-xs font-semibold bg-emerald-500 text-white rounded-full px-3 py-1 hover:bg-emerald-500/80 transition"
           >
@@ -594,18 +506,15 @@ function DashboardPageOld() {
             <button
               type="button"
               onClick={() => {
-                setIsMultiSelectMode((m) => !m);
-                setSelectedWillIds([]);
-                setBatchAmounts({});
-                setBatchResults({});
+                batchTopUp.toggleMode();
               }}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                isMultiSelectMode
+                batchTopUp.isMultiSelectMode
                   ? 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
                   : 'border border-white/20 text-will-light/80 hover:border-white/40'
               }`}
             >
-              {isMultiSelectMode ? 'Cancel Multi-select' : 'Multi-select Mode'}
+              {batchTopUp.isMultiSelectMode ? 'Cancel Multi-select' : 'Multi-select Mode'}
             </button>
           )}
           {tab === 'owned' && ownedWills.length > 0 && (
@@ -660,7 +569,7 @@ function DashboardPageOld() {
           type="button"
           onClick={() => {
             setTab('owned');
-            setIsMultiSelectMode(false);
+            batchTopUp.reset();
           }}
           onKeyDown={(e) => handleTabKeyDown(e, 'owned')}
           role="tab"
@@ -678,7 +587,7 @@ function DashboardPageOld() {
           type="button"
           onClick={() => {
             setTab('inheriting');
-            setIsMultiSelectMode(false);
+            batchTopUp.reset();
           }}
           onKeyDown={(e) => handleTabKeyDown(e, 'inheriting')}
           role="tab"
@@ -696,7 +605,7 @@ function DashboardPageOld() {
           type="button"
           onClick={() => {
             setTab('guardianship');
-            setIsMultiSelectMode(false);
+            batchTopUp.reset();
           }}
           onKeyDown={(e) => handleTabKeyDown(e, 'guardianship')}
           role="tab"
@@ -774,90 +683,28 @@ function DashboardPageOld() {
         </div>
       ) : null}
 
-      {/* Batch Top-up Form Panel */}
-      {tab === 'owned' && isMultiSelectMode && selectedWillIds.length > 0 && (
-        <form
-          onSubmit={handleSubmitBatchTopUp}
-          className="rounded-xl border border-will-purple/30 bg-will-purple/5 p-5 space-y-4"
-        >
-          <h3 className="text-sm font-semibold text-will-light">
-            Batch Top-up ({selectedWillIds.length} will{selectedWillIds.length === 1 ? '' : 's'}{' '}
-            selected)
-          </h3>
-          <p className="text-xs text-will-light/60">
-            Specify the top-up amount for each selected will.
-          </p>
-
-          <div className="space-y-3">
-            {selectedWillIds.map((willId) => {
-              const will = ownedWills.find((w) => w.id === willId);
-              const result = batchResults[willId];
-              return (
-                <div
-                  key={willId}
-                  className="flex flex-col gap-2 p-3 rounded-lg bg-white/5 border border-white/5 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <span className="font-semibold text-sm text-will-light">Will #{willId}</span>
-                    <span className="text-xs text-will-light/50 block">
-                      Current balance: {will ? formatUSDC(getSafeBalance(will.balance)) : '0.00'} USDC
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:items-end gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        placeholder="Amount (USDC)"
-                        required
-                        value={batchAmounts[willId] || ''}
-                        onChange={(e) => handleAmountChange(willId, e.target.value)}
-                        className="rounded-lg border border-white/10 bg-will-dark px-3 py-1 text-sm text-will-light focus:border-will-purple focus:outline-none w-36"
-                      />
-                      <span className="text-xs text-will-light/70">USDC</span>
-                    </div>
-
-                    {result && (
-                      <span
-                        className={`text-xs font-medium ${
-                          result.status === 'success' ? 'text-emerald-400' : 'text-red-400'
-                        }`}
-                      >
-                        {result.status === 'success' ? '✓ Success' : `✗ ${result.message}`}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-between items-center pt-2 border-t border-white/10">
-            <span className="text-sm font-semibold text-will-light">
-              Total Amount:{' '}
-              {formatUSDC(batchTotal)} USDC
-              {batchExceedsBalance && (
-                <span className="block text-xs font-normal text-red-400">
-                  Total exceeds your available balance ({walletBalance} USDC).
-                </span>
-              )}
-              {invalidBatchWillIds.length > 0 && (
-                <span className="block text-xs font-normal text-red-400">
-                  Enter a valid amount for every selected will (no scientific notation).
-                </span>
-              )}
-            </span>
-            <button
-              type="submit"
-              disabled={batchSubmitting || invalidBatchWillIds.length > 0 || batchExceedsBalance}
-              className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60"
-            >
-              {batchSubmitting ? 'Submitting Batch…' : 'Submit Batch Top-up'}
-            </button>
-          </div>
-        </form>
+      {tab === 'owned' && batchTopUp.isMultiSelectMode && batchTopUp.selectedWillIds.length > 0 && (
+        <BatchTopUpPanel
+          amounts={batchTopUp.amounts}
+          exceedsBalance={batchTopUp.exceedsBalance}
+          invalidWillIds={batchTopUp.invalidWillIds}
+          isSubmitting={batchTopUp.isSubmitting}
+          onAmountChange={batchTopUp.setAmount}
+          onSubmit={() => {
+            if (batchTopUp.exceedsBalance) {
+              toast.error('Total top-up amount exceeds your available balance.');
+              return;
+            }
+            void batchTopUp.submit(async () => {
+              if (publicKey) await loadWills(publicKey);
+            });
+          }}
+          results={batchTopUp.results}
+          selectedWillIds={batchTopUp.selectedWillIds}
+          total={batchTopUp.total}
+          walletBalance={walletBalance}
+          wills={ownedWills}
+        />
       )}
 
       {/* Main Content Pane */}
@@ -905,11 +752,11 @@ function DashboardPageOld() {
           <div className="space-y-3">
             {visibleWills.map((will) => (
               <div key={will.id} className="flex items-center gap-3">
-                {tab === 'owned' && isMultiSelectMode && (
+                {tab === 'owned' && batchTopUp.isMultiSelectMode && (
                   <input
                     type="checkbox"
-                    checked={selectedWillIds.includes(will.id)}
-                    onChange={() => handleToggleSelectWill(will.id)}
+                    checked={batchTopUp.selectedWillIds.includes(will.id)}
+                    onChange={() => batchTopUp.select(will.id)}
                     className="h-5 w-5 rounded border-white/10 bg-white/5 text-will-purple focus:ring-will-purple accent-will-purple cursor-pointer"
                   />
                 )}
