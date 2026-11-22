@@ -16,6 +16,7 @@ import {
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError, formatLoadError } from '@/lib/errors';
+import { fetchWithCsrf } from '@/lib/csrfClient';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
@@ -294,7 +295,7 @@ export default function WillDetailPage() {
     setReminderStatus(null);
 
     try {
-      const response = await fetch('/api/reminders/register', {
+      const response = await fetchWithCsrf('/api/reminders/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

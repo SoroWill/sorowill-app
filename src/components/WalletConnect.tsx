@@ -8,6 +8,7 @@ import {
   truncateAddress,
 } from '@/lib/freighter';
 import { formatError } from '@/lib/errors';
+import { clearCsrfToken } from '@/lib/csrfClient';
 
 // TODO(#4): Replace this Freighter-only connect flow with a wallet-selection
 // UI once @sorowill/sdk ships adapters for other wallets (Albedo, xBull,
@@ -287,6 +288,8 @@ export function WalletConnect() {
   }
 
   function handleClearSession() {
+    // The CSRF token belongs to this session, so it goes with it (#840).
+    void clearCsrfToken();
     setSessionCleared(true);
     setConnectedAt(null);
     setPublicKey(null);
