@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -9,11 +9,25 @@ import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
 
+const RTL_LOCALES = ['ar', 'he'];
+
+function resolveDirection(): 'rtl' | 'ltr' {
+  if (typeof document === 'undefined') return 'ltr';
+  const lang = (document.documentElement.lang || '').toLowerCase();
+  const base = lang.split('-')[0];
+  return RTL_LOCALES.includes(base) ? 'rtl' : 'ltr';
+}
+
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
+
+  useEffect(() => {
+    const dir = resolveDirection();
+    document.documentElement.setAttribute('dir', dir);
+  }, []);
 
   return (
     <ThemeProvider>

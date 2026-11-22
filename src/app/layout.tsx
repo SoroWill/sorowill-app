@@ -10,6 +10,13 @@ import ClientLayout from './layout-client';
 
 import './globals.css';
 
+const RTL_LOCALES = new Set(['ar', 'he', 'fa', 'ur']);
+
+function getTextDirection(locale: string): 'rtl' | 'ltr' {
+  const base = locale.split('-')[0].toLowerCase();
+  return RTL_LOCALES.has(base) ? 'rtl' : 'ltr';
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://sorowill.vercel.app'),
   title: 'SoroWill',
@@ -54,9 +61,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Saved preference from the cookie so the server HTML already carries the
   // right data-theme; theme-init.js covers first visits (OS preference).
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const dir = getTextDirection(locale);
 
   return (
-    <html lang={locale} data-theme={theme} suppressHydrationWarning>
+    <html lang={locale} dir={dir} data-theme={theme} suppressHydrationWarning>
       <head>
         {/* Parser-blocking classic script: applies data-theme before first paint
             to prevent a theme flash. Must be synchronous and run before hydration,

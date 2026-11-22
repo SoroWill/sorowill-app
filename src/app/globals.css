@@ -26,6 +26,32 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* RTL support: Arabic (ar) and Hebrew (he) locales */
+[dir='rtl'] {
+  text-align: right;
+}
+
+[dir='rtl'] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+[dir='rtl'] .rtl-mirror {
+  transform: scaleX(-1);
+}
+
+/* Mirror directional icons (arrows, chevrons) in RTL */
+[dir='rtl'] [data-icon='directional'] {
+  transform: scaleX(-1);
+}
+
+/* Use logical properties so spacing/alignment mirror automatically */
+[dir='rtl'] .rtl-logical {
+  margin-inline-start: 0;
+  margin-inline-end: 0;
+  padding-inline-start: 0;
+  padding-inline-end: 0;
+}
+
 @keyframes skeleton-pulse {
   0%,
   100% {
@@ -93,7 +119,7 @@ body {
   .print-table td {
     border: 1px solid #cccccc;
     padding: 0.75rem;
-    text-align: left;
+    text-align: start;
   }
 
   .print-table th {
