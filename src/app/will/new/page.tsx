@@ -16,6 +16,7 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
+import { firstIncompleteStepBefore, getStepProblems, type WillStepData } from '@/lib/willStepValidation';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -289,7 +290,23 @@ export default function NewWillPage() {
     pendingDraftRef.current = null;
     setResumeAvailable(false);
     if (!state) return;
-    setStep(state.step);
+    // A restored draft may not skip a step that is still incomplete: stop at the first one.
+    const stepData: WillStepData = {
+      token: state.token,
+      amount: state.amount,
+      beneficiaries: state.beneficiaries,
+      checkinPeriodDays: state.checkinPeriodDays,
+      gracePeriodDays: state.gracePeriodDays,
+      guardians: state.guardians,
+      ownerAddress,
+      network: formNetworkRef.current,
+      safeCheckinWindowDays: SAFE_CHECKIN_WINDOW_DAYS,
+    };
+    const resumeStep = firstIncompleteStepBefore(state.step, stepData);
+    if (resumeStep < state.step) {
+      toast.info(`Step ${resumeStep + 1} (${STEP_LABELS[resumeStep]}) still needs attention before you can continue.`);
+    }
+    setStep(resumeStep);
     setToken(state.token);
     setAmount(state.amount);
     setBeneficiaries(state.beneficiaries);
@@ -322,6 +339,19 @@ export default function NewWillPage() {
     checkinPeriodError === null && gracePeriodError === null && !checkinPeriodUnsafe && graceRelationError === null;
 
   const canGoNext = [isAmountValid, beneficiariesValid, timingValid, guardiansValid, true][step];
+
+  // What is wrong on this step, in words, shown under the form when Next is blocked (#830).
+  const stepProblems = getStepProblems(step, {
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+    ownerAddress,
+    network: formNetworkRef.current,
+    safeCheckinWindowDays: SAFE_CHECKIN_WINDOW_DAYS,
+  });
 
   // Rows that are blank — the user will see a warning that they'll be dropped.
   const blankGuardianIndices = guardians
@@ -1043,9 +1073,16 @@ export default function NewWillPage() {
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
       {!cloneError && step < STEP_LABELS.length - 1 && !canGoNext && (
-        <p id="step-invalid-hint" role="alert" className="text-xs text-red-400">
-          Fix the highlighted fields on this step to continue.
-        </p>
+        <div id="step-invalid-hint" role="alert" className="space-y-1 text-xs text-red-400">
+          <p>Fix the highlighted fields on this step to continue.</p>
+          {stepProblems.length > 0 ? (
+            <ul className="list-disc space-y-0.5 pl-4">
+              {stepProblems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       )}
       {!cloneError && (
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
