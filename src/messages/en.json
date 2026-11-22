@@ -179,6 +179,10 @@
       }
     },
     "faqHeading": "Frequently Asked Questions",
+    "toc": {
+      "heading": "On this page",
+      "backToTop": "Back to top"
+    },
     "items": [
       { "question": "How does SoroWill work?", "answer": "SoroWill is a smart contract on Stellar Soroban that automates inheritance. You lock USDC into the contract, specify beneficiaries and check-in periods, and prove you are still active by checking in before each deadline. If you miss a check-in, anyone can trigger the grace period. If the grace period passes without a response from you, the contract automatically distributes your funds to your beneficiaries according to the percentages you set." },
       { "question": "What happens if I miss a check-in?", "answer": "If you miss a check-in deadline, anyone can trigger a grace period (which you set during creation, typically 3-14 days). During this grace period, you can still respond and prevent the release. You simply need to access SoroWill and check in again. If you do not respond before the grace period ends, the funds are released to your beneficiaries automatically." },
