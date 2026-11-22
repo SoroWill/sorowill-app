@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { NetworkBadge } from '@/components/NetworkBadge';
+import { getSocialLinks } from '@/lib/socialLinks';
 
 export function Footer() {
   const t = useTranslations('common');
@@ -12,12 +13,16 @@ export function Footer() {
         <NetworkBadge />
       </div>
       <nav aria-label={t('footerNav')} className="flex flex-wrap items-center justify-center gap-4">
-        <a href="https://github.com/SoroWill/sorowill-app" target="_blank" rel="noreferrer" className="hover:text-will-light">
-          {t('githubLink')}
-        </a>
-        <span className="text-white/20" aria-hidden="true">
-          •
-        </span>
+        {getSocialLinks().map((link) => (
+          <span key={link.id} className="contents">
+            <a href={link.url} target="_blank" rel="noopener noreferrer" className="hover:text-will-light">
+              {t(`${link.id}Link`)}
+            </a>
+            <span className="text-white/20" aria-hidden="true">
+              •
+            </span>
+          </span>
+        ))}
         <Link href="/terms" className="hover:text-will-light">
           {t('terms')}
         </Link>
