@@ -12,6 +12,11 @@ import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
  * Status codes:
  *   200 — confirmation succeeded
  *   400 — token is missing, invalid, or already used
+ *
+ * Index usage (#843): the token lookup performed by
+ * `confirmReminderSubscription` is served by the `confirmation_token`
+ * index on the reminders table (see docs/database-indexes.md), so this
+ * route resolves a single row instead of scanning the table.
  */
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
