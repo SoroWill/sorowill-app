@@ -8,7 +8,7 @@ import { WillStatus, type Will } from '@sorowill/sdk';
 
 import { safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
-import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';
+import { formatError, formatLoadError, classifyCheckInError, formatCheckInError, isWillStatusChangedError } from '@/lib/errors';
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
 import { exportWillsToCSV } from '@/lib/willExport';

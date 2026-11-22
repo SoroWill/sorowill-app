@@ -1,16 +1,19 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { Fragment, useCallback, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import Image from 'next/image';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [walletSession, setWalletSession] = useState(0);
+  const refreshWalletState = useCallback(() => setWalletSession((session) => session + 1), []);
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
@@ -51,11 +54,14 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           </nav>
           {/* Outside the sm-only nav so wallet, network, language and theme
               controls stay reachable on phone widths. */}
-          <HeaderContextArea />
+          <HeaderContextArea onSessionChange={refreshWalletState} />
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <Breadcrumbs pathname={pathname} />
+        <Fragment key={walletSession}>{children}</Fragment>
+      </main>
       </ToastProvider>
     </ThemeProvider>
   );

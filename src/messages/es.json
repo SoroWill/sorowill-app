@@ -35,6 +35,15 @@
     "heroTitle": "Protege tu herencia criptográfica",
     "heroDescription": "SoroWill es un protocolo de herencia descentralizado en Stellar Soroban. Bloquea USDC, nombra tus beneficiarios y deja que un contrato inteligente cumpla tus deseos si alguna vez desapareces.",
     "createYourWill": "Crear tu testamento",
+    "tutorial": {
+      "skip": "Omitir tutorial",
+      "full": "Tutorial completo",
+      "quickStart": "Guía de inicio rápido",
+      "connect": "Conecta tu billetera de Stellar.",
+      "configure": "Añade beneficiarios y elige un intervalo de confirmación. Revisa y firma el testamento.",
+      "checkIn": "Usa el panel para confirmar tu actividad antes de la fecha límite.",
+      "create": "Crear un testamento"
+    },
     "howItWorks": "Cómo funciona",
     "whySoroWill": "Por qué SoroWill",
     "steps": {

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAddressHistory } from './AddressHistory';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Beneficiary } from '@sorowill/sdk';
@@ -201,6 +203,9 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   const total = useMemo(() => sumPercentages(value), [value]);
   const validationMessage = useMemo(() => getBeneficiaryValidationMessage(value), [value]);
   const isValid = validationMessage === null;
+  const history = useAddressHistory('beneficiaries', (address) =>
+    isValidStellarAddress(address, addressType) || (addressType === 'account' && isFederatedAddress(address)),
+  );
   const addressErrors = useMemo(() => getAddressErrors(value, addressType), [value, addressType]);
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
@@ -389,6 +394,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
         </button>
       </div>
 
+      {history.controls}
       <div className="space-y-2" role="group" aria-label="Beneficiary list">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';
@@ -406,6 +412,9 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
+                  list={history.list}
+                  autoComplete="off"
+                  onBlur={(event) => history.remember(event.currentTarget.value)}
                   onPaste={(event) => handleAddressPaste(index, event)}
                   aria-invalid={addressErrors[index] ? 'true' : undefined}
                   aria-describedby={addressErrors[index] ? `beneficiary-address-error-${index}` : undefined}

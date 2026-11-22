@@ -1,5 +1,7 @@
 'use client';
 
+import { useAddressHistory } from './AddressHistory';
+
 import { memo, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
@@ -209,6 +211,9 @@ export function GuardianForm({
 }: GuardianFormProps) {
   const [addError, setAddError] = useState<string | null>(null);
 
+  const history = useAddressHistory('guardians', (address) =>
+    isValidStellarAddress(address) || isFederatedAddress(address),
+  );
   const normalizedOwner = ownerAddress?.trim().toLowerCase() ?? '';
 
   const handleAdd = () => {
@@ -252,6 +257,7 @@ export function GuardianForm({
         incapacitated.
       </p>
 
+      {history.controls}
       {addError ? (
         <p
           className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-400"
@@ -279,6 +285,8 @@ export function GuardianForm({
                 onChange={(e) => onUpdate(index, e.target.value)}
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
+                list={history.list}
+                onBlur={(event) => history.remember(event.currentTarget.value)}
                 autoComplete="off"
                 aria-label={`Guardian ${index + 1} address`}
                 aria-describedby={

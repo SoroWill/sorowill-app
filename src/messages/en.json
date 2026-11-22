@@ -35,6 +35,15 @@
     "heroTitle": "Protect your crypto legacy",
     "heroDescription": "SoroWill is a trustless on-chain inheritance protocol. Lock USDC, name your beneficiaries, and let a smart contract carry out your wishes if you ever go silent.",
     "createYourWill": "Create your Will",
+    "tutorial": {
+      "skip": "Skip tutorial",
+      "full": "Full tutorial",
+      "quickStart": "Quick start guide",
+      "connect": "Connect your Stellar wallet.",
+      "configure": "Add beneficiaries and choose a check-in interval. Review and sign the will.",
+      "checkIn": "Use the dashboard to check in before the deadline.",
+      "create": "Create a will"
+    },
     "howItWorks": "How it works",
     "whySoroWill": "Why SoroWill",
     "steps": {
