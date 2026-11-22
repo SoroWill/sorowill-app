@@ -14,6 +14,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
+  const isContactActive = pathname === '/contact' || pathname.startsWith('/contact/');
 
   return (
     <ThemeProvider>
@@ -56,6 +57,24 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <footer className="border-t border-white/10 bg-will-dark/80 dark:bg-will-dark/80">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-will-light/70 sm:flex-row sm:px-6">
+          <p>&copy; {new Date().getFullYear()} SoroWill. All rights reserved.</p>
+          <nav className="flex items-center gap-6">
+            <Link
+              href="/contact"
+              className={
+                isContactActive
+                  ? 'text-will-purple font-semibold'
+                  : 'hover:text-will-light transition-colors'
+              }
+              aria-current={isContactActive ? 'page' : undefined}
+            >
+              Contact Support
+            </Link>
+          </nav>
+        </div>
+      </footer>
       </ToastProvider>
     </ThemeProvider>
   );
