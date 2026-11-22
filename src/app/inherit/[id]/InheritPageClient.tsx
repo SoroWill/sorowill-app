@@ -14,6 +14,7 @@ import { isValidStellarAddress } from '@/lib/guardianValidation';
 import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
+import { BeneficiaryRows } from '@/components/BeneficiaryRows';
 
 function isValidWillId(id: string): boolean {
   return /^\d+$/.test(id);
@@ -333,14 +334,9 @@ export default function InheritPageClient({ id }: { id: string }) {
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light">All beneficiaries</h2>
-        <ul className="mt-2 space-y-1.5">
-          {shares.map((row) => (
-            <li key={row.address} className="flex justify-between text-sm">
-              <CopyAddress address={row.address} className="text-will-light/80" />
-              <span className="text-will-light">{formatUSDC(BigInt(row.share))} USDC</span>
-            </li>
-          ))}
-        </ul>
+        <BeneficiaryRows
+          rows={shares.map((row) => ({ address: row.address, value: `${formatUSDC(BigInt(row.share))} USDC` }))}
+        />
       </div>
 
       {will.status === WillStatus.Released ? (

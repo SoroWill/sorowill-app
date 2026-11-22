@@ -20,7 +20,7 @@ import { isWillNotFoundError } from '@/lib/errors';
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ShareVerification } from '@/components/ShareVerification';
-import { CopyAddress } from '@/components/CopyAddress';
+import { BeneficiaryRows } from '@/components/BeneficiaryRows';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   let title = 'Verify Will';
@@ -75,14 +75,12 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
 
       <div className="print-section rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light print-heading">Beneficiaries</h2>
-        <ul className="mt-2 space-y-1.5">
-          {will.beneficiaries.map((beneficiary) => (
-            <li key={beneficiary.address} className="flex justify-between text-sm">
-              <CopyAddress address={beneficiary.address} className="text-will-light/80" />
-              <span className="text-will-light">{beneficiary.percentage}%</span>
-            </li>
-          ))}
-        </ul>
+        <BeneficiaryRows
+          rows={will.beneficiaries.map((beneficiary) => ({
+            address: beneficiary.address,
+            value: `${beneficiary.percentage}%`,
+          }))}
+        />
       </div>
 
       {will.status === WillStatus.Active ? (
