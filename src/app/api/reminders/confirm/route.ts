@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
+import { isValidReminderToken } from '@/lib/serverValidation';
 
 /**
  * GET /api/reminders/confirm?token=...
@@ -16,7 +17,9 @@ import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
 
-  const result = await confirmReminderSubscription(token);
+  const result = isValidReminderToken(token)
+    ? await confirmReminderSubscription(token)
+    : { ok: false, error: 'The confirmation link is invalid or has already been used.' };
 
   const message = result.ok
     ? 'Your subscription to check-in reminder emails has been confirmed. Thank you!'

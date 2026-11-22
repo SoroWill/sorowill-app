@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { escapeHtml, unsubscribeReminderSubscription } from '@/lib/reminders';
+import { isValidReminderToken } from '@/lib/serverValidation';
 
 async function handleUnsubscribe(request: Request) {
   const url = new URL(request.url);
@@ -22,7 +23,7 @@ async function handleUnsubscribe(request: Request) {
     }
   }
 
-  if (!token) {
+  if (!token || !isValidReminderToken(String(token))) {
     return new NextResponse(
       `<!doctype html><html><body style="font-family: sans-serif; padding: 2rem;"><p>A valid unsubscribe token is required.</p></body></html>`,
       {

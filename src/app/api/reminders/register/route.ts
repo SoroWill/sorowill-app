@@ -4,6 +4,7 @@ import { verifyMessage } from 'viem';
 import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
+import { validateRegisterFields } from '@/lib/serverValidation';
 import { getSoroWillClient } from '@/lib/sorowill';
 
 // Per-IP budget for reminder registration. See `src/lib/rate-limit.ts` for the
@@ -27,14 +28,6 @@ import { getSoroWillClient } from '@/lib/sorowill';
 // is acceptable for a set-and-forget setting.
 const IP_LIMIT = 10;
 const IP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-const EMAIL_MAX_LENGTH = 254;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function isValidEmail(email: string): boolean {
-  if (email.length > EMAIL_MAX_LENGTH) return false;
-  return EMAIL_REGEX.test(email);
-}
 
 export async function POST(request: Request) {
   const rate = checkRateLimit(`reminders:register:${getClientIp(request)}`, IP_LIMIT, IP_WINDOW_MS);
@@ -62,11 +55,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isValidEmail(email)) {
-      return NextResponse.json(
-        { ok: false, error: 'Invalid email format' },
-        { status: 400 },
-      );
+    // Validate every field here, whatever the browser already checked (#839).
+    const invalid = validateRegisterFields({ willId, email, owner, signature, message });
+    if (invalid) {
+      return NextResponse.json({ ok: false, error: invalid }, { status: 400 });
     }
 
     // Verify the caller controls the connected wallet that owns this will.
