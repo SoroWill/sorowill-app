@@ -93,6 +93,29 @@ export function checkRateLimit(
   };
 }
 
+/**
+ * The response for a request that was over its limit (#808): HTTP 429, a
+ * `Retry-After` header in seconds and a JSON body that repeats the wait, so
+ * clients can read it from either place. Rate-limited routes should return
+ * this instead of building their own response.
+ */
+export function tooManyRequestsResponse(rate: RateLimitResult): Response {
+  return new Response(
+    JSON.stringify({
+      ok: false,
+      error: 'Too many requests',
+      retryAfterSeconds: rate.retryAfterSeconds,
+    }),
+    {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': String(rate.retryAfterSeconds),
+      },
+    },
+  );
+}
+
 export function getClientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip')?.trim();

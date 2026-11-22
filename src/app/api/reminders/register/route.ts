@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, getClientIp, tooManyRequestsResponse } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { getSoroWillClient } from '@/lib/sorowill';
 
@@ -39,10 +39,7 @@ function isValidEmail(email: string): boolean {
 export async function POST(request: Request) {
   const rate = checkRateLimit(`reminders:register:${getClientIp(request)}`, IP_LIMIT, IP_WINDOW_MS);
   if (!rate.allowed) {
-    return NextResponse.json(
-      { ok: false, error: 'Too many requests' },
-      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } },
-    );
+    return tooManyRequestsResponse(rate);
   }
   const unsupported = rejectUnsupportedContentType(request);
   if (unsupported) return unsupported;
