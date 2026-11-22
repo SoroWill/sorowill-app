@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import QRCode from 'qrcode';
 import { useMounted } from '@/lib/useMounted';
 import { useToast } from '@/components/Toast';
 
@@ -21,11 +20,15 @@ export function ShareVerification() {
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    QRCode.toDataURL(url, {
-      margin: 1,
-      width: 200,
-      color: { dark: '#7D00FF', light: '#ffffff' },
-    })
+    // Loaded on demand: the QR library is not needed until this panel is on screen.
+    import('qrcode')
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(url, {
+          margin: 1,
+          width: 200,
+          color: { dark: '#7D00FF', light: '#ffffff' },
+        }),
+      )
       .then((dataUrl) => {
         if (!cancelled) setQrDataUrl(dataUrl);
       })
