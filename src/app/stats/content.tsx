@@ -12,6 +12,13 @@ interface ProtocolStats {
   completedInheritances: number;
 }
 
+interface UserInsights {
+  willCount: number;
+  totalBalance: string;
+  lastCheckIn: number | null;
+  upcomingDeadlines: { id: number; deadline: number }[];
+}
+
 /**
  * Compute protocol stats from a list of wills using the real SDK fields:
  * `status` (WillStatus) for the active/completed counts and `balance` (stroops)
@@ -36,8 +43,48 @@ export function computeStatsFromWills(wills: Will[]): ProtocolStats {
   return { totalWills, totalValueLocked, activeWills, completedInheritances };
 }
 
+/**
+ * Derive per-user insights from a list of wills (#869): will count, total
+ * balance across wills, the most recent check-in, and upcoming deadlines.
+ * Pure so it can be unit-tested.
+ */
+export function computeUserInsights(wills: Will[]): UserInsights {
+  const willCount = wills.length;
+
+  const totalBalance = wills
+    .reduce((sum, w) => {
+      const balance =
+        w.balance === undefined || w.balance === null ? 0n : BigInt(w.balance);
+      return sum + balance;
+    }, 0n)
+    .toString();
+
+  const lastCheckIn = wills.reduce<number | null>((latest, w) => {
+    const ts = w.lastCheckIn;
+    if (ts === undefined || ts === null) return latest;
+    const value = Number(ts);
+    if (!Number.isFinite(value)) return latest;
+    return latest === null || value > latest ? value : latest;
+  }, null);
+
+  const now = Math.floor(Date.now() / 1000);
+  const upcomingDeadlines = wills
+    .filter((w) => w.status === WillStatus.Active)
+    .map((w) => ({ id: Number(w.id), deadline: Number(w.deadline) }))
+    .filter((d) => Number.isFinite(d.deadline) && d.deadline > now)
+    .sort((a, b) => a.deadline - b.deadline);
+
+  return { willCount, totalBalance, lastCheckIn, upcomingDeadlines };
+}
+
+function formatTimestamp(ts: number | null): string {
+  if (ts === null) return 'No check-ins yet';
+  return new Date(ts * 1000).toLocaleString();
+}
+
 export function StatsContent() {
   const [stats, setStats] = useState<ProtocolStats | null>(null);
+  const [insights, setInsights] = useState<UserInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +139,9 @@ export function StatsContent() {
           activeWills,
           completedInheritances,
         });
+
+        // Per-user insights (#869) derived from the same will set.
+        setInsights(computeUserInsights(wills));
       } catch (err) {
         setError(formatError(err));
       } finally {
@@ -185,6 +235,43 @@ export function StatsContent() {
         ))}
       </div>
 
+      {insights && (
+        <div className="rounded-lg border border-white/10 bg-white/5 p-6">
+          <h3 className="text-lg font-semibold text-will-light">Your Insights</h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wider text-will-light/60">Your Wills</p>
+              <p className="mt-2 text-2xl font-bold text-will-light">{insights.willCount.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wider text-will-light/60">Total Balance</p>
+              <p className="mt-2 text-2xl font-bold text-will-light">
+                {(BigInt(insights.totalBalance) / BigInt(1000000)).toString()} USDC
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wider text-will-light/60">Last Check-in</p>
+              <p className="mt-2 text-2xl font-bold text-will-light">{formatTimestamp(insights.lastCheckIn)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-wider text-will-light/60">Upcoming Deadlines</p>
+              {insights.upcomingDeadlines.length === 0 ? (
+                <p className="mt-2 text-sm text-will-light/50">No upcoming deadlines</p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm text-will-light/70">
+                  {insights.upcomingDeadlines.map((d) => (
+                    <li key={d.id} className="flex justify-between gap-3">
+                      <span>Will #{d.id}</span>
+                      <span>{new Date(d.deadline * 1000).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-will-light">About These Metrics</h3>
         <ul className="mt-4 space-y-3 text-sm text-will-light/70">
@@ -204,23 +291,11 @@ export function StatsContent() {
           <li className="flex gap-3">
             <span className="shrink-0 text-will-purple">→</span>
             <span>
-              <strong>Active Wills:</strong> Wills that are currently in execution and have not been triggered by a missed check-in.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="shrink-0 text-will-purple">→</span>
-            <span>
-              <strong>Completed Inheritances:</strong> Wills where the grace period has expired and funds have been distributed to beneficiaries.
+              <strong>Your Insights:</strong> Your will count, total balance, most recent check-in, and upcoming
+              deadlines derived from the wills on the selected network.
             </span>
           </li>
         </ul>
-      </div>
-
-      <div className="rounded-lg border border-white/10 bg-white/5 p-6">
-        <h3 className="text-lg font-semibold text-will-light">Data Transparency</h3>
-        <p className="mt-3 text-sm text-will-light/70">
-          All statistics are derived from on-chain data on the Soroban network. This page refreshes on load and does not require a wallet connection. The data is immutable and publicly auditable via Stellar Expert.
-        </p>
       </div>
     </div>
   );
