@@ -1,13 +1,17 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
 
 import { formatCheckinLabel, formatRelativeTime, parseCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
+import { BeneficiaryListDialog } from './BeneficiaryListDialog';
 import { StatusBanner } from './StatusBanner';
+
+/** Beneficiaries listed on the card before the rest move behind "and N more" (#821). */
+export const MAX_CARD_BENEFICIARIES = 3;
 
 /**
  * Splits `text` into segments, flagging case-insensitive occurrences of
@@ -68,6 +72,7 @@ function WillCardComponent({
   showEntitledShare = false,
   searchQuery,
 }: WillCardProps) {
+  const [showAllBeneficiaries, setShowAllBeneficiaries] = useState(false);
   const needle = searchQuery?.trim().toLowerCase() ?? '';
   const matchedWhat = needle
     ? [
@@ -75,6 +80,10 @@ function WillCardComponent({
         will.beneficiaries?.some((b) => b.address.toLowerCase().includes(needle)) ? 'beneficiary address' : null,
       ].filter(Boolean)
     : [];
+  const shownBeneficiaryCount = (will.beneficiaries ?? []).filter(
+    (b, index) => index < MAX_CARD_BENEFICIARIES || (needle !== '' && b.address.toLowerCase().includes(needle)),
+  ).length;
+  const hiddenBeneficiaries = (will.beneficiaries?.length ?? 0) - shownBeneficiaryCount;
   const createdAt = useMemo(() => parseCreatedAt(will), [will]);
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
@@ -142,12 +151,38 @@ function WillCardComponent({
 
         {will.beneficiaries?.length ? (
           <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
-            {will.beneficiaries.map((beneficiary) => (
-              <li key={beneficiary.address} className="truncate">
-                <Highlight text={beneficiary.address} query={searchQuery} />
+            {will.beneficiaries
+              // Beyond the first few, only a beneficiary that matches the search stays visible.
+              .filter(
+                (beneficiary, index) =>
+                  index < MAX_CARD_BENEFICIARIES || (needle !== '' && beneficiary.address.toLowerCase().includes(needle)),
+              )
+              .map((beneficiary) => (
+                <li key={beneficiary.address} className="max-w-full truncate" title={beneficiary.address}>
+                  <Highlight text={beneficiary.address} query={searchQuery} />
+                </li>
+              ))}
+            {hiddenBeneficiaries > 0 ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setShowAllBeneficiaries(true)}
+                  aria-haspopup="dialog"
+                  className="text-will-purple hover:underline"
+                >
+                  and {hiddenBeneficiaries} more
+                </button>
               </li>
-            ))}
+            ) : null}
           </ul>
+        ) : null}
+
+        {showAllBeneficiaries && will.beneficiaries?.length ? (
+          <BeneficiaryListDialog
+            willId={will.id}
+            beneficiaries={will.beneficiaries}
+            onClose={() => setShowAllBeneficiaries(false)}
+          />
         ) : null}
 
         {matchedWhat.length ? (
