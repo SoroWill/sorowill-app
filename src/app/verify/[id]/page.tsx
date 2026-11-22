@@ -21,6 +21,8 @@ import { nextCheckinDeadline } from '@/lib/deadlines';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ShareVerification } from '@/components/ShareVerification';
 import { CopyAddress } from '@/components/CopyAddress';
+import { SignatureExpiryNotice } from '@/components/SignatureExpiryNotice';
+import { getSignatureExpiryStatus, parseSignatureInfo } from '@/lib/signatureExpiry';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   let title = 'Verify Will';
@@ -41,8 +43,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title, description };
 }
 
-export default async function VerifyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function VerifyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ signedAt?: string | string[]; expires?: string | string[] }>;
+}) {
   const { id } = await params;
+  const signature = parseSignatureInfo((await searchParams) ?? {});
   if (!isValidWillId(id)) {
     notFound();
   }
@@ -70,6 +79,8 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
           wallet is required to view this page.
         </p>
       </div>
+
+      {signature ? <SignatureExpiryNotice status={getSignatureExpiryStatus(signature)} willId={will.id} /> : null}
 
       <StatusBanner status={will.status} />
 
