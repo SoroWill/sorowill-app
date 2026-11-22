@@ -688,6 +688,8 @@ export default function WillDetailPage() {
         <GuardianPanel
           guardians={will.guardians}
           guardianVotes={will.guardianVotes}
+          lastCheckin={will.lastCheckin}
+          checkinPeriodDays={will.checkinPeriodDays}
           isGuardian={isGuardian}
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
