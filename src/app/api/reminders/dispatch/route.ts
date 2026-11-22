@@ -5,6 +5,157 @@ import { dispatchDueReminders } from '@/lib/reminders/dispatch';
 export const dynamic = 'force-dynamic';
 
 /**
+ * @openapi GET
+ * {
+ *   "summary": "Send due reminders (GET)",
+ *   "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set. Unlike POST, GET answers 500 instead of 401 when CRON_SECRET is not set.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "security": [
+ *     {
+ *       "cronBearer": []
+ *     }
+ *   ],
+ *   "responses": {
+ *     "200": {
+ *       "description": "The reminder run finished.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 3,
+ *             "skipped": 1,
+ *             "errors": []
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The bearer token is missing or wrong.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "500": {
+ *       "description": "CRON_SECRET is not set on the server.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 0,
+ *             "skipped": 0,
+ *             "errors": [
+ *               "Server misconfigured: CRON_SECRET is not set"
+ *             ]
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
+/**
+ * @openapi POST
+ * {
+ *   "summary": "Send due reminders (POST)",
+ *   "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "security": [
+ *     {
+ *       "cronBearer": []
+ *     }
+ *   ],
+ *   "responses": {
+ *     "200": {
+ *       "description": "The reminder run finished.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 3,
+ *             "skipped": 1,
+ *             "errors": []
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The bearer token is missing or wrong, or CRON_SECRET is not set.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
+/**
  * Minimum recommended length for CRON_SECRET.
  *
  * A short secret has low entropy, so even a timing-safe comparison offers

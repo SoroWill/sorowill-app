@@ -6,6 +6,210 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { getSoroWillClient } from '@/lib/sorowill';
 
+/**
+ * @openapi POST
+ * {
+ *   "summary": "Register an email reminder for a will",
+ *   "description": "Subscribes an email address to check-in reminders for a will. The caller proves they control the owner's wallet by signing `message`. The will must exist on-chain. A confirmation email is sent and the subscription is active once its link is opened. Limited to 10 requests per hour per client IP.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "requestBody": {
+ *     "required": true,
+ *     "content": {
+ *       "application/json": {
+ *         "schema": {
+ *           "type": "object",
+ *           "required": [
+ *             "willId",
+ *             "email",
+ *             "owner",
+ *             "signature",
+ *             "message"
+ *           ],
+ *           "properties": {
+ *             "willId": {
+ *               "type": "string",
+ *               "description": "Numeric will id.",
+ *               "example": "42"
+ *             },
+ *             "email": {
+ *               "type": "string",
+ *               "format": "email",
+ *               "maxLength": 254
+ *             },
+ *             "owner": {
+ *               "type": "string",
+ *               "description": "Address of the will owner who signed the message."
+ *             },
+ *             "message": {
+ *               "type": "string",
+ *               "description": "The text that was signed."
+ *             },
+ *             "signature": {
+ *               "type": "string",
+ *               "description": "Signature of `message` by `owner`."
+ *             }
+ *           }
+ *         },
+ *         "example": {
+ *           "willId": "42",
+ *           "email": "owner@example.com",
+ *           "owner": "0x0000000000000000000000000000000000000001",
+ *           "message": "Enable reminders for will 42",
+ *           "signature": "0x..."
+ *         }
+ *       }
+ *     }
+ *   },
+ *   "responses": {
+ *     "200": {
+ *       "description": "The subscription was stored.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "ok": {
+ *                 "type": "boolean"
+ *               },
+ *               "subscription": {
+ *                 "type": "object",
+ *                 "properties": {
+ *                   "willId": {
+ *                     "type": "string"
+ *                   },
+ *                   "email": {
+ *                     "type": "string"
+ *                   },
+ *                   "owner": {
+ *                     "type": "string"
+ *                   },
+ *                   "confirmed": {
+ *                     "type": "boolean"
+ *                   },
+ *                   "createdAt": {
+ *                     "type": "string",
+ *                     "format": "date-time"
+ *                   },
+ *                   "updatedAt": {
+ *                     "type": "string",
+ *                     "format": "date-time"
+ *                   }
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "ok": true,
+ *             "subscription": {
+ *               "willId": "42",
+ *               "email": "owner@example.com",
+ *               "owner": "0x0000000000000000000000000000000000000001",
+ *               "confirmed": false,
+ *               "createdAt": "2026-01-01T00:00:00.000Z",
+ *               "updatedAt": "2026-01-01T00:00:00.000Z"
+ *             }
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "400": {
+ *       "description": "A field is missing, the email is invalid, or the subscription could not be stored.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Missing required fields"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The signature does not match the owner.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "404": {
+ *       "description": "The will does not exist.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Will not found"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "415": {
+ *       "description": "The Content-Type is not application/json.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Unsupported Content-Type; expected application/json"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "429": {
+ *       "description": "Too many requests from this client. Retry after the number of seconds in the Retry-After header.",
+ *       "headers": {
+ *         "Retry-After": {
+ *           "schema": {
+ *             "type": "integer"
+ *           },
+ *           "description": "Seconds until the next attempt is allowed."
+ *         }
+ *       },
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Too many requests"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "500": {
+ *       "description": "Unexpected server error.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Could not register reminder"
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
 // Per-IP budget for reminder registration. See `src/lib/rate-limit.ts` for the
 // algorithm and its limits.
 //
