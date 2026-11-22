@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
+import { withCorrelationId } from '@/lib/correlation';
 
 /**
  * GET /api/reminders/confirm?token=...
@@ -13,7 +14,7 @@ import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
  *   200 — confirmation succeeded
  *   400 — token is missing, invalid, or already used
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
 
   const result = await confirmReminderSubscription(token);
@@ -30,3 +31,5 @@ export async function GET(request: Request) {
     },
   );
 }
+
+export const GET = withCorrelationId(handleGET);
