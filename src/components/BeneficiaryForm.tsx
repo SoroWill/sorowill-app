@@ -84,6 +84,32 @@ export function toPercentageNumber(percentage: Beneficiary['percentage'] | bigin
   return typeof percentage === 'bigint' ? Number(percentage) : percentage;
 }
 
+function addressKey(address: string): string {
+  return address.trim().toLowerCase();
+}
+
+/**
+ * Rows whose address already appears in an earlier row, as `index -> index of the first row with
+ * that address`. Blank rows are ignored. Addresses are compared without case or surrounding
+ * spaces, so a pasted lowercase copy is still caught (#825).
+ */
+export function findDuplicateBeneficiaries(beneficiaries: Beneficiary[]): Map<number, number> {
+  const firstSeen = new Map<string, number>();
+  const duplicates = new Map<number, number>();
+  beneficiaries.forEach((b, index) => {
+    const key = addressKey(b.address);
+    if (!key) return;
+    const first = firstSeen.get(key);
+    if (first === undefined) firstSeen.set(key, index);
+    else duplicates.set(index, first);
+  });
+  return duplicates;
+}
+
+export function hasDuplicateBeneficiaryAddresses(beneficiaries: Beneficiary[]): boolean {
+  return findDuplicateBeneficiaries(beneficiaries).size > 0;
+}
+
 function getAddressErrors(
   beneficiaries: Beneficiary[],
   addressType: BeneficiaryAddressType = 'account',
@@ -162,6 +188,12 @@ function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string |
     return 'Add at least one beneficiary';
   }
 
+  const duplicates = findDuplicateBeneficiaries(beneficiaries);
+  if (duplicates.size > 0) {
+    const rows = [...duplicates].map(([index, first]) => `${first + 1} and ${index + 1}`).join(', ');
+    return `The same address is used more than once (beneficiary ${rows}). Remove the duplicate or use a different address`;
+  }
+
   const hasInvalidRange = beneficiaries.some((b) => b.percentage < 0 || b.percentage > 100);
   if (hasInvalidRange) {
     return 'Percentages must be between 0% and 100%';
@@ -202,6 +234,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   const validationMessage = useMemo(() => getBeneficiaryValidationMessage(value), [value]);
   const isValid = validationMessage === null;
   const addressErrors = useMemo(() => getAddressErrors(value, addressType), [value, addressType]);
+  const duplicateRows = useMemo(() => findDuplicateBeneficiaries(value), [value]);
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
 
@@ -407,11 +440,17 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
                   onPaste={(event) => handleAddressPaste(index, event)}
-                  aria-invalid={addressErrors[index] ? 'true' : undefined}
-                  aria-describedby={addressErrors[index] ? `beneficiary-address-error-${index}` : undefined}
+                  aria-invalid={addressErrors[index] || duplicateRows.has(index) ? 'true' : undefined}
+                  aria-describedby={
+                    addressErrors[index]
+                      ? `beneficiary-address-error-${index}`
+                      : duplicateRows.has(index)
+                        ? `beneficiary-duplicate-${index}`
+                        : undefined
+                  }
                   aria-busy={resolvingId === beneficiaryId || undefined}
                   className={`w-full rounded-lg border ${
-                    addressErrors[index] ? 'border-red-400' : 'border-white/10'
+                    addressErrors[index] || duplicateRows.has(index) ? 'border-red-400' : 'border-white/10'
                   } bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none`}
                 />
               </div>
@@ -486,6 +525,24 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
             {resolutionError.has(beneficiaryId) && (
               <div className="ml-1 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
                 <p className="text-xs text-red-400">{resolutionError.get(beneficiaryId)}</p>
+              </div>
+            )}
+            {duplicateRows.has(index) && (
+              <div
+                id={`beneficiary-duplicate-${index}`}
+                role="alert"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-300"
+              >
+                <span>
+                  This address is already beneficiary {(duplicateRows.get(index) ?? 0) + 1}. Each address can be used only once.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  className="font-medium underline hover:text-amber-200"
+                >
+                  Remove Duplicate
+                </button>
               </div>
             )}
             {addressErrors[index] && (

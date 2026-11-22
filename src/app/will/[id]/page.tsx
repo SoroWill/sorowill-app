@@ -18,7 +18,7 @@ import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError, formatLoadError } from '@/lib/errors';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
-import { BeneficiaryForm } from '@/components/BeneficiaryForm';
+import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
@@ -632,7 +632,7 @@ export default function WillDetailPage() {
                 },
               );
             }}
-            disabled={busyAction !== null || !validateBeneficiaries(draftBeneficiaries) || !draftBeneficiaries.every((b) => b.address.trim() !== '')}
+            disabled={busyAction !== null || !validateBeneficiaries(draftBeneficiaries) || !draftBeneficiaries.every((b) => b.address.trim() !== '') || hasDuplicateBeneficiaryAddresses(draftBeneficiaries)}
             className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
             Save Beneficiaries

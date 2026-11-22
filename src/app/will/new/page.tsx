@@ -16,6 +16,7 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
+import { hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -309,7 +310,9 @@ export default function NewWillPage() {
     beneficiaries.every((b) => b.address.trim() !== '') &&
     // Block progression if any beneficiary still holds an unresolved federated address.
     // The user must click "Resolve" before the address is replaced with the real G... key.
-    beneficiaries.every((b) => !isFederatedAddress(b.address));
+    beneficiaries.every((b) => !isFederatedAddress(b.address)) &&
+    // The same address twice is almost always a mistake and splits one person's share in two (#825).
+    !hasDuplicateBeneficiaryAddresses(beneficiaries);
 
   const { rowErrors: guardianRowErrors, topError: guardianTopError } = validateGuardians(guardians, ownerAddress, formNetworkRef.current);
   // Step 3 is valid when there are no row-level errors (blank rows are a
