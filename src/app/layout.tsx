@@ -55,11 +55,17 @@ export const metadata: Metadata = {
   },
 };
 
+// Runs before first paint: restores the persisted theme from localStorage,
+// falling back to the OS color-scheme preference when no choice is stored.
+// Kept inline so it executes synchronously ahead of hydration (no flash).
+const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
   // Saved preference from the cookie so the server HTML already carries the
-  // right data-theme; theme-init.js covers first visits (OS preference).
+  // right data-theme; the inline script below covers first visits (OS
+  // preference) and restores the localStorage choice before first paint.
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   const dir = getTextDirection(locale);
 
@@ -68,10 +74,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         {/* Parser-blocking classic script: applies data-theme before first paint
             to prevent a theme flash. Must be synchronous and run before hydration,
-            so the async-by-default next/script is not usable here. Source lives in
-            public/theme-init.js. */}
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <script src="/theme-init.js" />
+            so the async-by-default next/script is not usable here. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen bg-will-dark text-will-light antialiased">
         <NextIntlClientProvider messages={messages}>

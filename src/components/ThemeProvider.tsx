@@ -20,6 +20,16 @@ function readStoredTheme(): Theme | null {
   }
 }
 
+function getSystemTheme(): Theme {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -33,14 +43,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const applied = document.documentElement.getAttribute('data-theme');
     const initialTheme: Theme =
       stored ??
-      (applied === 'light' || applied === 'dark'
-        ? applied
-        : window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light');
+      (applied === 'light' || applied === 'dark' ? applied : getSystemTheme());
 
     setTheme(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
+  }, []);
+
+  // Follow OS preference changes while the user has not made an explicit
+  // choice, so the initial system preference stays respected across sessions.
+  useEffect(() => {
+    if (readStoredTheme()) return;
+
+    let media: MediaQueryList;
+    try {
+      media = window.matchMedia('(prefers-color-scheme: dark)');
+    } catch {
+      return;
+    }
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (readStoredTheme()) return;
+      const nextTheme: Theme = event.matches ? 'dark' : 'light';
+      setTheme(nextTheme);
+      document.documentElement.setAttribute('data-theme', nextTheme);
+    };
+
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
   }, []);
 
   // Compute the next theme first, then run side effects outside the state
