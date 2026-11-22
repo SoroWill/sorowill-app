@@ -54,6 +54,8 @@ export interface WillCardProps {
   /** Shown only when the viewer owns this will and it is still active. */
   onCheckIn?: (willId: string) => void;
   checkingIn?: boolean;
+  /** Disables the card's actions, for example while the dashboard is refreshing. */
+  actionsDisabled?: boolean;
   /** Address of the connected user, to compute and show entitled share when relevant (e.g. Inheriting tab). */
   connectedAddress?: string | null;
   /** If true, surfaces the connected user's entitled share inline. */
@@ -64,6 +66,7 @@ function WillCardComponent({
   will,
   onCheckIn,
   checkingIn = false,
+  actionsDisabled = false,
   connectedAddress,
   showEntitledShare = false,
   searchQuery,
@@ -182,7 +185,7 @@ function WillCardComponent({
           <button
             type="button"
             onClick={() => onCheckIn(will.id)}
-            disabled={checkingIn}
+            disabled={checkingIn || actionsDisabled}
             aria-label={`Check in for will ${will.id}`}
             className="rounded-full bg-will-purple px-4 py-1.5 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -230,6 +233,7 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
     sameWill &&
     prev.onCheckIn === next.onCheckIn &&
     prev.checkingIn === next.checkingIn &&
+    prev.actionsDisabled === next.actionsDisabled &&
     prev.connectedAddress === next.connectedAddress &&
     prev.showEntitledShare === next.showEntitledShare &&
     prev.searchQuery === next.searchQuery
