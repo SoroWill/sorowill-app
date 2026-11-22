@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createElement } from 'react';
 import { render } from '@testing-library/react';
 import ClientLayout from '@/app/layout-client';
 
@@ -39,7 +40,7 @@ describe('NetworkMismatchBanner (Issue #247)', () => {
 
   describe('Single Instance Mount', () => {
     it('should render only one NetworkMismatchBanner instance in the header', () => {
-      const { container } = render(ClientLayout({ children: null }));
+      const { container } = render(createElement(ClientLayout, { children: null }));
 
       const headerElement = container.querySelector('header');
       const bannerElements = headerElement?.querySelectorAll('[data-testid="network-mismatch-banner"]');
@@ -48,7 +49,7 @@ describe('NetworkMismatchBanner (Issue #247)', () => {
     });
 
     it('should not mount duplicate NetworkMismatchBanner instances', () => {
-      const { container } = render(ClientLayout({ children: null }));
+      const { container } = render(createElement(ClientLayout, { children: null }));
 
       const allBanners = container.querySelectorAll('[data-testid="network-mismatch-banner"]');
 
