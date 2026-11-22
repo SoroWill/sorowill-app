@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 
 import { getLocaleFromAcceptLanguage, supportedLocales } from './negotiate';
@@ -8,10 +8,18 @@ export default getRequestConfig(async ({ requestLocale }) => {
   // the NEXT_LOCALE cookie or Accept-Language) without re-entering this
   // config resolver — calling next-intl/server's getLocale() here instead
   // would recurse into getRequestConfig and blow the call stack.
+  //
+  // The app has no middleware, so requestLocale is usually empty. The NEXT_LOCALE cookie
+  // written by the language selector is read here, otherwise the choice would be lost on
+  // reload (#819).
+  const supported = (value: string | undefined): value is (typeof supportedLocales)[number] =>
+    value !== undefined && (supportedLocales as readonly string[]).includes(value);
   const candidate = await requestLocale;
-  const locale =
-    candidate && (supportedLocales as readonly string[]).includes(candidate)
-      ? candidate
+  const cookieLocale = (await cookies()).get('NEXT_LOCALE')?.value;
+  const locale = supported(candidate)
+    ? candidate
+    : supported(cookieLocale)
+      ? cookieLocale
       : getLocaleFromAcceptLanguage((await headers()).get('accept-language') ?? undefined);
 
   return {
