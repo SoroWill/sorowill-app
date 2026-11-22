@@ -29,6 +29,7 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
+    "copiedToast": "Dirección copiada al portapapeles",
     "copyAddress": "Copiar {address}"
   },
   "landing": {
