@@ -17,6 +17,7 @@ import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
 import { isValidContractAddress } from '@/lib/willId';
+import { invalidateWillsCache } from '@/lib/willsCache';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -542,6 +543,7 @@ export default function NewWillPage() {
         gracePeriodDays,
         guardians: submittedGuardians,
       });
+      invalidateWillsCache();
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
       }
