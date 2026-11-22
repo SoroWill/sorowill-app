@@ -16,8 +16,7 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
-import { hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
-import { BeneficiaryForm } from '@/components/BeneficiaryForm';
+import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
 import { useStableRowIds } from '@/lib/useStableRowIds';
@@ -504,6 +503,12 @@ export default function NewWillPage() {
       setError(
         `Check-in period must be ${SAFE_CHECKIN_WINDOW_DAYS} days or fewer to avoid storage archival risk.`,
       );
+      setSubmitting(false);
+      return;
+    }
+
+    if (hasDuplicateBeneficiaryAddresses(beneficiaries)) {
+      setError('The same beneficiary address is used more than once. Remove the duplicate before submitting.');
       setSubmitting(false);
       return;
     }
