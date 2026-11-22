@@ -382,10 +382,10 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           type="button"
           onClick={applyEqualSplit}
           disabled={value.length === 0}
-          aria-label="Distribute percentages equally among all beneficiaries"
+          aria-label="Distribute Percentages Equally Among All Beneficiaries"
           className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
-          Split equally
+          Split Equally
         </button>
       </div>
 
@@ -397,12 +397,12 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
                 <label htmlFor={`beneficiary-address-${index}`} className="sr-only">
-                  Beneficiary {index + 1} address
+                  Beneficiary {index + 1} Address
                 </label>
                 <input
                   id={`beneficiary-address-${index}`}
                   type="text"
-                  aria-label={`Beneficiary ${index + 1} address`}
+                  aria-label={`Beneficiary ${index + 1} Address`}
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
@@ -428,12 +428,12 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
               <div className="flex items-end gap-1">
                 <div>
                   <label htmlFor={`beneficiary-percentage-${index}`} className="sr-only">
-                    Beneficiary {index + 1} percentage
+                    Beneficiary {index + 1} Percentage
                   </label>
                   <input
                     id={`beneficiary-percentage-${index}`}
                     type="number"
-                    aria-label={`Beneficiary ${index + 1} percentage`}
+                    aria-label={`Beneficiary ${index + 1} Percentage`}
                     min={0}
                     max={100}
                     step={0.01}
@@ -465,7 +465,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
               <button
                 type="button"
                 onClick={() => removeRow(index)}
-                aria-label={`Remove beneficiary ${index + 1}`}
+                aria-label={`Remove Beneficiary ${index + 1}`}
                 className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
               >
                 ✕
@@ -507,14 +507,14 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           }}
           className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
-          Split equally
+          Split Equally
         </button>
         <button
           type="button"
           onClick={addRow}
           className="flex-1 rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
-          + Add beneficiary
+          + Add Beneficiary
         </button>
       </div>
 

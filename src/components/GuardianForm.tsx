@@ -88,7 +88,7 @@ export const GuardianRow = memo(function GuardianRow({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <label htmlFor={`guardian-${index}`} className="sr-only">
-          Guardian {index + 1} address
+          Guardian {index + 1} Address
         </label>
         <input
           id={`guardian-${index}`}
@@ -125,7 +125,7 @@ export const GuardianRow = memo(function GuardianRow({
         <button
           type="button"
           onClick={() => onRemove(index)}
-          aria-label={`Remove guardian ${index + 1}`}
+          aria-label={`Remove Guardian ${index + 1}`}
           className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
         >
           ✕
@@ -235,7 +235,7 @@ export function GuardianForm({
           type="button"
           onClick={handleAdd}
           disabled={guardians.length >= MAX_GUARDIANS}
-          aria-label={`Add guardian (${guardians.length} of ${MAX_GUARDIANS})`}
+          aria-label={`Add Guardian (${guardians.length} of ${MAX_GUARDIANS})`}
           title={
             guardians.length >= MAX_GUARDIANS
               ? `Maximum of ${MAX_GUARDIANS} guardians reached`
@@ -243,7 +243,7 @@ export function GuardianForm({
           }
           className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
-          + Add guardian
+          + Add Guardian
         </button>
       </div>
 
@@ -270,7 +270,7 @@ export function GuardianForm({
           <div key={guardianId} className="space-y-2">
             <div className="flex items-center gap-2">
               <label htmlFor={`guardian-${index}`} className="sr-only">
-                Guardian {index + 1} address
+                Guardian {index + 1} Address
               </label>
               <input
                 id={`guardian-${index}`}
@@ -280,7 +280,7 @@ export function GuardianForm({
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
                 autoComplete="off"
-                aria-label={`Guardian ${index + 1} address`}
+                aria-label={`Guardian ${index + 1} Address`}
                 aria-describedby={
                   rowError
                     ? `guardian-error-${index}`
@@ -308,7 +308,7 @@ export function GuardianForm({
               <button
                 type="button"
                 onClick={() => onRemove(index)}
-                aria-label={`Remove guardian ${index + 1}`}
+                aria-label={`Remove Guardian ${index + 1}`}
                 className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
               >
                 ✕
