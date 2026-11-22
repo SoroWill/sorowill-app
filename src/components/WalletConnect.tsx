@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   safeConnectWallet,
@@ -132,6 +133,7 @@ function setConnectedAt(value: number | null): void {
 
 export function WalletConnect() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
+  const t = useTranslations('common');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<ErrorInfo | null>(null);
 
@@ -315,7 +317,7 @@ export function WalletConnect() {
           onClick={handleClearSession}
           className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-will-light/70 transition hover:border-white/40 hover:text-will-light"
         >
-          Disconnect
+          {t('disconnect')}
         </button>
       </div>
     );
@@ -329,20 +331,20 @@ export function WalletConnect() {
         disabled={connecting}
         className="rounded-full bg-will-purple px-4 py-1.5 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {connecting ? 'Connecting…' : 'Connect Wallet'}
+        {connecting ? t('connecting') : t('connectWallet')}
       </button>
       {error ? (
         <div className="max-w-xs text-right text-xs text-red-400">
           {error.type === 'not_installed' ? (
             <>
-              <p className="mb-1">Freighter wallet not installed. Install it to continue.</p>
+              <p className="mb-1">{t('freighterNotInstalled')}</p>
               <a
                 href="https://www.freighter.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-red-300 underline hover:text-red-200"
               >
-                Install Freighter
+                {t('installFreighter')}
               </a>
             </>
           ) : (

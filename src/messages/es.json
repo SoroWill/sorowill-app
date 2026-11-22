@@ -29,7 +29,10 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
-    "copyAddress": "Copiar {address}"
+    "copyAddress": "Copiar {address}",
+    "freighterNotInstalled": "La billetera Freighter no está instalada. Instálala para continuar.",
+    "installFreighter": "Instalar Freighter",
+    "primaryNav": "Navegación principal"
   },
   "landing": {
     "heroTitle": "Protege tu herencia criptográfica",

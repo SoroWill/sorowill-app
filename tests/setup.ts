@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+import enMessages from '../src/messages/en.json';
+
 // Components like LanguageSelector call `useLocale()` from next-intl, which
 // throws "No intl context found" outside a NextIntlClientProvider. Most
 // tests render pages/components (e.g. the shared header) without wrapping
@@ -12,6 +14,15 @@ vi.mock('next-intl', async (importOriginal) => {
   return {
     ...actual,
     useLocale: () => 'en',
+    // Components that translate their text render without a provider in most tests, so use the
+    // English catalog then; a test that wraps its tree in a NextIntlClientProvider still gets that one.
+    useTranslations: (namespace?: string) => {
+      try {
+        return actual.useTranslations(namespace);
+      } catch {
+        return actual.createTranslator({ locale: 'en', messages: enMessages, namespace });
+      }
+    },
   };
 });
 

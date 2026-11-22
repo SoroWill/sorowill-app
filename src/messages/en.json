@@ -29,7 +29,10 @@
     "clipboardError": "Could not copy to clipboard. Check your browser permissions.",
     "copyToClipboard": "Copy to clipboard",
     "copied": "Copied!",
-    "copyAddress": "Copy {address}"
+    "copyAddress": "Copy {address}",
+    "freighterNotInstalled": "Freighter wallet not installed. Install it to continue.",
+    "installFreighter": "Install Freighter",
+    "primaryNav": "Main navigation"
   },
   "landing": {
     "heroTitle": "Protect your crypto legacy",
