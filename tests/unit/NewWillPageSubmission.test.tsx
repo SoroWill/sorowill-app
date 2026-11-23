@@ -48,6 +48,18 @@ describe('NewWillPage submission', () => {
     createWill.mockRejectedValue(new TypeError('Failed to fetch'));
   });
 
+  it('rejects an invalid token contract address before the SDK can be called (#706)', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.type(screen.getByLabelText('Token contract address'), 'not-a-contract');
+    await user.type(screen.getByLabelText('Amount (USDC)'), '1');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText(/doesn't look like a Stellar contract address/i)).toBeInTheDocument();
+    expect(createWill).not.toHaveBeenCalled();
+  });
+
   it('clears the submitting state after a network error', async () => {
     const user = userEvent.setup();
     render(<Harness />);

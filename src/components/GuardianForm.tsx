@@ -4,7 +4,10 @@ import { memo, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { isFederatedAddress } from '@/lib/federated';
-import { OWNER_AS_GUARDIAN_ERROR } from '@/lib/guardianValidation';
+import {
+  isValidStellarAddress,
+  OWNER_AS_GUARDIAN_ERROR,
+} from '@/lib/guardianValidation';
 
 export interface GuardianFormProps {
   /** Current list of guardian address strings (may contain empty strings for blank rows). */
@@ -44,7 +47,9 @@ interface GuardianRowProps {
   onResolve: (index: number, address: string) => void;
 }
 
-const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
+/** Helper text describing the accepted address formats. */
+export const ADDRESS_FORMAT_HINT =
+  'Stellar address: G… (56 characters) or federated: name*domain.com';
 
 /** Splits pasted bulk input on newlines and commas, trimming each entry. */
 export function splitBulkAddresses(input: string): string[] {
@@ -133,10 +138,14 @@ export function parseBulkAddresses(
  */
 export function getAddressFeedback(value: string): string {
   const trimmed = value.trim();
-  if (trimmed === '' || isFederatedAddress(trimmed)) return '';
-  if (STELLAR_ADDRESS_RE.test(trimmed)) return '';
+  if (trimmed === '') return '';
+  if (isValidStellarAddress(trimmed)) return '';
+  if (isFederatedAddress(trimmed)) return '';
   if (trimmed.startsWith('G')) {
     return 'Stellar addresses must be 56 characters starting with G (A–Z, 2–7).';
+  }
+  if (trimmed.includes('*')) {
+    return 'Federated addresses must be in the form name*domain.com.';
   }
   return 'Enter a Stellar address (G…) or a federated address (name*domain.com).';
 }
@@ -168,7 +177,13 @@ export const GuardianRow = memo(function GuardianRow({
           value={guardian}
           onChange={(e) => onUpdate(index, e.target.value)}
           placeholder="Guardian address (G...) or federated address (name*domain.com)"
-          aria-describedby={rowError ? `guardian-error-${index}` : undefined}
+          spellCheck={false}
+          autoComplete="off"
+          aria-describedby={
+            rowError
+              ? `guardian-error-${index}`
+              : `guardian-hint-${index}`
+          }
           aria-invalid={rowError ? 'true' : undefined}
           className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
             rowError
@@ -230,6 +245,16 @@ export const GuardianRow = memo(function GuardianRow({
           {rowError}
         </p>
       ) : null}
+
+      {!rowError && getAddressFeedback(guardian) ? (
+        <p className="text-xs text-amber-400/80" role="status">
+          {getAddressFeedback(guardian)}
+        </p>
+      ) : null}
+
+      <p id={`guardian-hint-${index}`} className="text-xs text-will-light/40">
+        {ADDRESS_FORMAT_HINT}
+      </p>
 
       {!rowError && guardian.trim() === '' ? (
         <p className="text-xs text-amber-400/80">
@@ -426,7 +451,11 @@ export function GuardianForm({
                 spellCheck={false}
                 autoComplete="off"
                 aria-label={`Guardian ${index + 1} address`}
-                aria-describedby={rowError ? `guardian-error-${index}` : undefined}
+                aria-describedby={
+                  rowError
+                    ? `guardian-error-${index}`
+                    : `guardian-hint-${index}`
+                }
                 aria-invalid={rowError ? 'true' : undefined}
                 className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
                   rowError
@@ -494,6 +523,10 @@ export function GuardianForm({
                 {getAddressFeedback(guardian)}
               </p>
             ) : null}
+
+            <p id={`guardian-hint-${index}`} className="text-xs text-will-light/40">
+              {ADDRESS_FORMAT_HINT}
+            </p>
 
             {!rowError && guardian.trim() === '' ? (
               <p className="text-xs text-amber-400/80">
