@@ -101,6 +101,25 @@ function DashboardPageOld() {
   }, [tab]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // Restore the last used filters after mount (avoids an SSR hydration mismatch).
+  useEffect(() => {
+    const filters = loadDashboardFilters();
+    setSearch(filters.search);
+    setStatusFilter(filters.statusFilter as StatusFilter);
+  }, []);
+
+  // Persist filter changes so they survive a refresh or a new session.
+  useEffect(() => {
+    const filters: DashboardFilters = { search, statusFilter };
+    saveDashboardFilters(filters);
+  }, [search, statusFilter]);
+
+  const handleClearFilters = useCallback(() => {
+    clearDashboardFilters();
+    setSearch(DEFAULT_DASHBOARD_FILTERS.search);
+    setStatusFilter(DEFAULT_DASHBOARD_FILTERS.statusFilter as StatusFilter);
+  }, []);
   const [ownedWills, setOwnedWills] = useState<Will[]>([]);
   const [inheritingWills, setInheritingWills] = useState<Will[]>([]);
   const [guardianWills, setGuardianWills] = useState<Will[]>([]);
@@ -642,6 +661,15 @@ function DashboardPageOld() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={handleClearFilters}
+          disabled={!isFiltering}
+          aria-label="Clear filters"
+          className="rounded-lg border border-white/10 px-3 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Clear filters
+        </button>
       </div>
 
       {showShortcutsHelp ? (
