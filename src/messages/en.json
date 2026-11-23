@@ -26,9 +26,13 @@
     "error": "Error",
     "noWillsMatch": "No wills match your search or filter.",
     "allStatuses": "All statuses",
+    "lastRefreshed": "Last refreshed: {time}",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
     "clipboardError": "Could not copy to clipboard. Check your browser permissions.",
     "copyToClipboard": "Copy to clipboard",
     "copied": "Copied!",
+    "copiedToast": "Address copied to clipboard",
     "copyAddress": "Copy {address}"
   },
   "landing": {
@@ -109,6 +113,18 @@
     "usdcLocked": "{amount} USDC locked",
     "checkInDue": "Check-in due in {days} day{days, plural, =1 {} other {s}}",
     "checkInOverdue": "Check-in overdue"
+  },
+  "verify": {
+    "accountBalance": "Account balance",
+    "requiredAmount": "Required amount: {amount} USDC",
+    "lowBalanceWarning": "Your account balance is below the amount required for this operation. Fund your account before continuing.",
+    "fundAccount": "Fund your account"
+  },
+  "inherit": {
+    "guardianAccountMissing": "Guardian account {address} does not exist on the network yet.",
+    "guardianAccountNotFunded": "Guardian account {address} is not funded. They must create and fund their Stellar account before they can act as a guardian.",
+    "guardianSetupInstructions": "Ask your guardian to create a Stellar account and fund it with at least 1 XLM. On testnet, you can use Friendbot to fund a new account.",
+    "fundWithFriendbot": "Fund with Friendbot"
   },
   "willDetail": {
     "willNumber": "Will #{id}",

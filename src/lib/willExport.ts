@@ -106,7 +106,8 @@ export function exportWillsToCSV(wills: Will[]): string {
       .map((b) => {
         if (typeof b === 'string') return '';
         const extra = b as { note?: unknown; notes?: unknown; memo?: unknown };
-        return String(extra.note ?? extra.notes ?? extra.memo ?? '');
+        const note = extra.note ?? extra.notes ?? extra.memo;
+        return note === null || note === undefined ? '' : String(note);
       })
       .join(';');
 
