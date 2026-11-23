@@ -96,6 +96,12 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   // Depends only on the toast id and the stable dismiss callback, so other
   // toasts appearing or disappearing never restart this toast's timer.
   useEffect(() => {
+    // Four seconds is a deliberately conservative default for short, non-
+    // actionable status messages: it gives a slow reader time to notice the
+    // announcement without leaving routine notifications on screen for an
+    // excessive time. WCAG 2.2 SC 2.2.1 requires users be able to turn off,
+    // adjust, or extend time limits; the adjacent dismiss button provides
+    // that control. See docs/toast-timing.md for the usability test protocol.
     const timer = setTimeout(() => onDismiss(toast.id), 4000);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
