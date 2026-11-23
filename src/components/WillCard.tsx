@@ -7,7 +7,11 @@ import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will
 
 import { formatCheckinLabel, formatRelativeTime, parseCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
+import { BeneficiaryListDialog } from './BeneficiaryListDialog';
 import { StatusBanner } from './StatusBanner';
+
+/** Beneficiaries listed on the card before the rest move behind "and N more" (#821). */
+export const MAX_CARD_BENEFICIARIES = 3;
 
 /**
  * Splits `text` into segments, flagging case-insensitive occurrences of
@@ -118,6 +122,10 @@ function WillCardComponent({
         will.beneficiaries?.some((b) => b.address.toLowerCase().includes(needle)) ? 'beneficiary address' : null,
       ].filter(Boolean)
     : [];
+  const shownBeneficiaryCount = (will.beneficiaries ?? []).filter(
+    (b, index) => index < MAX_CARD_BENEFICIARIES || (needle !== '' && b.address.toLowerCase().includes(needle)),
+  ).length;
+  const hiddenBeneficiaries = (will.beneficiaries?.length ?? 0) - shownBeneficiaryCount;
   const createdAt = useMemo(() => parseCreatedAt(will), [will]);
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
@@ -189,8 +197,16 @@ function WillCardComponent({
               <li key={beneficiary.address} className="max-w-full truncate break-all">
                 <Highlight text={beneficiary.address} query={searchQuery} />
               </li>
-            ))}
+            ) : null}
           </ul>
+        ) : null}
+
+        {showAllBeneficiaries && will.beneficiaries?.length ? (
+          <BeneficiaryListDialog
+            willId={will.id}
+            beneficiaries={will.beneficiaries}
+            onClose={() => setShowAllBeneficiaries(false)}
+          />
         ) : null}
 
         {matchedWhat.length ? (

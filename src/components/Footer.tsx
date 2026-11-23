@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { NetworkBadge } from '@/components/NetworkBadge';
+import { getSocialLinks } from '@/lib/socialLinks';
 
 export function Footer() {
   const t = useTranslations('common');
