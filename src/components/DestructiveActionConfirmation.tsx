@@ -2,11 +2,19 @@
 
 import { useEffect, useState } from 'react';
 
+export interface GuardianVoteDetails {
+  guardian: string;
+  proposal: string;
+  vote: 'approve' | 'reject';
+}
+
 export interface DestructiveActionConfirmationProps {
   isOpen: boolean;
   action: string;
   willId: string;
   confirmationType?: 'CONFIRM' | 'willId';
+  details?: GuardianVoteDetails;
+  consequences?: string;
   onConfirm: (willId: string) => void;
   onCancel: () => void;
 }
@@ -16,6 +24,8 @@ export function DestructiveActionConfirmation({
   action,
   willId,
   confirmationType = 'CONFIRM',
+  details,
+  consequences,
   onConfirm,
   onCancel,
 }: DestructiveActionConfirmationProps) {
@@ -43,6 +53,16 @@ export function DestructiveActionConfirmation({
   const expectedText = confirmationType === 'willId' ? willId : 'CONFIRM';
   const isConfirmed = inputText === expectedText;
 
+  const isGuardianVote = action === 'guardian_vote';
+
+  const derivedConsequences = isGuardianVote
+    ? details?.vote === 'reject'
+      ? 'Your rejection vote will be recorded on-chain and cannot be changed once submitted. If enough guardians reject, the proposal will fail.'
+      : 'Your approval vote will be recorded on-chain and cannot be changed once submitted. If enough guardians approve, the proposal will be executed.'
+    : undefined;
+
+  const consequenceText = consequences ?? derivedConsequences;
+
   return (
     <div
       role="dialog"
@@ -53,12 +73,40 @@ export function DestructiveActionConfirmation({
         <h2 id="destructive-action-title" className="text-lg font-bold text-will-light">
           {action === 'cancel_will' && 'Cancel this will'}
           {action === 'switch_network' && 'Switch network'}
-          {action !== 'cancel_will' && action !== 'switch_network' && 'Destructive Action'}
+          {isGuardianVote && 'Confirm guardian vote'}
+          {action !== 'cancel_will' && action !== 'switch_network' && !isGuardianVote && 'Destructive Action'}
         </h2>
+
+        {isGuardianVote && details && (
+          <dl className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-will-light/60">Guardian</dt>
+              <dd className="font-mono text-will-light break-all text-right">{details.guardian}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-will-light/60">Proposal</dt>
+              <dd className="font-mono text-will-light break-all text-right">{details.proposal}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-will-light/60">Vote</dt>
+              <dd
+                className={
+                  details.vote === 'approve'
+                    ? 'font-semibold text-emerald-400'
+                    : 'font-semibold text-red-400'
+                }
+              >
+                {details.vote === 'approve' ? 'Approve' : 'Reject'}
+              </dd>
+            </div>
+          </dl>
+        )}
 
         <div className="text-sm text-will-light/70 space-y-2">
           {action === 'switch_network' ? (
             <p>You may need to reconnect your wallet and switch the network inside your Freighter extension.</p>
+          ) : isGuardianVote ? (
+            consequenceText && <p className="font-semibold text-amber-400">{consequenceText}</p>
           ) : (
             <p className="font-semibold text-amber-400">This action cannot be undone.</p>
           )}

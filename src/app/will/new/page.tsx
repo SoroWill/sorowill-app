@@ -16,6 +16,8 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
+import { isValidContractAddress } from '@/lib/willId';
+import { invalidateWillsCache } from '@/lib/willsCache';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -102,10 +104,6 @@ export function getSubmittedGuardians(
     })
     .filter((guardian) => guardian.trim() !== '');
 }
-
-// Soroban contract strkey: 'C' followed by 55 base32 chars (RFC 4648 alphabet,
-// no padding). Catches typos here rather than deep in the SDK at submit time.
-const CONTRACT_ADDRESS_PATTERN = /^C[A-Z2-7]{55}$/;
 
 export default function NewWillPage() {
   const router = useRouter();
@@ -259,30 +257,49 @@ export default function NewWillPage() {
     }
   }, [cloneFromId]);
 
-  const tokenValid = CONTRACT_ADDRESS_PATTERN.test(token.trim());
+  const tokenValid = isValidContractAddress(token.trim());
   const showTokenError = token.trim() !== '' && !tokenValid;
   const isAmountZero = amount.trim() !== '' && Number(amount) === 0;
   const showAmountError = amount.trim() !== '' && (isAmountZero || !isValidAmount(amount));
   const isAmountValid = isValidAmount(amount) && !isAmountZero && tokenValid;
+  // Keep the latest form state in a ref so the 30s autosave interval below can
+  // serialize it without being torn down and recreated on every keystroke.
+  const formStateRef = useRef<FormState>({
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  });
+  formStateRef.current = {
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  };
+
+  // Auto-save the draft to localStorage every 30s so work is not lost if the
+  // user closes the browser mid-creation (#799).
   useEffect(() => {
-    const state: FormState = {
-      step,
-      token,
-      amount,
-      beneficiaries,
-      checkinPeriodDays,
-      gracePeriodDays,
-      guardians,
-    };
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined' || cloneFromId) return;
+
+    const interval = setInterval(() => {
+      const state = formStateRef.current;
       // Skip redundant writes when the serialized state has not changed.
       const serialized = JSON.stringify(state);
       if (lastSavedDraftRef.current === serialized) return;
       if (saveDraft(localStorage, state)) {
         lastSavedDraftRef.current = serialized;
       }
-    }
-  }, [step, token, amount, beneficiaries, checkinPeriodDays, gracePeriodDays, guardians]);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [cloneFromId]);
 
   function resumeDraft() {
     const state = pendingDraftRef.current;
@@ -477,7 +494,7 @@ export default function NewWillPage() {
     const submittedToken = token.trim();
     // The step-level UI validation is helpful feedback, but this guard is the
     // authoritative boundary before an untrusted value reaches the SDK.
-    if (!CONTRACT_ADDRESS_PATTERN.test(submittedToken)) {
+    if (!isValidContractAddress(submittedToken)) {
       setError('Enter a valid Stellar contract address before creating a will.');
       setSubmitting(false);
       return;
@@ -545,6 +562,7 @@ export default function NewWillPage() {
         gracePeriodDays,
         guardians: submittedGuardians,
       });
+      invalidateWillsCache();
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
       }
@@ -721,6 +739,10 @@ export default function NewWillPage() {
                 aria-describedby="token-help token-error"
                 aria-invalid={showTokenError}
               />
+              <p id="token-help" className="mt-1 text-xs text-will-light/50">
+                Format: &quot;C&quot; followed by 55 letters (A–Z) or digits (2–7), 56 characters in
+                total. Copy it from the token&apos;s page in a Stellar explorer.
+              </p>
               {token.trim() === '' && step === 0 ? (
                 <p id="token-error" role="alert" className="mt-1 text-xs text-red-400">
                   Token contract address is required.

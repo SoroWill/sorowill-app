@@ -94,26 +94,44 @@ export function checkRateLimit(
 }
 
 /**
- * The response for a request that was over its limit (#808): HTTP 429, a
- * `Retry-After` header in seconds and a JSON body that repeats the wait, so
- * clients can read it from either place. Rate-limited routes should return
- * this instead of building their own response.
+ * Parses a `Retry-After` header value into a wait duration in seconds.
+ *
+ * The header may be either a non-negative number of seconds (e.g. `"120"`) or
+ * an HTTP-date (e.g. `"Wed, 21 Oct 2015 07:28:00 GMT"`). Returns `0` when the
+ * value is absent, empty, or unparseable so callers can treat it as "no hint".
  */
-export function tooManyRequestsResponse(rate: RateLimitResult): Response {
-  return new Response(
-    JSON.stringify({
-      ok: false,
-      error: 'Too many requests',
-      retryAfterSeconds: rate.retryAfterSeconds,
-    }),
-    {
-      status: 429,
-      headers: {
-        'Content-Type': 'application/json',
-        'Retry-After': String(rate.retryAfterSeconds),
-      },
+export function parseRetryAfter(headerValue: string | null, now: number = Date.now()): number {
+  if (!headerValue) return 0;
+  const trimmed = headerValue.trim();
+  if (!trimmed) return 0;
+
+  // Numeric form: delay in seconds.
+  if (/^\d+$/.test(trimmed)) {
+    return Math.max(0, Math.ceil(Number(trimmed)));
+  }
+
+  // HTTP-date form: wait until that instant.
+  const target = Date.parse(trimmed);
+  if (Number.isNaN(target)) return 0;
+  return Math.max(0, Math.ceil((target - now) / 1000));
+}
+
+/**
+ * Builds a 429 response carrying a `Retry-After` header derived from a
+ * `RateLimitResult`, so clients know when to retry.
+ */
+export function buildRateLimitResponse(
+  result: RateLimitResult,
+  message = 'Too many requests. Please try again later.',
+): Response {
+  const retryAfter = Math.max(1, Math.ceil(result.retryAfterSeconds));
+  return new Response(JSON.stringify({ error: message, retryAfterSeconds: retryAfter }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      'Retry-After': String(retryAfter),
     },
-  );
+  });
 }
 
 export function getClientIp(request: Request): string {
