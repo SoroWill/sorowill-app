@@ -8,6 +8,7 @@ import type { Beneficiary } from '@sorowill/sdk';
 
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { formatError } from '@/lib/errors';
+import { AddressSuggestions, SplitSuggestions } from './FormSuggestions';
 
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
@@ -486,6 +487,23 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       </div>
 
       {history.controls}
+      <SplitSuggestions
+        count={value.length}
+        onApply={(percentages) => onChange(value.map((row, i) => ({ ...row, percentage: percentages[i] ?? 0 })))}
+      />
+      <AddressSuggestions
+        kind="beneficiaries"
+        label="Recent beneficiaries"
+        exclude={value.map((b) => b.address)}
+        onPick={(address) => {
+          const empty = value.findIndex((b) => !b.address.trim());
+          onChange(
+            empty >= 0
+              ? value.map((row, i) => (i === empty ? { ...row, address } : row))
+              : [...value, { address, percentage: 0 }],
+          );
+        }}
+      />
       <div className="space-y-2" role="group" aria-label="Beneficiary list">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';

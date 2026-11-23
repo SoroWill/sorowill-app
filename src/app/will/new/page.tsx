@@ -20,6 +20,8 @@ import { isValidContractAddress } from '@/lib/willId';
 import { invalidateWillsCache } from '@/lib/willsCache';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
+import { AddressSuggestions } from '@/components/FormSuggestions';
+import { recordWillFormUsage } from '@/lib/formSuggestions';
 import { validateGuardians } from '@/lib/guardianValidation';
 import { useStableRowIds } from '@/lib/useStableRowIds';
 import {
@@ -630,6 +632,7 @@ export default function NewWillPage() {
         gracePeriodDays,
         guardians: submittedGuardians,
       });
+      recordWillFormUsage({ beneficiaries, guardians: submittedGuardians });
       invalidateWillsCache();
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
@@ -1049,6 +1052,18 @@ export default function NewWillPage() {
 
         {step === 3 ? (
           <>
+            <AddressSuggestions
+              kind="guardians"
+              label="Recent guardians"
+              exclude={guardians}
+              onPick={(address) =>
+                setGuardians((prev) => {
+                  const empty = prev.findIndex((g) => !g.trim());
+                  if (empty >= 0) return prev.map((g, i) => (i === empty ? address : g));
+                  return prev.length < MAX_GUARDIANS ? [...prev, address] : prev;
+                })
+              }
+            />
             <GuardianForm
               guardians={guardians}
               guardianIds={stableGuardianIds}
