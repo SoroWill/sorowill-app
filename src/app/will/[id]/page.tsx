@@ -23,6 +23,7 @@ import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
+import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
@@ -144,6 +145,7 @@ export default function WillDetailPage() {
 
   const [reminderEmail, setReminderEmail] = useState('');
   const [reminderStatus, setReminderStatus] = useState<string | null>(null);
+  const [reminderStatusKind, setReminderStatusKind] = useState<StatusMessageVariant>('info');
   const [reminderPending, setReminderPending] = useState(false);
 
   const isMounted = useRef(true);
@@ -289,6 +291,7 @@ export default function WillDetailPage() {
   async function handleReminderSubscribe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!will) {
+      setReminderStatusKind('info');
       setReminderStatus('The will details are still loading.');
       return;
     }
@@ -310,10 +313,12 @@ export default function WillDetailPage() {
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || 'Unable to register reminder');
       }
+      setReminderStatusKind('success');
       setReminderStatus(`Reminder enabled for ${payload.subscription.email}.`);
       setReminderEmail('');
     } catch (err) {
       const message = formatError(err);
+      setReminderStatusKind('error');
       setReminderStatus(message);
     } finally {
       setReminderPending(false);
@@ -572,7 +577,18 @@ export default function WillDetailPage() {
               {reminderPending ? 'Saving…' : 'Enable reminders'}
             </button>
           </form>
-          {reminderStatus ? <p className="mt-2 text-sm text-will-light/70">{reminderStatus}</p> : null}
+          {reminderStatus ? (
+            <div className="mt-2">
+              {/* Keyed by the text so a new message starts its own timer. */}
+              <StatusMessageBanner
+                key={reminderStatus}
+                variant={reminderStatusKind}
+                onDismiss={() => setReminderStatus(null)}
+              >
+                {reminderStatus}
+              </StatusMessageBanner>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -691,6 +707,8 @@ export default function WillDetailPage() {
         <GuardianPanel
           guardians={will.guardians}
           guardianVotes={will.guardianVotes}
+          lastCheckin={will.lastCheckin}
+          checkinPeriodDays={will.checkinPeriodDays}
           isGuardian={isGuardian}
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
