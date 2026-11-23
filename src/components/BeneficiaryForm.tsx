@@ -200,8 +200,11 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   // (e.g. resolution state changes) don't re-validate large beneficiary lists.
   const total = useMemo(() => sumPercentages(value), [value]);
   const validationMessage = useMemo(() => getBeneficiaryValidationMessage(value), [value]);
-  const isValid = validationMessage === null;
   const addressErrors = useMemo(() => getAddressErrors(value, addressType), [value, addressType]);
+  // Save is only allowed when both the percentage split and every address are
+  // valid; address errors are computed live so the button reflects typing (#786).
+  const hasAddressErrors = Object.keys(addressErrors).length > 0;
+  const isValid = validationMessage === null && !hasAddressErrors;
 
   const [beneficiaryIds, setBeneficiaryIds] = useState<Map<number, string>>(new Map());
 
@@ -230,10 +233,26 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   // flagged even though the stored value is rounded to 2 decimals (#753).
   const [precisionWarnings, setPrecisionWarnings] = useState<Map<string, string>>(new Map());
   const [resolutionError, setResolutionError] = useState<Map<string, string>>(new Map());
+  // Rows whose address has been edited or pasted into. Errors for untouched
+  // rows stay hidden so a freshly added row isn't flagged before the user
+  // has had a chance to type (#786).
+  const [touchedRows, setTouchedRows] = useState<Set<string>>(new Set());
+
+  function markTouched(index: number) {
+    const id = stableBeneficiaryIds.get(index);
+    if (!id) return;
+    setTouchedRows((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
 
   function updateRow(index: number, patch: Partial<Beneficiary>) {
     onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)));
     if (patch.address !== undefined) {
+      markTouched(index);
       const id = stableBeneficiaryIds.get(index);
       if (id) {
         resolutionRequest.current.delete(id);
@@ -329,13 +348,30 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
 
   // Pasting several addresses at once fills one row per address; each is then
   // validated like a typed address, so invalid ones surface an error immediately.
+  // A single pasted address falls through to the normal onChange path, which
+  // also marks the row touched so its error shows right away (#786).
   function handleAddressPaste(index: number, event: React.ClipboardEvent<HTMLInputElement>) {
     const tokens = parsePastedAddresses(event.clipboardData.getData('text'));
-    if (tokens.length < 2) return;
+    if (tokens.length < 2) {
+      markTouched(index);
+      return;
+    }
     event.preventDefault();
     const [first, ...rest] = tokens;
     const updated = value.map((row, i) => (i === index ? { ...row, address: first } : row));
     onChange([...updated, ...rest.map((address) => ({ address, percentage: 0 }))]);
+    // Mark the pasted row and every newly appended row as touched so any
+    // invalid pasted address is flagged without further interaction.
+    setTouchedRows((prev) => {
+      const next = new Set(prev);
+      const firstId = stableBeneficiaryIds.get(index);
+      if (firstId) next.add(firstId);
+      rest.forEach((_, offset) => {
+        const id = stableBeneficiaryIds.get(index + 1 + offset);
+        if (id) next.add(id);
+      });
+      return next;
+    });
   }
 
   function addRow() {
@@ -362,6 +398,12 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       });
       setResolutionError((prev) => {
         const next = new Map(prev);
+        next.delete(removedId);
+        return next;
+      });
+      setTouchedRows((prev) => {
+        if (!prev.has(removedId)) return prev;
+        const next = new Set(prev);
         next.delete(removedId);
         return next;
       });
@@ -392,6 +434,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       <div className="space-y-2" role="group" aria-label="Beneficiary list">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';
+          const addressError = touchedRows.has(beneficiaryId) ? addressErrors[index] : undefined;
           return (
           <div key={beneficiaryId} className="space-y-2">
             <div className="flex items-end gap-2">
@@ -406,12 +449,13 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
+                  onBlur={() => markTouched(index)}
                   onPaste={(event) => handleAddressPaste(index, event)}
                   aria-invalid={addressErrors[index] ? 'true' : undefined}
                   aria-describedby={addressErrors[index] ? `beneficiary-address-error-${index}` : undefined}
                   aria-busy={resolvingId === beneficiaryId || undefined}
                   className={`w-full rounded-lg border ${
-                    addressErrors[index] ? 'border-red-400' : 'border-white/10'
+                    addressError ? 'border-red-400' : 'border-white/10'
                   } bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none`}
                 />
               </div>
@@ -488,9 +532,14 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                 <p className="text-xs text-red-400">{resolutionError.get(beneficiaryId)}</p>
               </div>
             )}
-            {addressErrors[index] && (
-              <p id={`beneficiary-address-error-${index}`} role="alert" className="text-xs text-red-400">
-                {addressErrors[index]}
+            {addressError && (
+              <p
+                id={`beneficiary-address-error-${index}`}
+                role="alert"
+                aria-live="polite"
+                className="ml-1 text-xs text-red-400"
+              >
+                {addressError}
               </p>
             )}
           </div>
@@ -518,6 +567,15 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
         </button>
       </div>
 
+      <button
+        type="button"
+        disabled={!isValid}
+        aria-disabled={!isValid}
+        className="w-full rounded-lg bg-will-purple py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Save beneficiaries
+      </button>
+
       <div
         className={`text-sm ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}
         role="status"
@@ -527,7 +585,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           <>Total: {total}% ✓</>
         ) : (
           <>
-            Total: {total}% — {validationMessage}{' '}
+            Total: {total}% — {validationMessage ?? 'Fix the highlighted address errors'}{' '}
             <a
               href="https://github.com/SoroWill/sorowill-app#beneficiary-percentages"
               target="_blank"
