@@ -89,3 +89,49 @@ export const WithoutCheckInButton: Story = {
     will: makeWill(),
   },
 };
+
+/** Empty state: a will with no beneficiaries listed. */
+export const NoBeneficiaries: Story = {
+  args: {
+    will: makeWill({ beneficiaries: [] }),
+    onCheckIn: fn(),
+  },
+};
+
+/** Edge case: a long beneficiary list. */
+export const ManyBeneficiaries: Story = {
+  args: {
+    will: makeWill({
+      beneficiaries: Array.from({ length: 8 }, (_, index) => ({
+        address: `G${String.fromCharCode(65 + index)}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`,
+        percentage: index < 4 ? 15 : 10,
+      })),
+    }),
+    onCheckIn: fn(),
+  },
+};
+
+/** Edge case: a zero balance. */
+export const ZeroBalance: Story = {
+  args: {
+    will: makeWill({ balance: '0' }),
+    onCheckIn: fn(),
+  },
+};
+
+/** The dashboard search matches the will ID and a beneficiary address. */
+export const SearchHighlight: Story = {
+  args: {
+    will: makeWill(),
+    searchQuery: '42',
+  },
+};
+
+/** Inheriting tab: the connected wallet is a beneficiary and sees its share. */
+export const WithEntitledShare: Story = {
+  args: {
+    will: makeWill({ status: WillStatus.Triggered, triggerTime: new Date(Date.now() - 2 * 86_400_000) }),
+    connectedAddress: 'GDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    showEntitledShare: true,
+  },
+};
