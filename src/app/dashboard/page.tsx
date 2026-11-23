@@ -19,6 +19,7 @@ import { BatchTopUpPanel } from '@/components/BatchTopUpPanel';
 import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
+import { getCachedWills, isWillsCacheFresh, setCachedWills } from '@/lib/willsCache';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
 
@@ -171,13 +172,30 @@ function DashboardPageOld() {
     onHelp: handleShortcutHelp,
   });
 
-  const loadWills = useCallback(async (owner: string) => {
+  // `force` skips the 60s cache (check-ins, retries). Otherwise cached wills are shown at once
+  // and refetched in the background when they are older than the cache TTL (#811).
+  const loadWills = useCallback(async (owner: string, force = false) => {
+    const cached = force ? undefined : getCachedWills(owner);
+    if (cached) {
+      setOwnedWills(cached.owned);
+      setInheritingWills(cached.inheriting);
+      setGuardianWills(cached.guardian);
+      setGuardianScanWarning(cached.guardianHasErrors);
+      setLastFetchTime(new Date(cached.fetchedAt));
+      setLoading(false);
+      if (isWillsCacheFresh(cached)) {
+        setIsStale(false);
+        return;
+      }
+      setIsStale(true);
+    }
+
     loadControllerRef.current?.abort();
     const controller = new AbortController();
     loadControllerRef.current = controller;
     const { signal } = controller;
 
-    setLoading(true);
+    if (!cached) setLoading(true);
     setError(null);
     try {
       let client;
@@ -207,10 +225,17 @@ function DashboardPageOld() {
       setGuardianScanWarning(guardian.hasErrors);
       setLastFetchTime(new Date());
       setIsStale(false);
+      setCachedWills(owner, {
+        owned,
+        inheriting,
+        guardian: guardian.wills,
+        guardianHasErrors: guardian.hasErrors,
+      });
     } catch (err) {
       if (signal.aborted) {
         return;
       }
+      setIsStale(false);
       console.error('[Dashboard] Failed to load wills:', err);
       setError(formatLoadError(err));
     } finally {
@@ -225,7 +250,7 @@ function DashboardPageOld() {
 
   const handleRetry = useCallback(() => {
     if (publicKey) {
-      void loadWills(publicKey);
+      void loadWills(publicKey, true);
     }
   }, [publicKey, loadWills]);
 
@@ -254,6 +279,12 @@ function DashboardPageOld() {
       setGuardianScanWarning(guardian.hasErrors);
       setLastFetchTime(new Date());
       setIsStale(false);
+      setCachedWills(publicKey, {
+        owned,
+        inheriting,
+        guardian: guardian.wills,
+        guardianHasErrors: guardian.hasErrors,
+      });
       setError(null);
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Data refreshed');
@@ -311,7 +342,7 @@ function DashboardPageOld() {
       );
       setLastFetchTime(now);
       if (publicKey) {
-        await loadWills(publicKey);
+        await loadWills(publicKey, true);
       }
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Check-in successful');
@@ -327,7 +358,7 @@ function DashboardPageOld() {
         setError(displayMessage);
         toast.error(displayMessage);
         if (publicKey) {
-          await loadWills(publicKey);
+          await loadWills(publicKey, true);
         }
         channelRef.current?.postMessage({ type: 'wills-changed' });
       } else {

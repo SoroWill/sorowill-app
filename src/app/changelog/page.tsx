@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { ChangelogList } from '@/components/ChangelogList';
 import { Footer } from '@/components/Footer';
 
 export const metadata: Metadata = {
@@ -67,45 +68,7 @@ export default function ChangelogPage() {
         </p>
       </section>
 
-      <section className="space-y-8">
-        {CHANGELOG_ENTRIES.map((entry, index) => (
-          <div
-            key={entry.version}
-            className={`rounded-lg border bg-white/5 p-6 ${index === 0 ? 'border-will-purple' : 'border-white/10'}`}
-          >
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-              <div>
-                <h2 className="text-2xl font-bold text-will-light">v{entry.version}</h2>
-                {entry.title && (
-                  <p className="text-sm text-will-light/60">{entry.title}</p>
-                )}
-              </div>
-              {entry.date && (
-                <time className="rounded-full bg-white/5 px-4 py-2 text-sm font-medium text-will-light/70">
-                  {entry.date}
-                </time>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <ul className="space-y-3">
-                {entry.highlights.map((item) => (
-                  <li key={item} className="flex gap-3 text-will-light/80">
-                    <span className="shrink-0 text-will-purple">▸</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {index === 0 && (
-              <div className="mt-4 rounded-lg border border-will-purple/30 bg-will-purple/10 p-3">
-                <p className="text-sm text-will-purple">🚀 Latest Release</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </section>
+      <ChangelogList entries={CHANGELOG_ENTRIES} />
 
       <section className="rounded-lg border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-will-light">Future Roadmap</h3>
