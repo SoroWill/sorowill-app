@@ -26,6 +26,7 @@ import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
+import { invalidateWillsCache } from '@/lib/willsCache';
 
 interface ActivityEntry {
   action: string;
@@ -269,6 +270,8 @@ export default function WillDetailPage() {
     setError(null);
     try {
       const { txHash } = await fn();
+      // The will changed on chain, so the dashboard's 60s cache is out of date.
+      invalidateWillsCache();
       recordActivity(name, txHash);
       await refetch();
       const actionLabel = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());

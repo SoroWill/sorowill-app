@@ -5,6 +5,7 @@ import { toStroops } from '@sorowill/sdk';
 import { getInvalidBatchAmounts, isValidAmount } from '@/lib/amount';
 import { formatError } from '@/lib/errors';
 import { getSoroWillClient } from '@/lib/sorowill';
+import { invalidateWillsCache } from '@/lib/willsCache';
 
 export type BatchTopUpResult = {
   status: 'success' | 'error';
@@ -93,6 +94,7 @@ export function useBatchTopUp(walletBalance: string | null) {
       }
     }
 
+    invalidateWillsCache();
     setResults(nextResults);
     setIsSubmitting(false);
     await onComplete();

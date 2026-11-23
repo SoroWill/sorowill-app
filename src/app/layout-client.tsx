@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
+import { TestnetBanner } from '@/components/TestnetBanner';
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -55,6 +56,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <TestnetBanner />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
       </ToastProvider>
     </ThemeProvider>

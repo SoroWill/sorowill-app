@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
-import { withCorrelationId } from '@/lib/correlation';
+import { errorResponse, ErrorCodes } from '@/lib/errors';
 
 /**
  * GET /api/reminders/confirm?token=...
@@ -13,20 +13,30 @@ import { withCorrelationId } from '@/lib/correlation';
  * Status codes:
  *   200 — confirmation succeeded
  *   400 — token is missing, invalid, or already used
+ *
+ * Error responses use the standardized API error format (#798):
+ *   { error: { code, message } }
  */
 async function handleGET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
 
   const result = await confirmReminderSubscription(token);
 
-  const message = result.ok
-    ? 'Your subscription to check-in reminder emails has been confirmed. Thank you!'
-    : result.error || 'The confirmation link is invalid or has already been used.';
+  if (!result.ok) {
+    return errorResponse(
+      ErrorCodes.INVALID_TOKEN,
+      result.error || 'The confirmation link is invalid or has already been used.',
+      400,
+    );
+  }
+
+  const message =
+    'Your subscription to check-in reminder emails has been confirmed. Thank you!';
 
   return new NextResponse(
     `<!doctype html><html><body style="font-family: sans-serif; padding: 2rem;"><p>${escapeHtml(message)}</p></body></html>`,
     {
-      status: result.ok ? 200 : 400,
+      status: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     },
   );
