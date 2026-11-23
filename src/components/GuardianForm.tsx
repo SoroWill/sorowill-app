@@ -4,7 +4,10 @@ import { memo, useEffect, useRef, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { isFederatedAddress } from '@/lib/federated';
-import { OWNER_AS_GUARDIAN_ERROR } from '@/lib/guardianValidation';
+import {
+  isValidStellarAddress,
+  OWNER_AS_GUARDIAN_ERROR,
+} from '@/lib/guardianValidation';
 
 export interface GuardianFormProps {
   /** Current list of guardian address strings (may contain empty strings for blank rows). */
@@ -44,7 +47,90 @@ interface GuardianRowProps {
   onResolve: (index: number, address: string) => void;
 }
 
-const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
+/** Helper text describing the accepted address formats. */
+export const ADDRESS_FORMAT_HINT =
+  'Stellar address: G… (56 characters) or federated: name*domain.com';
+
+/** Splits pasted bulk input on newlines and commas, trimming each entry. */
+export function splitBulkAddresses(input: string): string[] {
+  return input
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+}
+
+/** Returns true when a single entry is a valid Stellar or federated address. */
+export function isValidGuardianAddress(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') return false;
+  return STELLAR_ADDRESS_RE.test(trimmed) || isFederatedAddress(trimmed);
+}
+
+export interface BulkImportSummary {
+  /** Valid, unique, in-limit addresses ready to be added. */
+  accepted: string[];
+  /** Entries that failed address validation. */
+  invalid: string[];
+  /** Entries that duplicate an existing guardian or an earlier entry in the batch. */
+  duplicates: string[];
+  /** Entries that equal the connected owner address. */
+  owner: string[];
+  /** Valid, unique entries dropped because MAX_GUARDIANS would be exceeded. */
+  overLimit: string[];
+}
+
+/**
+ * Parses a bulk paste into accepted addresses plus a summary of rejected
+ * entries. Deduplicates case-insensitively against existing guardians and
+ * within the batch, rejects the owner address, and respects MAX_GUARDIANS.
+ */
+export function parseBulkAddresses(
+  input: string,
+  existingGuardians: string[],
+  ownerAddress?: string | null
+): BulkImportSummary {
+  const normalizedOwner = ownerAddress?.trim().toLowerCase() ?? '';
+  const seen = new Set(
+    existingGuardians
+      .map((g) => g.trim().toLowerCase())
+      .filter((g) => g !== '')
+  );
+  const summary: BulkImportSummary = {
+    accepted: [],
+    invalid: [],
+    duplicates: [],
+    owner: [],
+    overLimit: [],
+  };
+
+  const existingCount = existingGuardians.filter((g) => g.trim() !== '').length;
+  let remaining = Math.max(0, MAX_GUARDIANS - existingCount);
+
+  for (const entry of splitBulkAddresses(input)) {
+    const normalized = entry.toLowerCase();
+    if (!isValidGuardianAddress(entry)) {
+      summary.invalid.push(entry);
+      continue;
+    }
+    if (normalizedOwner && normalized === normalizedOwner) {
+      summary.owner.push(entry);
+      continue;
+    }
+    if (seen.has(normalized)) {
+      summary.duplicates.push(entry);
+      continue;
+    }
+    if (remaining <= 0) {
+      summary.overLimit.push(entry);
+      continue;
+    }
+    seen.add(normalized);
+    remaining -= 1;
+    summary.accepted.push(entry);
+  }
+
+  return summary;
+}
 
 /**
  * Returns validation feedback for a guardian input value.
@@ -52,10 +138,14 @@ const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
  */
 export function getAddressFeedback(value: string): string {
   const trimmed = value.trim();
-  if (trimmed === '' || isFederatedAddress(trimmed)) return '';
-  if (STELLAR_ADDRESS_RE.test(trimmed)) return '';
+  if (trimmed === '') return '';
+  if (isValidStellarAddress(trimmed)) return '';
+  if (isFederatedAddress(trimmed)) return '';
   if (trimmed.startsWith('G')) {
     return 'Stellar addresses must be 56 characters starting with G (A–Z, 2–7).';
+  }
+  if (trimmed.includes('*')) {
+    return 'Federated addresses must be in the form name*domain.com.';
   }
   return 'Enter a Stellar address (G…) or a federated address (name*domain.com).';
 }
@@ -87,7 +177,13 @@ export const GuardianRow = memo(function GuardianRow({
           value={guardian}
           onChange={(e) => onUpdate(index, e.target.value)}
           placeholder="Guardian address (G...) or federated address (name*domain.com)"
-          aria-describedby={rowError ? `guardian-error-${index}` : undefined}
+          spellCheck={false}
+          autoComplete="off"
+          aria-describedby={
+            rowError
+              ? `guardian-error-${index}`
+              : `guardian-hint-${index}`
+          }
           aria-invalid={rowError ? 'true' : undefined}
           className={`min-h-[48px] min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-will-purple ${
             rowError
@@ -153,6 +249,16 @@ export const GuardianRow = memo(function GuardianRow({
         </p>
       ) : null}
 
+      {!rowError && getAddressFeedback(guardian) ? (
+        <p className="text-xs text-amber-400/80" role="status">
+          {getAddressFeedback(guardian)}
+        </p>
+      ) : null}
+
+      <p id={`guardian-hint-${index}`} className="text-xs text-will-light/40">
+        {ADDRESS_FORMAT_HINT}
+      </p>
+
       {!rowError && guardian.trim() === '' ? (
         <p className="text-xs text-amber-400/80">
           This empty row will be excluded when the will is submitted.
@@ -186,7 +292,8 @@ export function GuardianForm({
   onResolve,
 }: GuardianFormProps) {
   const [addError, setAddError] = useState<string | null>(null);
-  const fieldsetRef = useRef<HTMLFieldSetElement>(null);
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkSummary, setBulkSummary] = useState<BulkImportSummary | null>(null);
 
   const normalizedOwner = ownerAddress?.trim().toLowerCase() ?? '';
 
@@ -216,6 +323,29 @@ export function GuardianForm({
     }
     setAddError(null);
     onAdd();
+  };
+
+  const handleBulkImport = () => {
+    const summary = parseBulkAddresses(bulkInput, guardians, ownerAddress);
+    setBulkSummary(summary);
+    if (summary.accepted.length === 0) return;
+
+    // Reuse existing blank rows first, then append new rows via onAdd.
+    const blankIndices: number[] = [];
+    guardians.forEach((g, index) => {
+      if (g.trim() === '') blankIndices.push(index);
+    });
+
+    const totalAfter = guardians.filter((g) => g.trim() !== '').length + summary.accepted.length;
+    const neededNewRows = Math.max(0, totalAfter - guardians.length);
+    for (let i = 0; i < neededNewRows; i += 1) onAdd();
+
+    summary.accepted.forEach((address, i) => {
+      const targetIndex = i < blankIndices.length ? blankIndices[i] : guardians.length + (i - blankIndices.length);
+      onUpdate(targetIndex, address);
+    });
+
+    setBulkInput('');
   };
 
   return (
@@ -254,6 +384,70 @@ export function GuardianForm({
         </p>
       ) : null}
 
+      <div className="space-y-2">
+        <label htmlFor="guardian-bulk-import" className="text-xs font-medium text-will-light/70">
+          Paste multiple addresses
+        </label>
+        <textarea
+          id="guardian-bulk-import"
+          value={bulkInput}
+          onChange={(e) => {
+            setBulkInput(e.target.value);
+            setBulkSummary(null);
+          }}
+          placeholder={'One address per line, or comma-separated (G... or name*domain.com)'}
+          rows={3}
+          spellCheck={false}
+          autoComplete="off"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={handleBulkImport}
+          disabled={bulkInput.trim() === ''}
+          className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
+        >
+          Import addresses
+        </button>
+
+        {bulkSummary ? (
+          <div
+            className="space-y-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="font-medium text-will-light">Import summary</p>
+            <p className="text-emerald-400">
+              {bulkSummary.accepted.length} added
+            </p>
+            {bulkSummary.invalid.length > 0 ? (
+              <p className="text-red-400">
+                {bulkSummary.invalid.length} invalid: {bulkSummary.invalid.join(', ')}
+              </p>
+            ) : null}
+            {bulkSummary.duplicates.length > 0 ? (
+              <p className="text-amber-400">
+                {bulkSummary.duplicates.length} duplicate
+                {bulkSummary.duplicates.length === 1 ? '' : 's'} skipped:{' '}
+                {bulkSummary.duplicates.join(', ')}
+              </p>
+            ) : null}
+            {bulkSummary.owner.length > 0 ? (
+              <p className="text-red-400">
+                {bulkSummary.owner.length} owner address
+                {bulkSummary.owner.length === 1 ? '' : 'es'} rejected: {OWNER_AS_GUARDIAN_ERROR}
+              </p>
+            ) : null}
+            {bulkSummary.overLimit.length > 0 ? (
+              <p className="text-amber-400">
+                {bulkSummary.overLimit.length} over the {MAX_GUARDIANS}-guardian limit:{' '}
+                {bulkSummary.overLimit.join(', ')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
       {guardians.map((guardian, index) => {
         const guardianId = guardianIds.get(index) || '';
         const isOwner =
@@ -273,12 +467,11 @@ export function GuardianForm({
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
                 autoComplete="off"
+                aria-label={`Guardian ${index + 1} address`}
                 aria-describedby={
                   rowError
                     ? `guardian-error-${index}`
-                    : getAddressFeedback(guardian)
-                    ? `guardian-feedback-${index}`
-                    : undefined
+                    : `guardian-hint-${index}`
                 }
                 aria-invalid={rowError ? 'true' : undefined}
                 className={`min-h-[48px] min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-will-purple ${
@@ -356,6 +549,10 @@ export function GuardianForm({
                 {getAddressFeedback(guardian)}
               </p>
             ) : null}
+
+            <p id={`guardian-hint-${index}`} className="text-xs text-will-light/40">
+              {ADDRESS_FORMAT_HINT}
+            </p>
 
             {!rowError && guardian.trim() === '' ? (
               <p className="text-xs text-amber-400/80">

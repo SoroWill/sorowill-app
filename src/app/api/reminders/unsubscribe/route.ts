@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
+import { apiError } from '@/lib/errors';
 import { escapeHtml, unsubscribeReminderSubscription } from '@/lib/reminders';
 
 async function handleUnsubscribe(request: Request) {
@@ -23,6 +24,10 @@ async function handleUnsubscribe(request: Request) {
   }
 
   if (!token) {
+    if (request.method === 'POST') {
+      return apiError('INVALID_TOKEN', 'A valid unsubscribe token is required.', 400);
+    }
+
     return new NextResponse(
       `<!doctype html><html><body style="font-family: sans-serif; padding: 2rem;"><p>A valid unsubscribe token is required.</p></body></html>`,
       {
@@ -47,7 +52,7 @@ async function handleUnsubscribe(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not process unsubscribe request.';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return apiError('INTERNAL_ERROR', message, 500);
   }
 }
 
