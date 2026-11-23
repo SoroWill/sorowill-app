@@ -10,6 +10,7 @@
       // data-theme on the next load (see src/lib/theme.ts).
       document.cookie = 'theme=' + t + '; path=/; max-age=31536000; samesite=lax';
     } else {
+      // No stored choice yet: respect the system color-scheme preference.
       t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     document.documentElement.setAttribute('data-theme', t);

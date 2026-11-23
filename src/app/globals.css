@@ -188,7 +188,7 @@ svg {
   .print-table td {
     border: 1px solid #cccccc;
     padding: 0.75rem;
-    text-align: left;
+    text-align: start;
   }
 
   .print-table th {

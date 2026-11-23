@@ -61,6 +61,28 @@ npm run dev
 | `REMINDER_STORE_KV_KEY` | Optional key used to store the reminder blob in the KV store (defaults to `sorowill:reminder-store`) |
 | `CRON_SECRET` | Bearer token for authenticating automated reminder dispatch requests from GitHub Actions (required if using the automated GitHub Actions trigger; see [Reminder delivery](#reminder-delivery)). **Must be at least 32 random characters** (e.g. `openssl rand -hex 32`); shorter secrets are rejected with a warning because they weaken the timing-safe comparison. |
 | `NEXT_PUBLIC_APP_URL` | Optional public base URL used to build the unsubscribe link in reminder emails (defaults to `VERCEL_URL` or `http://localhost:3000`) |
+| `RATE_LIMIT_DEFAULT_MAX` | Default max requests allowed per window for API routes (defaults to `60`) |
+| `RATE_LIMIT_DEFAULT_WINDOW_MS` | Default rate-limit window in milliseconds (defaults to `60000`, i.e. 1 minute) |
+| `RATE_LIMIT_<ENDPOINT>_MAX` | Per-endpoint override for max requests per window. `<ENDPOINT>` is the route name uppercased with non-alphanumerics replaced by `_` (e.g. `RATE_LIMIT_REMINDERS_CONFIRM_MAX` for `/api/reminders/confirm`) |
+| `RATE_LIMIT_<ENDPOINT>_WINDOW_MS` | Per-endpoint override for the window in milliseconds (e.g. `RATE_LIMIT_REMINDERS_CONFIRM_WINDOW_MS`) |
+
+## API Rate Limits
+
+API routes are rate limited by `src/lib/rate-limit.ts`. Limits are configurable via environment variables so they can be tuned per deployment without a code change.
+
+**Defaults** (used when no env vars are set):
+
+- Max requests per window: **60**
+- Window length: **60,000 ms** (1 minute)
+
+**Per-endpoint configuration:** each endpoint can override the defaults by setting `RATE_LIMIT_<ENDPOINT>_MAX` and/or `RATE_LIMIT_<ENDPOINT>_WINDOW_MS`, where `<ENDPOINT>` is the route path uppercased with `/` and other non-alphanumeric characters replaced by `_`. For example, to allow 10 reminder confirmations per 5 minutes:
+
+```bash
+RATE_LIMIT_REMINDERS_CONFIRM_MAX=10
+RATE_LIMIT_REMINDERS_CONFIRM_WINDOW_MS=300000
+```
+
+Unset or invalid values fall back to the defaults above, so existing behavior is preserved.
 
 ## Beneficiary Percentages
 
@@ -156,83 +178,4 @@ To add support for a new language:
 
 ### Middleware & Request Configuration
 
-- **`middleware.ts`** — Handles locale detection from Accept-Language header; does not require URL prefix (e.g., `/en/dashboard` — just `/dashboard`)
-- **`src/i18n/request.ts`** — Loads the appropriate message file based on detected locale and provides a fallback to English
-
-## Reminder delivery
-
-Reminders are delivered by a server-side route that can be triggered on a schedule. The app ships a lightweight JSON store for subscriptions and dispatch history, so a daily cron job can call the dispatch endpoint without exposing any secrets.
-
-The dispatch route (`/api/reminders/dispatch`) computes reminder windows from each will's `lastCheckin` and `checkinPeriodDays`, sending a well-before reminder once and an imminent reminder once for each active will that still has time left. The route is protected by a `CRON_SECRET` bearer token when configured.
-
-### Automated Reminder Triggers
-
-The application supports the following automated trigger mechanisms to schedule daily reminder dispatch:
-
-#### GitHub Actions Workflow (Recommended)
-
-**File:** `.github/workflows/reminder-cron.yml`
-
-The primary automated trigger runs via GitHub Actions, scheduled daily at `08:00 UTC` (cron: `0 8 * * *`). The workflow:
-- Runs on a fixed schedule every day
-- Supports manual re-runs via the GitHub UI (`workflow_dispatch`)
-- Keeps per-run logs for debugging and monitoring
-- Fails visibly if the dispatch endpoint returns a non-2xx response
-
-**Required GitHub Actions Secrets:**
-
-To enable reminder delivery via GitHub Actions, set the following **repository secrets** (not to be confused with environment variables):
-
-1. **`REMINDER_DISPATCH_URL`** — The full URL to your `/api/reminders/dispatch` endpoint
-   - Example: `https://sorowill.vercel.app/api/reminders/dispatch`
-   - For local/private deployments, use your deployment's public URL
-
-2. **`CRON_SECRET`** — A secure bearer token that authenticates cron requests to the dispatch endpoint
-   - This token is passed in the `Authorization: Bearer` header
-   - **Must be at least 32 random characters** (e.g. generate with `openssl rand -hex 32`); treat it as a password
-   - Shorter secrets are rejected with a warning, since low-entropy values weaken the timing-safe comparison
-   - The API route validates this against the `CRON_SECRET` environment variable
-
-**Configuration Steps:**
-
-1. Go to your GitHub repository settings → Secrets and variables → Actions
-2. Create a **New repository secret**:
-   - Name: `REMINDER_DISPATCH_URL`
-   - Value: Your app's dispatch endpoint URL (e.g., `https://your-deployment.vercel.app/api/reminders/dispatch`)
-3. Create another **New repository secret**:
-   - Name: `CRON_SECRET`
-   - Value: A random string of **at least 32 characters** to serve as the bearer token (e.g., generate with `openssl rand -hex 32`). Shorter secrets are rejected with a warning because they weaken the timing-safe comparison.
-4. Ensure your deployment has the corresponding `CRON_SECRET` environment variable set (see [Environment Variables](#environment-variables))
-
-#### Manual Dispatch
-
-For testing or one-off dispatch, you can manually call the endpoint with `curl`:
-
-```bash
-curl --fail -X POST https://your-app.example.com/api/reminders/dispatch \
-  -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  -H "Content-Type: application/json"
-```
-
-### Scheduling Notes
-
-- **Single Scheduler:** `.github/workflows/reminder-cron.yml` is the **only** scheduled trigger. A previous Vercel Cron entry that fired on the same schedule has been removed to avoid duplicate dispatch runs.
-- **No Duplicate Triggers:** Do not add a second independent scheduler unless absolutely necessary; doing so causes the dispatch route to run multiple times in quick succession. If a backup scheduler is needed, give it a distinctly different schedule (e.g., a different hour) and document the intent here.
-- **Race Condition Mitigation:** The dispatch route records `wellBeforeSentAt` and `imminentSentAt` timestamps per will in the KV store immediately after each send. Subscriptions with a recorded timestamp of that kind are skipped. This prevents duplicate reminders even if two dispatch runs overlap, though the lack of locking means a true race condition is still theoretically possible—yet another reason to keep a single scheduler.
-- **Error Visibility:** GitHub Actions fails the run when the dispatch endpoint returns a non-2xx response, making broken dispatch immediately visible in the Actions UI.
-
-## Keys and recovery
-
-SoroWill is non-custodial and derives no keys; your wallet (e.g. Freighter) holds them. See [docs/KEY_DERIVATION.md](./docs/KEY_DERIVATION.md) for the wallet derivation path (SEP-0005, `m/44'/148'/x'`), how to verify it, and how to recover access.
-
-## Key Management & Account Recovery
-
-SoroWill does **not** generate, store, or derive any private keys or seed phrases. All signing and key custody is handled entirely by your connected wallet — currently **[Freighter](https://freighter.app/)**. SoroWill only reads the wallet's public address and submits transactions for the wallet to sign; private key material never passes through this app.
-
-The "Certificate" / vault PDF export (available from a will's detail page) only contains the will's **public on-chain data** — id, owner, status, balance, and beneficiaries — plus a QR code for quick verification. It contains no key material and **cannot** be used to recover wallet access.
-
-If you lose access to your wallet, SoroWill cannot help you recover it. Use your wallet provider's own recovery process (for Freighter, this means restoring from your backed-up seed phrase — see Freighter's documentation at [freighter.app](https://freighter.app/)).
-
-## Contributing via Drips Wave
-
-This repo participates in the **Stellar Wave Program** on [Drips](https://drips.network/wave). Maintainer-tagged issues carry Point values, and contributors who resolve them during an active Wave earn a proportional share of that Wave's reward pool. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the contribution workflow, and <https://drips.network/wave> for how Wave itself works.
+- **`middleware.ts`** — Handles locale detection from Accept-Language header; does not require URL pre
