@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { normalizeWalletNetwork, safeGetWalletNetwork, safeGetPublicKey } from '@/lib/freighter';
+import { safeGetWalletNetwork, safeGetPublicKey } from '@/lib/freighter';
 import { getNetwork } from '@/lib/sorowill';
+import { detectNetworkMismatch } from '@/lib/validation';
 import type { SoroWillNetwork } from '@sorowill/sdk';
 
 const STORAGE_KEY = 'sorowill_network_mismatch_dismissed';
@@ -24,8 +25,7 @@ interface Mismatch {
  * so a dismissal only suppresses the exact pair the user dismissed.
  */
 function mismatchKey(mismatch: Mismatch): string {
-  const normalized = normalizeWalletNetwork(mismatch.walletNetwork) ?? mismatch.walletNetwork;
-  return `${mismatch.appNetwork}|${normalized}`;
+  return `${mismatch.appNetwork}|${mismatch.walletNetwork}`;
 }
 
 function readDismissed(): string[] {
@@ -50,9 +50,13 @@ function addDismissed(key: string): string[] {
   return next;
 }
 
-export function NetworkMismatchBanner() {
+/**
+ * Tracks whether the connected wallet's network differs from the app network.
+ * Re-checks on an interval, on window focus and on visibility change.
+ * Exposed so transaction forms can disable submission while mismatched.
+ */
+export function useNetworkMismatch(): Mismatch | null {
   const [mismatch, setMismatch] = useState<Mismatch | null>(null);
-  const [dismissedKeys, setDismissedKeys] = useState<string[]>([]);
   // Monotonic token so a slow in-flight check can't overwrite a newer result.
   const runToken = useRef(0);
 
@@ -73,19 +77,11 @@ export function NetworkMismatchBanner() {
       return;
     }
 
-    // An unrecognised wallet network (e.g. FUTURENET, STANDALONE) is `null`
-    // here and can never match the app network, so it is a mismatch too.
-    const walletNetwork = normalizeWalletNetwork(walletInfo.network);
-    if (walletNetwork !== appNetwork) {
-      setMismatch({ appNetwork, walletNetwork: walletInfo.network });
-    } else {
-      setMismatch(null);
-    }
+    const result = detectNetworkMismatch(appNetwork, walletInfo.network);
+    setMismatch(result ? { appNetwork: result.appNetwork, walletNetwork: result.walletNetwork } : null);
   }, []);
 
   useEffect(() => {
-    setDismissedKeys(readDismissed());
-
     void check();
     const interval = setInterval(() => void check(), POLL_INTERVAL_MS);
 
@@ -104,6 +100,17 @@ export function NetworkMismatchBanner() {
     };
   }, [check]);
 
+  return mismatch;
+}
+
+export function NetworkMismatchBanner() {
+  const mismatch = useNetworkMismatch();
+  const [dismissedKeys, setDismissedKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    setDismissedKeys(readDismissed());
+  }, []);
+
   function handleDismiss() {
     if (!mismatch) return;
     setDismissedKeys(addDismissed(mismatchKey(mismatch)));
@@ -121,9 +128,9 @@ export function NetworkMismatchBanner() {
         <span aria-hidden="true">⚠️</span>
         <span>
           Your wallet is connected to <strong className="font-semibold">{mismatch.walletNetwork}</strong>, but this
-          app expects <strong className="font-semibold">{mismatch.appNetwork}</strong>. Switch your Freighter
-          wallet network to <strong className="font-semibold">{mismatch.appNetwork}</strong> to avoid transaction
-          failures.
+          app expects <strong className="font-semibold">{mismatch.appNetwork}</strong>. Transactions are disabled
+          until you switch your Freighter wallet network to{' '}
+          <strong className="font-semibold">{mismatch.appNetwork}</strong>.
         </span>
       </div>
       <button

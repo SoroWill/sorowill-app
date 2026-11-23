@@ -108,9 +108,11 @@
     "usdcLocked": "{amount} USDC bloqueado",
     "checkInDue": "Chequeo vencido en {days} día{days, plural, =1 {} other {s}}",
     "checkInOverdue": "Chequeo vencido",
-    "refreshWillData": "Actualizar datos del testamento",
-    "lastRefreshed": "Última actualización: {time}",
-    "autoRefreshHint": "Se actualiza automáticamente cada 30 segundos"
+    "checkInStatusChanged": "El estado de este testamento cambió en el servidor. Los datos se han actualizado; revisa el estado actual antes de volver a intentar el chequeo.",
+    "nextCheckInDue": "Próximo chequeo vencido",
+    "gracePeriodEnds": "Período de gracia finaliza",
+    "expiringSoon": "¡Atención! Quedan menos de 7 días",
+    "daysRemaining": "{days, plural, =0 {Sin días restantes} =1 {1 día restante} other {# días restantes}}"
   },
   "willDetail": {
     "willNumber": "Testamento #{id}",

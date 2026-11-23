@@ -22,6 +22,9 @@ import { createContext, useContext } from 'react';
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+/** Maximum number of toasts rendered at once; older ones are dropped. */
+const MAX_TOASTS = 3;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -31,7 +34,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // Auto-dismiss is owned entirely by ToastItem's useEffect, which cleans up
     // its timer on unmount / id change. Scheduling one here as well would leave
     // an uncancellable timer running after an early manual dismiss.
-    setToasts((prev) => [...prev, toast]);
+    // Cap the stack at MAX_TOASTS by dropping the oldest entries first.
+    setToasts((prev) => [...prev, toast].slice(-MAX_TOASTS));
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -65,15 +69,15 @@ function ToastContainer() {
   const politeToasts = toasts.filter((toast) => toast.variant !== 'error');
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       {/* Errors are announced assertively so they interrupt the screen reader. */}
-      <div role="region" aria-live="assertive" aria-atomic="true" className="space-y-2">
+      <div role="region" aria-live="assertive" aria-atomic="true" className="flex flex-col gap-2">
         {errorToasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} />
         ))}
       </div>
       {/* Success/info are announced politely and wait their turn. */}
-      <div role="region" aria-live="polite" aria-atomic="true" className="space-y-2">
+      <div role="region" aria-live="polite" aria-atomic="true" className="flex flex-col gap-2">
         {politeToasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} />
         ))}
@@ -92,8 +96,25 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   // Depends only on the toast id and the stable dismiss callback, so other
   // toasts appearing or disappearing never restart this toast's timer.
   useEffect(() => {
+    // Four seconds is a deliberately conservative default for short, non-
+    // actionable status messages: it gives a slow reader time to notice the
+    // announcement without leaving routine notifications on screen for an
+    // excessive time. WCAG 2.2 SC 2.2.1 requires users be able to turn off,
+    // adjust, or extend time limits; the adjacent dismiss button provides
+    // that control. See docs/toast-timing.md for the usability test protocol.
     const timer = setTimeout(() => onDismiss(toast.id), 4000);
     return () => clearTimeout(timer);
+  }, [toast.id, onDismiss]);
+
+  // Escape dismisses the toast from anywhere on the page while it is mounted.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onDismiss(toast.id);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toast.id, onDismiss]);
 
   const bgColor = {
@@ -120,8 +141,8 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
-        aria-label="Dismiss notification"
-        className="text-white/70 hover:text-white"
+        aria-label={`Dismiss notification: ${toast.message}`}
+        className="text-white/70 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
       >
         ✕
       </button>

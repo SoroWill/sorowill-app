@@ -1,5 +1,6 @@
 import { type Will } from '@sorowill/sdk';
 import { isWillNotFoundMessage } from '@/lib/errors';
+import { serverNow } from '@/lib/serverClock';
 
 /**
  * Time model for deadline math
@@ -42,6 +43,51 @@ function addDays(instant: Date, days: number): Date {
 /** Formats a deadline as an unambiguous UTC string, e.g. "2026-01-08 12:00 UTC". */
 export function formatDeadlineUtc(deadline: Date): string {
   return `${deadline.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+/**
+ * Resolves the viewer's IANA timezone, falling back to UTC when the runtime
+ * cannot report one (older browsers, locked-down environments).
+ */
+export function getUserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/**
+ * Formats a deadline in the user's timezone with an explicit zone label,
+ * e.g. "Jan 8, 2026, 1:00 PM GMT+1 (Europe/Berlin)".
+ *
+ * The instant itself is always the UTC epoch value computed by the deadline
+ * helpers; only the rendering is localized. `Intl.DateTimeFormat` applies the
+ * correct offset for that instant, so DST transitions between now and the
+ * deadline are handled by the platform's tz database rather than by manual
+ * offset math.
+ */
+export function formatDeadlineLocal(deadline: Date, timeZone: string = getUserTimeZone()): string {
+  try {
+    const formatted = new Intl.DateTimeFormat('en', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone,
+      timeZoneName: 'short',
+    }).format(deadline);
+    return `${formatted} (${timeZone})`;
+  } catch {
+    return formatDeadlineUtc(deadline);
+  }
+}
+
+/**
+ * Seconds remaining until `deadline`, measured against server time so a
+ * skewed or spoofed client clock cannot misreport the countdown. Returns a
+ * fractional value; callers that display whole seconds should floor it.
+ */
+export function secondsUntil(deadline: Date, now: number = serverNow()): number {
+  return (deadline.getTime() - now) / 1000;
 }
 
 export function nextCheckinDeadline(will: Will): Date {
@@ -175,7 +221,7 @@ const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
 ];
 
 /** Formats a past date as relative time, e.g. "2 months ago". */
-export function formatRelativeTime(date: Date, now: number = Date.now()): string {
+export function formatRelativeTime(date: Date, now: number = serverNow()): string {
   const diffSeconds = Math.round((date.getTime() - now) / 1000);
   const abs = Math.abs(diffSeconds);
   const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
