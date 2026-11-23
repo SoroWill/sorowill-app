@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { formatDeadline, formatUSDC, type Will } from '@sorowill/sdk';
 
 import { nextCheckinDeadline } from '@/lib/deadlines';
+import { QR_ERROR_CORRECTION, QR_QUIET_ZONE_MODULES } from '@/lib/qrOptions';
 
 function parseCreationDate(value: unknown): Date | null {
   let date: Date;
@@ -27,7 +28,8 @@ function parseCreationDate(value: unknown): Date | null {
  * package already relied on for the PDF export below.
  */
 export async function generateQrDataUrl(data: string, width = 240): Promise<string> {
-  return QRCode.toDataURL(data, { margin: 1, width });
+  // High error correction and a full quiet zone so the printed or screenshotted code still scans (#832).
+  return QRCode.toDataURL(data, { margin: QR_QUIET_ZONE_MODULES, width, errorCorrectionLevel: QR_ERROR_CORRECTION });
 }
 
 /** Raised when the certificate PDF (or its QR code) could not be produced. */

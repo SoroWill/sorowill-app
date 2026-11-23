@@ -34,7 +34,7 @@ describe('BeneficiaryForm row ids travel with rows (#326)', () => {
     await user.click(screen.getAllByRole('button', { name: 'Resolve' })[0]);
     await waitFor(() => expect(screen.getByText('Resolved address:')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'Remove beneficiary 1' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Beneficiary 1' }));
 
     expect(screen.getByDisplayValue('bob*example.com')).toBeInTheDocument();
     expect(screen.queryByText('Resolved address:')).not.toBeInTheDocument();

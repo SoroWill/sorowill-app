@@ -19,11 +19,106 @@
   --border-color: rgba(0, 0, 0, 0.1);
 }
 
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   @apply bg-will-dark text-will-light;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive container padding for tablet and phone */
+.container {
+  width: 100%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+
+/* Touch-friendly controls and stacked forms on small screens */
+@media (max-width: 767px) {
+  button,
+  input,
+  select,
+  textarea,
+  [role='button'],
+  a.btn {
+    min-height: 48px;
+  }
+
+  button,
+  [role='button'],
+  a.btn {
+    min-width: 48px;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .form-row,
+  .form-group,
+  form > .row,
+  form > .flex-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .form-row > *,
+  .form-group > *,
+  form > .row > *,
+  form > .flex-row > * {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 @keyframes skeleton-pulse {

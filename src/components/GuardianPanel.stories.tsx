@@ -90,3 +90,33 @@ export const WithError: Story = {
     error: 'This guardian has already cast a vote for this will.',
   },
 };
+
+/** Error state: too few guardians for a quorum, so an early release can never happen. */
+export const QuorumUnreachable: Story = {
+  args: {
+    guardians: twoGuardians,
+    guardianVotes: 0,
+  },
+};
+
+/** The owner copies an invite link for each guardian. */
+export const OwnerWithInviteLinks: Story = {
+  args: {
+    guardians: threeGuardians,
+    guardianVotes: 1,
+    willId: '42',
+    isOwner: true,
+  },
+};
+
+/** Edge case: the guardian has voted already. */
+export const GuardianHasVoted: Story = {
+  args: {
+    guardians: threeGuardians,
+    guardianVotes: 1,
+    isGuardian: true,
+    isActive: true,
+    hasVoted: true,
+    onCastVote: fn(),
+  },
+};

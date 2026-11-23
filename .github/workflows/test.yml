@@ -24,6 +24,9 @@ jobs:
       - name: Validate changelog matches package version
         run: npm run check:changelog
 
+      - name: Check the OpenAPI spec is up to date
+        run: npm run check:openapi
+
       - name: Audit dependencies
         run: npm audit --audit-level=moderate || true
 

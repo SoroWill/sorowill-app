@@ -16,16 +16,19 @@ import {
 import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError, formatLoadError } from '@/lib/errors';
+import { fetchWithCsrf } from '@/lib/csrfClient';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
-import { BeneficiaryForm } from '@/components/BeneficiaryForm';
+import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
+import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
+import { invalidateWillsCache } from '@/lib/willsCache';
 
 interface ActivityEntry {
   action: string;
@@ -143,6 +146,7 @@ export default function WillDetailPage() {
 
   const [reminderEmail, setReminderEmail] = useState('');
   const [reminderStatus, setReminderStatus] = useState<string | null>(null);
+  const [reminderStatusKind, setReminderStatusKind] = useState<StatusMessageVariant>('info');
   const [reminderPending, setReminderPending] = useState(false);
 
   const isMounted = useRef(true);
@@ -269,6 +273,8 @@ export default function WillDetailPage() {
     setError(null);
     try {
       const { txHash } = await fn();
+      // The will changed on chain, so the dashboard's 60s cache is out of date.
+      invalidateWillsCache();
       recordActivity(name, txHash);
       await refetch();
       const actionLabel = name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -286,6 +292,7 @@ export default function WillDetailPage() {
   async function handleReminderSubscribe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!will) {
+      setReminderStatusKind('info');
       setReminderStatus('The will details are still loading.');
       return;
     }
@@ -294,7 +301,7 @@ export default function WillDetailPage() {
     setReminderStatus(null);
 
     try {
-      const response = await fetch('/api/reminders/register', {
+      const response = await fetchWithCsrf('/api/reminders/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -307,10 +314,12 @@ export default function WillDetailPage() {
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || 'Unable to register reminder');
       }
+      setReminderStatusKind('success');
       setReminderStatus(`Reminder enabled for ${payload.subscription.email}.`);
       setReminderEmail('');
     } catch (err) {
       const message = formatError(err);
+      setReminderStatusKind('error');
       setReminderStatus(message);
     } finally {
       setReminderPending(false);
@@ -569,7 +578,18 @@ export default function WillDetailPage() {
               {reminderPending ? 'Saving…' : 'Enable reminders'}
             </button>
           </form>
-          {reminderStatus ? <p className="mt-2 text-sm text-will-light/70">{reminderStatus}</p> : null}
+          {reminderStatus ? (
+            <div className="mt-2">
+              {/* Keyed by the text so a new message starts its own timer. */}
+              <StatusMessageBanner
+                key={reminderStatus}
+                variant={reminderStatusKind}
+                onDismiss={() => setReminderStatus(null)}
+              >
+                {reminderStatus}
+              </StatusMessageBanner>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -632,7 +652,7 @@ export default function WillDetailPage() {
                 },
               );
             }}
-            disabled={busyAction !== null || !validateBeneficiaries(draftBeneficiaries) || !draftBeneficiaries.every((b) => b.address.trim() !== '')}
+            disabled={busyAction !== null || !validateBeneficiaries(draftBeneficiaries) || !draftBeneficiaries.every((b) => b.address.trim() !== '') || hasDuplicateBeneficiaryAddresses(draftBeneficiaries)}
             className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
             Save Beneficiaries
@@ -688,6 +708,8 @@ export default function WillDetailPage() {
         <GuardianPanel
           guardians={will.guardians}
           guardianVotes={will.guardianVotes}
+          lastCheckin={will.lastCheckin}
+          checkinPeriodDays={will.checkinPeriodDays}
           isGuardian={isGuardian}
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}

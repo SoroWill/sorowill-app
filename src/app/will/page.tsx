@@ -1,176 +1,267 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
-const DRAFT_KEY = 'will-form-draft';
+const TOTAL_STEPS = 5;
 
-type SaveStatus = 'idle' | 'saving' | 'saved';
+const STEP_LABELS = [
+  'Personal Details',
+  'Assets',
+  'Beneficiaries',
+  'Executors',
+  'Review & Sign',
+];
 
-interface WillFormData {
-  fullName: string;
-  email: string;
-  assets: string;
-  beneficiaries: string;
-  notes: string;
+const STEP_ESTIMATED_MINUTES = [2, 3, 3, 2, 2];
+
+interface StepIndicatorProps {
+  currentStep: number;
+  completedSteps: number[];
+  onStepClick: (step: number) => void;
 }
 
-const EMPTY_FORM: WillFormData = {
-  fullName: '',
-  email: '',
-  assets: '',
-  beneficiaries: '',
-  notes: '',
-};
+function StepIndicator({
+  currentStep,
+  completedSteps,
+  onStepClick,
+}: StepIndicatorProps) {
+  return (
+    <nav aria-label="Will creation progress">
+      <p className="step-summary">
+        Step {currentStep} of {TOTAL_STEPS}
+      </p>
+      <ol className="step-list">
+        {STEP_LABELS.map((label, index) => {
+          const stepNumber = index + 1;
+          const isActive = stepNumber === currentStep;
+          const isCompleted = completedSteps.includes(stepNumber);
+          return (
+            <li
+              key={label}
+              className={[
+                'step-item',
+                isActive ? 'step-item--active' : '',
+                isCompleted ? 'step-item--completed' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <button
+                type="button"
+                onClick={() => onStepClick(stepNumber)}
+                aria-current={isActive ? 'step' : undefined}
+                aria-label={`Step ${stepNumber}: ${label}${
+                  isCompleted ? ' (completed)' : ''
+                }`}
+              >
+                <span className="step-number">
+                  {isCompleted ? '✓' : stepNumber}
+                </span>
+                <span className="step-label">{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
 
-export default function WillPage() {
-  const [form, setForm] = useState<WillFormData>(EMPTY_FORM);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [submitted, setSubmitted] = useState(false);
-  const restoredRef = useRef(false);
+function getEstimatedMinutesRemaining(currentStep: number): number {
+  let remaining = 0;
+  for (let i = currentStep - 1; i < TOTAL_STEPS; i += 1) {
+    remaining += STEP_ESTIMATED_MINUTES[i];
+  }
+  return remaining;
+}
 
-  // Restore previously saved draft when the user returns to the page.
-  useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
-    try {
-      const raw = window.localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<WillFormData>;
-        setForm({ ...EMPTY_FORM, ...parsed });
-        setSaveStatus('saved');
-      }
-    } catch {
-      // Ignore malformed drafts.
-    }
-  }, []);
+export default function WillCreationPage() {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [formData, setFormData] = useState<Record<string, string>>({});
 
-  // Auto-save on every field change.
-  useEffect(() => {
-    if (!restoredRef.current) return;
-    if (submitted) return;
-    setSaveStatus('saving');
-    const timer = window.setTimeout(() => {
-      try {
-        window.localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
-        setSaveStatus('saved');
-      } catch {
-        setSaveStatus('idle');
-      }
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [form, submitted]);
+  const estimatedMinutes = getEstimatedMinutesRemaining(currentStep);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  const markCompleted = (step: number) => {
+    setCompletedSteps((prev) =>
+      prev.includes(step) ? prev : [...prev, step].sort((a, b) => a - b)
+    );
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // ...existing submit logic would go here...
-    try {
-      window.localStorage.removeItem(DRAFT_KEY);
-    } catch {
-      // Ignore storage errors.
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return Boolean(formData.fullName && formData.dateOfBirth);
+      case 2:
+        return Boolean(formData.assets);
+      case 3:
+        return Boolean(formData.beneficiaries);
+      case 4:
+        return Boolean(formData.executor);
+      default:
+        return true;
     }
-    setSubmitted(true);
-    setSaveStatus('idle');
+  };
+
+  const goToStep = (step: number) => {
+    if (step < 1 || step > TOTAL_STEPS) {
+      return;
+    }
+    setCurrentStep(step);
+  };
+
+  const handleNext = () => {
+    if (!validateStep(currentStep)) {
+      return;
+    }
+    markCompleted(currentStep);
+    if (currentStep < TOTAL_STEPS) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentStep < TOTAL_STEPS) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow navigating back to any previous step or skipping forward.
+    // Validation is still enforced when advancing via "Next".
+    goToStep(step);
+  };
+
+  const handleChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div>
+            <h2>Personal Details</h2>
+            <label>
+              Full Name
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName ?? ''}
+                onChange={handleChange}
+              />
+            </label>
+            <label>
+              Date of Birth
+              <input
+                type="date"
+                name="dateOfBirth"
+                value={formData.dateOfBirth ?? ''}
+                onChange={handleChange}
+              />
+            </label>
+          </div>
+        );
+      case 2:
+        return (
+          <div>
+            <h2>Assets</h2>
+            <label>
+              List your assets
+              <textarea
+                name="assets"
+                value={formData.assets ?? ''}
+                onChange={handleChange}
+              />
+            </label>
+          </div>
+        );
+      case 3:
+        return (
+          <div>
+            <h2>Beneficiaries</h2>
+            <label>
+              List your beneficiaries
+              <textarea
+                name="beneficiaries"
+                value={formData.beneficiaries ?? ''}
+                onChange={handleChange}
+              />
+            </label>
+          </div>
+        );
+      case 4:
+        return (
+          <div>
+            <h2>Executors</h2>
+            <label>
+              Name your executor
+              <input
+                type="text"
+                name="executor"
+                value={formData.executor ?? ''}
+                onChange={handleChange}
+              />
+            </label>
+          </div>
+        );
+      case 5:
+        return (
+          <div>
+            <h2>Review &amp; Sign</h2>
+            <p>Review your will before signing.</p>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Create Your Will</h1>
-        <span
-          className="text-sm text-gray-500"
-          aria-live="polite"
-          data-testid="save-indicator"
-        >
-          {saveStatus === 'saving' && 'Saving…'}
-          {saveStatus === 'saved' && 'Saved'}
-        </span>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="fullName" className="block text-sm font-medium">
-            Full Name
-          </label>
-          <input
-            id="fullName"
-            name="fullName"
-            type="text"
-            value={form.fullName}
-            onChange={handleChange}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="assets" className="block text-sm font-medium">
-            Assets
-          </label>
-          <textarea
-            id="assets"
-            name="assets"
-            value={form.assets}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="beneficiaries" className="block text-sm font-medium">
-            Beneficiaries
-          </label>
-          <textarea
-            id="beneficiaries"
-            name="beneficiaries"
-            value={form.beneficiaries}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium">
-            Notes
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
-
+    <main className="will-creation">
+      <h1>Create Your Will</h1>
+      <StepIndicator
+        currentStep={currentStep}
+        completedSteps={completedSteps}
+        onStepClick={handleStepClick}
+      />
+      <p className="estimated-time" aria-live="polite">
+        Estimated time remaining: ~{estimatedMinutes} minute
+        {estimatedMinutes === 1 ? '' : 's'}
+      </p>
+      <section className="step-content">{renderStepContent()}</section>
+      <div className="step-controls">
         <button
-          type="submit"
-          className="rounded bg-blue-600 px-4 py-2 text-white"
+          type="button"
+          onClick={handleBack}
+          disabled={currentStep === 1}
         >
-          Submit
+          Back
         </button>
-      </form>
-    </div>
+        {currentStep < TOTAL_STEPS && (
+          <button type="button" onClick={handleSkip}>
+            Skip
+          </button>
+        )}
+        {currentStep < TOTAL_STEPS ? (
+          <button type="button" onClick={handleNext}>
+            Next
+          </button>
+        ) : (
+          <button type="button" onClick={() => markCompleted(currentStep)}>
+            Finish
+          </button>
+        )}
+      </div>
+    </main>
   );
 }

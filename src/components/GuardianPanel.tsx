@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GUARDIAN_THRESHOLD } from '@/lib/constants';
+import { getCheckinStatus, type CheckinTone } from '@/lib/checkinStatus';
 import { CopyAddress } from './CopyAddress';
 import { useToast } from './Toast';
 
@@ -14,7 +15,17 @@ export interface GuardianPanelProps {
   hasVoted?: boolean;
   onCastVote?: () => void;
   error?: string | null;
+  /** When the owner last checked in. Guardians have no check-ins of their own; this is the one that matters to them. */
+  lastCheckin?: Date | null;
+  /** Check-in period in days, used for the next check-in date and the overdue colour. */
+  checkinPeriodDays?: number;
 }
+
+const CHECKIN_TONE_CLASS: Record<CheckinTone, string> = {
+  ok: 'text-emerald-400',
+  soon: 'text-amber-400',
+  overdue: 'text-red-400',
+};
 
 export function GuardianPanel({
   guardians,
@@ -27,6 +38,8 @@ export function GuardianPanel({
   hasVoted = false,
   onCastVote,
   error,
+  lastCheckin,
+  checkinPeriodDays,
 }: GuardianPanelProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const toast = useToast();
@@ -59,6 +72,8 @@ export function GuardianPanel({
   };
 
   const hasEnoughGuardians = guardians.length >= GUARDIAN_THRESHOLD;
+  const checkin =
+    lastCheckin && checkinPeriodDays !== undefined ? getCheckinStatus(lastCheckin, checkinPeriodDays) : null;
 
   return (
     <section className="rounded-xl border border-white/10 bg-white/5 p-4" aria-labelledby="guardians-heading">
@@ -88,6 +103,26 @@ export function GuardianPanel({
           />
         ))}
       </div>
+      {checkin && lastCheckin ? (
+        <dl className="mt-3 grid gap-x-4 gap-y-1 text-xs text-will-light/70 sm:grid-cols-2" aria-label="Owner check-in">
+          <div>
+            <dt className="text-will-light/50">Last check-in</dt>
+            <dd>
+              <time dateTime={lastCheckin.toISOString()}>{lastCheckin.toLocaleString()}</time>
+              <span className={`ml-2 ${CHECKIN_TONE_CLASS[checkin.tone]}`}>
+                ({checkin.daysSince === 0 ? 'today' : `${checkin.daysSince} day${checkin.daysSince === 1 ? '' : 's'} ago`})
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-will-light/50">Next check-in due</dt>
+            <dd className={CHECKIN_TONE_CLASS[checkin.tone]} data-testid="next-checkin" data-tone={checkin.tone}>
+              <time dateTime={checkin.nextDeadline.toISOString()}>{checkin.nextDeadline.toLocaleString()}</time>
+              {checkin.overdue ? ' (overdue)' : null}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
       <ul className="mt-3 space-y-1.5" aria-label="Guardian addresses">
         {guardians.map((guardian, index) => (
           <li key={guardian} className="flex items-center justify-between font-mono text-sm text-will-light/80">
