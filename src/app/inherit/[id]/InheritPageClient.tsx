@@ -15,6 +15,7 @@ import { isValidStellarAddress } from '@/lib/guardianValidation';
 import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
+import { BeneficiaryRows } from '@/components/BeneficiaryRows';
 
 function isValidWillId(id: string): boolean {
   return /^\d+$/.test(id);

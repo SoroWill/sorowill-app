@@ -5,6 +5,7 @@ import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { apiError, ErrorCode } from '@/lib/errors';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
+import { validateRegisterFields } from '@/lib/serverValidation';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { withCorrelationId } from '@/lib/correlation';
 
@@ -252,6 +253,11 @@ async function handlePOST(request: Request) {
   const unsupported = rejectUnsupportedContentType(request);
   if (unsupported) return unsupported;
 
+  // The browser sends the token from /api/csrf in a header; a cross-site page cannot read it (#840).
+  if (!verifyCsrf(request)) {
+    return NextResponse.json({ ok: false, error: 'Invalid or missing CSRF token' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const willId = typeof body?.willId === 'string' ? body.willId : '';
@@ -295,7 +301,9 @@ async function handlePOST(request: Request) {
     }
 
     const result = await registerReminderSubscription({ willId, email, owner });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    const response = NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    // A token is good for one successful submission; the next one needs the renewed token.
+    return result.ok ? rotateCsrfToken(response) : response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not register reminder';
     return apiError(ErrorCode.INTERNAL_ERROR, message);

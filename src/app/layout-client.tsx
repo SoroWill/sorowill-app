@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
@@ -12,6 +13,7 @@ import { TestnetBanner } from '@/components/TestnetBanner';
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const t = useTranslations('common');
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
@@ -26,7 +28,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
             Soro<span className="text-will-purple">Will</span>
           </Link>
           <div className="flex items-center gap-6">
-          <nav className="hidden items-center gap-6 text-sm text-will-light/70 sm:flex">
+          <nav aria-label={t('primaryNav')} className="hidden items-center gap-6 text-sm text-will-light/70 sm:flex">
             <Link
               href="/dashboard"
               className={
@@ -36,7 +38,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
               }
               aria-current={isDashboardActive ? 'page' : undefined}
             >
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link
               href="/will/new"
@@ -47,7 +49,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
               }
               aria-current={isCreateWillActive ? 'page' : undefined}
             >
-              Create a Will
+              {t('createAWill')}
             </Link>
           </nav>
           {/* Outside the sm-only nav so wallet, network, language and theme

@@ -66,7 +66,9 @@ import { errorResponse, ErrorCodes } from '@/lib/errors';
 async function handleGET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
 
-  const result = await confirmReminderSubscription(token);
+  const result = isValidReminderToken(token)
+    ? await confirmReminderSubscription(token)
+    : { ok: false, error: 'The confirmation link is invalid or has already been used.' };
 
   if (!result.ok) {
     return errorResponse(

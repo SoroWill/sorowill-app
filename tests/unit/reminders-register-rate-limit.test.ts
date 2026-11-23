@@ -23,16 +23,22 @@ import {
 } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 
-const VALID_WILL_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+const VALID_WILL_ID = '1';
+const CSRF_TOKEN = 'a'.repeat(64);
 
 function makeRequest(ip: string, email = 'a@example.com'): Request {
   return new Request('https://app.example.com/api/reminders/register', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': `${ip}, 10.0.0.1` },
+    headers: {
+      'content-type': 'application/json',
+      'x-forwarded-for': `${ip}, 10.0.0.1`,
+      cookie: `sorowill_csrf=${CSRF_TOKEN}`,
+      'x-csrf-token': CSRF_TOKEN,
+    },
     body: JSON.stringify({
       willId: VALID_WILL_ID,
       email,
-      owner: '0xabc',
+      owner: '0x' + 'ab'.repeat(20),
       signature: '0xsig',
       message: 'm',
     }),
