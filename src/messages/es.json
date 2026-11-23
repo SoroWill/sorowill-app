@@ -202,6 +202,10 @@
       }
     },
     "faqHeading": "Preguntas Frecuentes",
+    "toc": {
+      "heading": "En esta página",
+      "backToTop": "Volver arriba"
+    },
     "items": [
       { "question": "¿Cómo funciona SoroWill?", "answer": "SoroWill es un contrato inteligente en Stellar Soroban que automatiza la herencia. Bloqueas USDC en el contrato, especificas los beneficiarios y los períodos de chequeo, y demuestras que sigues activo haciendo el chequeo antes de cada fecha límite. Si pierdes un chequeo, cualquiera puede activar el período de gracia. Si el período de gracia pasa sin respuesta de tu parte, el contrato distribuye automáticamente tus fondos a tus beneficiarios según los porcentajes que estableciste." },
       { "question": "¿Qué sucede si pierdo un chequeo?", "answer": "Si pierdes una fecha límite de chequeo, cualquiera puede activar un período de gracia (que estableciste durante la creación, típicamente 3-14 días). Durante este período de gracia, aún puedes responder y evitar la liberación. Simplemente necesitas acceder a SoroWill y hacer el chequeo de nuevo. Si no respondes antes de que termine el período de gracia, los fondos se liberan a tus beneficiarios automáticamente." },
