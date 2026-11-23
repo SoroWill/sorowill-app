@@ -1,8 +1,160 @@
 import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { dispatchDueReminders } from '@/lib/reminders/dispatch';
+import { apiError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * @openapi GET
+ * {
+ *   "summary": "Send due reminders (GET)",
+ *   "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set. Unlike POST, GET answers 500 instead of 401 when CRON_SECRET is not set.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "security": [
+ *     {
+ *       "cronBearer": []
+ *     }
+ *   ],
+ *   "responses": {
+ *     "200": {
+ *       "description": "The reminder run finished.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 3,
+ *             "skipped": 1,
+ *             "errors": []
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The bearer token is missing or wrong.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "500": {
+ *       "description": "CRON_SECRET is not set on the server.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 0,
+ *             "skipped": 0,
+ *             "errors": [
+ *               "Server misconfigured: CRON_SECRET is not set"
+ *             ]
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
+/**
+ * @openapi POST
+ * {
+ *   "summary": "Send due reminders (POST)",
+ *   "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "security": [
+ *     {
+ *       "cronBearer": []
+ *     }
+ *   ],
+ *   "responses": {
+ *     "200": {
+ *       "description": "The reminder run finished.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "sent": {
+ *                 "type": "integer"
+ *               },
+ *               "skipped": {
+ *                 "type": "integer"
+ *               },
+ *               "errors": {
+ *                 "type": "array",
+ *                 "items": {
+ *                   "type": "string"
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "sent": 3,
+ *             "skipped": 1,
+ *             "errors": []
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The bearer token is missing or wrong, or CRON_SECRET is not set.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
 
 /**
  * Minimum recommended length for CRON_SECRET.
@@ -47,10 +199,7 @@ async function handleDispatch(request: Request) {
   // Fail closed: if CRON_SECRET is not configured, reject the request rather
   // than skipping the auth check and exposing the endpoint publicly.
   if (!expectedToken) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 },
-    );
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   warnIfSecretTooShort(expectedToken);
@@ -59,7 +208,7 @@ async function handleDispatch(request: Request) {
   const expectedHeader = `Bearer ${expectedToken}`;
 
   if (!constantTimeEqual(authHeader, expectedHeader)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   const result = await dispatchDueReminders();
@@ -67,15 +216,16 @@ async function handleDispatch(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const expectedToken = process.env.CRON_SECRET;
 
   // Fail closed: if CRON_SECRET is not configured, reject the request rather
   // than skipping the auth check and exposing the endpoint publicly.
   if (!expectedToken) {
-    return NextResponse.json(
-      { sent: 0, skipped: 0, errors: ['Server misconfigured: CRON_SECRET is not set'] },
-      { status: 500 },
+    return apiError(
+      'INTERNAL_ERROR',
+      'Server misconfigured: CRON_SECRET is not set',
+      500,
     );
   }
 
@@ -85,7 +235,7 @@ export async function GET(request: Request) {
   const expectedHeader = `Bearer ${expectedToken}`;
 
   if (!constantTimeEqual(authHeader, expectedHeader)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   const result = await dispatchDueReminders();
@@ -93,6 +243,9 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   return handleDispatch(request);
 }
+
+export const GET = withCorrelationId(handleGET);
+export const POST = withCorrelationId(handlePOST);

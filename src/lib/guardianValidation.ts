@@ -182,3 +182,112 @@ export function validateGuardians(
 
   return { rowErrors, topError };
 }
+
+// ---------------------------------------------------------------------------
+// Bulk address import (#790)
+// ---------------------------------------------------------------------------
+
+/** A single entry from a pasted bulk import that could not be accepted. */
+export interface BulkImportInvalidEntry {
+  /** The trimmed value as it appeared in the pasted input. */
+  value: string;
+  /** Human-readable reason the entry was rejected. */
+  reason: string;
+}
+
+/** Result of parsing a pasted bulk address import. */
+export interface BulkImportResult {
+  /** Addresses that are valid, unique, and not already present. */
+  valid: string[];
+  /** Entries that failed validation (bad syntax, owner address, etc.). */
+  invalid: BulkImportInvalidEntry[];
+  /** Addresses that were duplicates (of existing guardians or earlier in the batch). */
+  duplicates: string[];
+  /** Summary counts for rendering an import summary. */
+  summary: {
+    /** Total non-empty entries found in the pasted input. */
+    total: number;
+    /** Number of entries accepted into `valid`. */
+    valid: number;
+    /** Number of entries rejected into `invalid`. */
+    invalid: number;
+    /** Number of entries rejected into `duplicates`. */
+    duplicates: number;
+  };
+}
+
+/**
+ * Parse a raw pasted string of guardian addresses for bulk import (#790).
+ *
+ * Splits on newlines and commas, trims each entry, drops empty entries, and
+ * validates each remaining entry. Duplicates are detected both against the
+ * existing guardian list and within the pasted batch itself.
+ *
+ * This function is pure: it performs no I/O and has no side effects, so the
+ * caller (e.g. GuardianForm) can render an import summary and tests can cover
+ * it directly.
+ *
+ * @param raw            The raw pasted text.
+ * @param existing       The guardian addresses already present in the form.
+ * @param ownerAddress   The will owner's address, if known (rejected as a guardian).
+ */
+export function parseBulkAddresses(
+  raw: string,
+  existing: string[] = [],
+  ownerAddress: string | null = null,
+): BulkImportResult {
+  const valid: string[] = [];
+  const invalid: BulkImportInvalidEntry[] = [];
+  const duplicates: string[] = [];
+
+  // Normalise the existing guardian list for duplicate detection.
+  const existingSet = new Set(
+    existing.map((g) => g.trim()).filter((g) => g !== ''),
+  );
+
+  // Track addresses accepted within this batch to catch in-batch duplicates.
+  const seenInBatch = new Set<string>();
+
+  const entries = raw
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
+
+  for (const entry of entries) {
+    const isFederated = isFederatedAddress(entry);
+    const isStellar = !isFederated && isValidStellarAddress(entry);
+
+    if (!isFederated && !isStellar) {
+      invalid.push({
+        value: entry,
+        reason: 'Not a valid Stellar address (must start with G and be 56 characters)',
+      });
+      continue;
+    }
+
+    if (ownerAddress && entry === ownerAddress) {
+      invalid.push({ value: entry, reason: OWNER_AS_GUARDIAN_ERROR });
+      continue;
+    }
+
+    if (existingSet.has(entry) || seenInBatch.has(entry)) {
+      duplicates.push(entry);
+      continue;
+    }
+
+    seenInBatch.add(entry);
+    valid.push(entry);
+  }
+
+  return {
+    valid,
+    invalid,
+    duplicates,
+    summary: {
+      total: entries.length,
+      valid: valid.length,
+      invalid: invalid.length,
+      duplicates: duplicates.length,
+    },
+  };
+}

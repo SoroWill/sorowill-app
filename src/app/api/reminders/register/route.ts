@@ -2,11 +2,216 @@ import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
-import { rotateCsrfToken, verifyCsrf } from '@/lib/csrf';
+import { apiError, ErrorCode } from '@/lib/errors';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { validateRegisterFields } from '@/lib/serverValidation';
 import { getSoroWillClient } from '@/lib/sorowill';
+import { withCorrelationId } from '@/lib/correlation';
+
+/**
+ * @openapi POST
+ * {
+ *   "summary": "Register an email reminder for a will",
+ *   "description": "Subscribes an email address to check-in reminders for a will. The caller proves they control the owner's wallet by signing `message`. The will must exist on-chain. A confirmation email is sent and the subscription is active once its link is opened. Limited to 10 requests per hour per client IP.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "requestBody": {
+ *     "required": true,
+ *     "content": {
+ *       "application/json": {
+ *         "schema": {
+ *           "type": "object",
+ *           "required": [
+ *             "willId",
+ *             "email",
+ *             "owner",
+ *             "signature",
+ *             "message"
+ *           ],
+ *           "properties": {
+ *             "willId": {
+ *               "type": "string",
+ *               "description": "Numeric will id.",
+ *               "example": "42"
+ *             },
+ *             "email": {
+ *               "type": "string",
+ *               "format": "email",
+ *               "maxLength": 254
+ *             },
+ *             "owner": {
+ *               "type": "string",
+ *               "description": "Address of the will owner who signed the message."
+ *             },
+ *             "message": {
+ *               "type": "string",
+ *               "description": "The text that was signed."
+ *             },
+ *             "signature": {
+ *               "type": "string",
+ *               "description": "Signature of `message` by `owner`."
+ *             }
+ *           }
+ *         },
+ *         "example": {
+ *           "willId": "42",
+ *           "email": "owner@example.com",
+ *           "owner": "0x0000000000000000000000000000000000000001",
+ *           "message": "Enable reminders for will 42",
+ *           "signature": "0x..."
+ *         }
+ *       }
+ *     }
+ *   },
+ *   "responses": {
+ *     "200": {
+ *       "description": "The subscription was stored.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "type": "object",
+ *             "properties": {
+ *               "ok": {
+ *                 "type": "boolean"
+ *               },
+ *               "subscription": {
+ *                 "type": "object",
+ *                 "properties": {
+ *                   "willId": {
+ *                     "type": "string"
+ *                   },
+ *                   "email": {
+ *                     "type": "string"
+ *                   },
+ *                   "owner": {
+ *                     "type": "string"
+ *                   },
+ *                   "confirmed": {
+ *                     "type": "boolean"
+ *                   },
+ *                   "createdAt": {
+ *                     "type": "string",
+ *                     "format": "date-time"
+ *                   },
+ *                   "updatedAt": {
+ *                     "type": "string",
+ *                     "format": "date-time"
+ *                   }
+ *                 }
+ *               }
+ *             }
+ *           },
+ *           "example": {
+ *             "ok": true,
+ *             "subscription": {
+ *               "willId": "42",
+ *               "email": "owner@example.com",
+ *               "owner": "0x0000000000000000000000000000000000000001",
+ *               "confirmed": false,
+ *               "createdAt": "2026-01-01T00:00:00.000Z",
+ *               "updatedAt": "2026-01-01T00:00:00.000Z"
+ *             }
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "400": {
+ *       "description": "A field is missing, the email is invalid, or the subscription could not be stored.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Missing required fields"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "401": {
+ *       "description": "The signature does not match the owner.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Unauthorized"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "404": {
+ *       "description": "The will does not exist.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Will not found"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "415": {
+ *       "description": "The Content-Type is not application/json.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Unsupported Content-Type; expected application/json"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "429": {
+ *       "description": "Too many requests from this client. Retry after the number of seconds in the Retry-After header.",
+ *       "headers": {
+ *         "Retry-After": {
+ *           "schema": {
+ *             "type": "integer"
+ *           },
+ *           "description": "Seconds until the next attempt is allowed."
+ *         }
+ *       },
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Too many requests"
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "500": {
+ *       "description": "Unexpected server error.",
+ *       "content": {
+ *         "application/json": {
+ *           "schema": {
+ *             "$ref": "#/components/schemas/Error"
+ *           },
+ *           "example": {
+ *             "ok": false,
+ *             "error": "Could not register reminder"
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
 
 // Per-IP budget for reminder registration. See `src/lib/rate-limit.ts` for the
 // algorithm and its limits.
@@ -30,13 +235,20 @@ import { getSoroWillClient } from '@/lib/sorowill';
 const IP_LIMIT = 10;
 const IP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
-export async function POST(request: Request) {
+const EMAIL_MAX_LENGTH = 254;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(email: string): boolean {
+  if (email.length > EMAIL_MAX_LENGTH) return false;
+  return EMAIL_REGEX.test(email);
+}
+
+async function handlePOST(request: Request) {
   const rate = checkRateLimit(`reminders:register:${getClientIp(request)}`, IP_LIMIT, IP_WINDOW_MS);
   if (!rate.allowed) {
-    return NextResponse.json(
-      { ok: false, error: 'Too many requests' },
-      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } },
-    );
+    return apiError(ErrorCode.RATE_LIMITED, 'Too many requests', {
+      headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+    });
   }
   const unsupported = rejectUnsupportedContentType(request);
   if (unsupported) return unsupported;
@@ -55,16 +267,11 @@ export async function POST(request: Request) {
     const message = typeof body?.message === 'string' ? body.message : '';
 
     if (!willId || !email || !owner || !signature || !message) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing required fields' },
-        { status: 400 },
-      );
+      return apiError(ErrorCode.VALIDATION_ERROR, 'Missing required fields');
     }
 
-    // Validate every field here, whatever the browser already checked (#839).
-    const invalid = validateRegisterFields({ willId, email, owner, signature, message });
-    if (invalid) {
-      return NextResponse.json({ ok: false, error: invalid }, { status: 400 });
+    if (!isValidEmail(email)) {
+      return apiError(ErrorCode.VALIDATION_ERROR, 'Invalid email format');
     }
 
     // Verify the caller controls the connected wallet that owns this will.
@@ -80,26 +287,17 @@ export async function POST(request: Request) {
     }
 
     if (!authorized) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
+      return apiError(ErrorCode.UNAUTHORIZED, 'Unauthorized');
     }
 
     // Verify the will actually exists on-chain before storing a subscription.
     try {
       const will = await getSoroWillClient().getWill(willId);
       if (!will) {
-        return NextResponse.json(
-          { ok: false, error: 'Will not found' },
-          { status: 404 },
-        );
+        return apiError(ErrorCode.NOT_FOUND, 'Will not found');
       }
     } catch {
-      return NextResponse.json(
-        { ok: false, error: 'Will not found' },
-        { status: 404 },
-      );
+      return apiError(ErrorCode.NOT_FOUND, 'Will not found');
     }
 
     const result = await registerReminderSubscription({ willId, email, owner });
@@ -108,6 +306,8 @@ export async function POST(request: Request) {
     return result.ok ? rotateCsrfToken(response) : response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not register reminder';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return apiError(ErrorCode.INTERNAL_ERROR, message);
   }
 }
+
+export const POST = withCorrelationId(handlePOST);

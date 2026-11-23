@@ -5,7 +5,7 @@ describe('BeneficiaryForm address error semantics (#328)', () => {
   it('marks an invalid address with aria-invalid and links the alert message', () => {
     render(<BeneficiaryForm value={[{ address: 'INVALID', percentage: 100 }]} onChange={vi.fn()} />);
 
-    const input = screen.getByLabelText('Beneficiary 1 address');
+    const input = screen.getByLabelText('Beneficiary 1 Address');
     expect(input).toHaveAttribute('aria-invalid', 'true');
 
     const alert = screen.getByRole('alert');
@@ -21,7 +21,7 @@ describe('BeneficiaryForm address error semantics (#328)', () => {
       />,
     );
 
-    const input = screen.getByLabelText('Beneficiary 1 address');
+    const input = screen.getByLabelText('Beneficiary 1 Address');
     expect(input).not.toHaveAttribute('aria-invalid');
     expect(input).not.toHaveAttribute('aria-describedby');
   });
@@ -39,20 +39,20 @@ describe('BeneficiaryForm label associations (#672)', () => {
       />,
     );
 
-    const addressInput1 = screen.getByLabelText('Beneficiary 1 address');
-    const percentageInput1 = screen.getByLabelText('Beneficiary 1 percentage');
-    const addressInput2 = screen.getByLabelText('Beneficiary 2 address');
-    const percentageInput2 = screen.getByLabelText('Beneficiary 2 percentage');
+    const addressInput1 = screen.getByLabelText('Beneficiary 1 Address');
+    const percentageInput1 = screen.getByLabelText('Beneficiary 1 Percentage');
+    const addressInput2 = screen.getByLabelText('Beneficiary 2 Address');
+    const percentageInput2 = screen.getByLabelText('Beneficiary 2 Percentage');
 
     expect(addressInput1.tagName).toBe('INPUT');
     expect(percentageInput1.tagName).toBe('INPUT');
     expect(addressInput2.tagName).toBe('INPUT');
     expect(percentageInput2.tagName).toBe('INPUT');
 
-    const addressLabel1 = screen.getByText('Beneficiary 1 address');
-    const percentageLabel1 = screen.getByText('Beneficiary 1 percentage');
-    const addressLabel2 = screen.getByText('Beneficiary 2 address');
-    const percentageLabel2 = screen.getByText('Beneficiary 2 percentage');
+    const addressLabel1 = screen.getByText('Beneficiary 1 Address');
+    const percentageLabel1 = screen.getByText('Beneficiary 1 Percentage');
+    const addressLabel2 = screen.getByText('Beneficiary 2 Address');
+    const percentageLabel2 = screen.getByText('Beneficiary 2 Percentage');
 
     expect(addressLabel1.tagName).toBe('LABEL');
     expect(percentageLabel1.tagName).toBe('LABEL');

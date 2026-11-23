@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { FaqNav } from '@/components/FaqNav';
+
 const FAQs = [
   {
     question: 'How does SoroWill work?',
@@ -86,8 +88,14 @@ const FAQs = [
 
 export default function FAQPage() {
   const t = useTranslations('faq');
+  // Table of contents (#814): the lifecycle section, then every question. Each question label is
+  // one numbered string, so it never equals the question text shown in the list below.
+  const tocItems = [
+    { id: 'lifecycle', label: t('lifecycle.heading') },
+    ...FAQs.map((_, index) => ({ id: `faq-${index}`, label: `${index + 1}. ${t(`items.${index}.question`)}` })),
+  ];
   return (
-    <div className="mx-auto max-w-3xl space-y-12 px-4 py-8 sm:py-16 sm:px-0">
+    <div id="top" className="mx-auto max-w-3xl space-y-12 px-4 py-8 sm:py-16 sm:px-0">
       <section className="space-y-4">
         <h1 className="text-3xl font-bold tracking-tight text-will-light sm:text-4xl">
           {t('title')}
@@ -95,7 +103,9 @@ export default function FAQPage() {
         <p className="text-lg text-will-light/70">{t('subtitle')}</p>
       </section>
 
-      <section className="space-y-8">
+      <FaqNav heading={t('toc.heading')} items={tocItems} backToTopLabel={t('toc.backToTop')} />
+
+      <section id="lifecycle" className="scroll-mt-32 space-y-8">
         <div className="space-y-2">
           <h2 className="text-2xl font-bold text-will-light">{t('lifecycle.heading')}</h2>
           <p className="text-sm text-will-light/60">{t('lifecycle.description')}</p>
@@ -174,7 +184,8 @@ export default function FAQPage() {
             return (
             <details
               key={translatedQuestion}
-              className="rounded-xl border border-white/10 bg-white/5 p-6 transition-all [&[open]]:bg-white/10"
+              id={`faq-${index}`}
+              className="scroll-mt-32 rounded-xl border border-white/10 bg-white/5 p-6 transition-all [&[open]]:bg-white/10"
             >
               <summary className="flex cursor-pointer items-center justify-between font-semibold text-will-light hover:text-white">
                 <span>{translatedQuestion}</span>

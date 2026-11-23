@@ -122,6 +122,53 @@ export function clearDraft(storage: Pick<Storage, 'removeItem'>): void {
   storage.removeItem(DRAFT_STORAGE_KEY);
 }
 
+/** Default autosave cadence for the NewWill draft, in milliseconds. */
+export const DRAFT_AUTOSAVE_INTERVAL_MS = 30_000;
+
+export interface DraftAutosaver {
+  /** Begins periodic saving. Calling start twice is a no-op. */
+  start: () => void;
+  /** Stops periodic saving. Safe to call when not started. */
+  stop: () => void;
+  /** Saves immediately (subject to validation) and returns whether it wrote. */
+  saveNow: () => boolean;
+}
+
+/**
+ * Creates a periodic autosaver for the NewWill draft.
+ *
+ * `getState` is called on each tick so the latest form state is captured
+ * without the caller having to re-create the autosaver. Each tick goes through
+ * `saveDraft`, so invalid mid-edit states never overwrite the last good draft.
+ * The interval is unref'd when the runtime supports it so a pending timer can
+ * never keep a Node process (e.g. in tests) alive.
+ */
+export function createDraftAutosaver(
+  storage: Pick<Storage, 'setItem'>,
+  getState: () => unknown,
+  intervalMs: number = DRAFT_AUTOSAVE_INTERVAL_MS,
+): DraftAutosaver {
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  const saveNow = (): boolean => saveDraft(storage, getState());
+
+  const start = (): void => {
+    if (timer !== null) return;
+    timer = setInterval(saveNow, intervalMs);
+    // Node's Timeout exposes unref; browsers return a number without it.
+    const maybeUnref = timer as unknown as { unref?: () => void };
+    if (typeof maybeUnref.unref === 'function') maybeUnref.unref();
+  };
+
+  const stop = (): void => {
+    if (timer === null) return;
+    clearInterval(timer);
+    timer = null;
+  };
+
+  return { start, stop, saveNow };
+}
+
 // ---------------------------------------------------------------------------
 // Period-value helpers (shared between the form and unit tests)
 // ---------------------------------------------------------------------------

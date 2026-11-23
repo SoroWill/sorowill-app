@@ -14,7 +14,14 @@ vi.mock('@/lib/sorowill', () => ({
 vi.mock('viem', () => ({ verifyMessage: vi.fn(async () => true) }));
 
 import { POST } from '@/app/api/reminders/register/route';
-import { checkRateLimit, resetRateLimits, buildRateLimitKey } from '@/lib/rate-limit';
+import {
+  checkRateLimit,
+  resetRateLimits,
+  buildRateLimitKey,
+  parseRetryAfter,
+  formatRetryAfterMessage,
+} from '@/lib/rate-limit';
+import { registerReminderSubscription } from '@/lib/reminders';
 
 const VALID_WILL_ID = '1';
 const CSRF_TOKEN = 'a'.repeat(64);
@@ -54,6 +61,22 @@ describe('#399 — IP rate limiting on reminder registration', () => {
     const retryAfter = Number(blocked.headers.get('Retry-After'));
     expect(retryAfter).toBeGreaterThan(0);
     expect(retryAfter).toBeLessThanOrEqual(3600);
+  });
+
+  it('includes a parseable Retry-After header on the 429 response', async () => {
+    for (let i = 0; i < 10; i++) {
+      await POST(makeRequest('203.0.113.7', `user${i}@example.com`));
+    }
+
+    const blocked = await POST(makeRequest('203.0.113.7', 'user11@example.com'));
+    expect(blocked.status).toBe(429);
+
+    const header = blocked.headers.get('Retry-After');
+    expect(header).not.toBeNull();
+    const parsed = parseRetryAfter(header, Date.now());
+    expect(parsed).not.toBeNull();
+    expect(parsed).toBeGreaterThan(0);
+    expect(parsed).toBeLessThanOrEqual(3600);
   });
 
   it('does not affect requests from a different IP', async () => {
@@ -104,5 +127,116 @@ describe('#680 — rate-limit key construction avoids collisions', () => {
     expect(() => buildRateLimitKey('a:b', 'c')).toThrow();
     expect(() => buildRateLimitKey('a', 'b:c')).toThrow();
     expect(() => buildRateLimitKey('a', 'b')).not.toThrow();
+  });
+});
+
+describe('#793 — parseRetryAfter', () => {
+  const now = Date.UTC(2024, 0, 1, 0, 0, 0);
+
+  it('parses numeric seconds', () => {
+    expect(parseRetryAfter('120', now)).toBe(120);
+    expect(parseRetryAfter('0', now)).toBe(0);
+    expect(parseRetryAfter(' 45 ', now)).toBe(45);
+  });
+
+  it('parses HTTP-date values into seconds from now', () => {
+    const future = new Date(now + 90_000).toUTCString();
+    expect(parseRetryAfter(future, now)).toBe(90);
+  });
+
+  it('clamps past HTTP-dates to zero', () => {
+    const past = new Date(now - 90_000).toUTCString();
+    expect(parseRetryAfter(past, now)).toBe(0);
+  });
+
+  it('returns null for missing headers', () => {
+    expect(parseRetryAfter(null, now)).toBeNull();
+    expect(parseRetryAfter(undefined, now)).toBeNull();
+    expect(parseRetryAfter('', now)).toBeNull();
+  });
+
+  it('returns null for invalid headers', () => {
+    expect(parseRetryAfter('soon', now)).toBeNull();
+    expect(parseRetryAfter('-5', now)).toBeNull();
+    expect(parseRetryAfter('not-a-date', now)).toBeNull();
+  });
+});
+
+describe('#793 — formatRetryAfterMessage', () => {
+  it('formats a countdown message in seconds', () => {
+    expect(formatRetryAfterMessage(45)).toMatch(/45/);
+    expect(formatRetryAfterMessage(45)).toMatch(/retry/i);
+  });
+
+  it('formats a countdown message in minutes and seconds', () => {
+    const msg = formatRetryAfterMessage(125);
+    expect(msg).toMatch(/2/);
+    expect(msg).toMatch(/5/);
+  });
+
+  it('handles zero gracefully', () => {
+    expect(formatRetryAfterMessage(0)).toMatch(/retry/i);
+  });
+});
+
+describe('#793 — reminders auto-retry after rate limit', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(registerReminderSubscription).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('schedules a retry after the Retry-After wait and succeeds', async () => {
+    const { registerWithRetry } = await import('@/lib/reminders');
+    const payload = {
+      willId: VALID_WILL_ID,
+      email: 'a@example.com',
+      owner: '0xabc',
+      signature: '0xsig',
+      message: 'm',
+    };
+
+    const rateLimited = vi.fn(async () => ({
+      ok: false as const,
+      status: 429,
+      retryAfter: 30,
+    }));
+    const success = vi.fn(async () => ({ ok: true as const }));
+    vi.mocked(registerReminderSubscription)
+      .mockImplementationOnce(rateLimited as never)
+      .mockImplementationOnce(success as never);
+
+    const promise = registerWithRetry(payload, { maxRetries: 1 });
+    await vi.advanceTimersByTimeAsync(30_000);
+    const result = await promise;
+
+    expect(rateLimited).toHaveBeenCalledTimes(1);
+    expect(success).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('does not retry when the error is not a rate limit', async () => {
+    const { registerWithRetry } = await import('@/lib/reminders');
+    const payload = {
+      willId: VALID_WILL_ID,
+      email: 'a@example.com',
+      owner: '0xabc',
+      signature: '0xsig',
+      message: 'm',
+    };
+
+    const failure = vi.fn(async () => ({
+      ok: false as const,
+      status: 400,
+      error: 'bad request',
+    }));
+    vi.mocked(registerReminderSubscription).mockImplementationOnce(failure as never);
+
+    const result = await registerWithRetry(payload, { maxRetries: 1 });
+    expect(failure).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: false });
   });
 });

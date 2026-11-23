@@ -156,6 +156,75 @@ describe('willExport', () => {
       expect(csv).not.toThrow;
     });
 
+    it('should include Beneficiary Notes header', () => {
+      const csv = exportWillsToCSV([makeTestWill()]);
+      const headers = csv.split('\n')[0];
+
+      expect(headers).toContain('Beneficiary Notes');
+    });
+
+    it('should export beneficiary notes semicolon-joined', () => {
+      const wills = [
+        makeTestWill({
+          beneficiaries: [
+            { address: 'GA', percentage: 50, note: 'Eldest child' },
+            { address: 'GB', percentage: 30, note: 'Youngest child' },
+            { address: 'GC', percentage: 20, note: 'Charity' },
+          ],
+        } as unknown as Partial<Will>),
+      ];
+      const [header, row] = exportWillsToCSV(wills).split('\n');
+      const headers = header.split(',');
+      const values = row.split(',');
+
+      expect(values[headers.indexOf('Beneficiary Notes')]).toBe(
+        'Eldest child;Youngest child;Charity'
+      );
+    });
+
+    it('should export empty cell when beneficiaries have no notes', () => {
+      const wills = [
+        makeTestWill({
+          beneficiaries: [
+            { address: 'GA', percentage: 50 },
+            { address: 'GB', percentage: 50 },
+          ],
+        }),
+      ];
+      const [header, row] = exportWillsToCSV(wills).split('\n');
+      const headers = header.split(',');
+      const values = row.split(',');
+
+      expect(values[headers.indexOf('Beneficiary Notes')]).toBe('');
+    });
+
+    it('should escape commas, quotes and newlines in beneficiary notes', () => {
+      const wills = [
+        makeTestWill({
+          beneficiaries: [
+            { address: 'GA', percentage: 50, note: 'Note with, comma' },
+            { address: 'GB', percentage: 50, note: 'Note with "quotes"' },
+          ],
+        } as unknown as Partial<Will>),
+      ];
+      const csv = exportWillsToCSV(wills);
+
+      expect(csv).toContain('"Note with, comma;Note with ""quotes"""');
+    });
+
+    it('should escape newlines in beneficiary notes', () => {
+      const wills = [
+        makeTestWill({
+          beneficiaries: [
+            { address: 'GA', percentage: 100, note: 'Line one\nLine two' },
+          ],
+        } as unknown as Partial<Will>),
+      ];
+      const csv = exportWillsToCSV(wills);
+
+      expect(csv).toContain('"Line one\nLine two"');
+    });
+
     it('should handle empty guardians list', () => {
       const wills = [makeTestWill({ guardians: [] })];
       const csv = exportWillsToCSV(wills);

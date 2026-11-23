@@ -5,6 +5,8 @@ import { getLocale, getMessages } from 'next-intl/server';
 
 import { parseTheme, THEME_COOKIE } from '@/lib/theme';
 
+import AuthSyncProvider from '@/components/auth/AuthSyncProvider';
+
 import ClientLayout from './layout-client';
 // dummy comment for tests/unit/Analytics.test.ts: plausible analytics tracker
 
@@ -67,7 +69,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen bg-will-dark text-will-light antialiased">
         <NextIntlClientProvider messages={messages}>
-          <ClientLayout>{children}</ClientLayout>
+          <AuthSyncProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </AuthSyncProvider>
         </NextIntlClientProvider>
       </body>
     </html>

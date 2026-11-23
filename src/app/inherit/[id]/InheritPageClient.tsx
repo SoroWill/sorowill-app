@@ -10,6 +10,7 @@ import { formatError, formatLoadError, isWillNotFoundError } from '@/lib/errors'
 import { graceDeadline } from '@/lib/deadlines';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { accountExists } from '@/lib/balance';
+import { getSafeBalance } from '@/lib/tokenDecimals';
 import { isValidStellarAddress } from '@/lib/guardianValidation';
 import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
@@ -49,6 +50,8 @@ export default function InheritPageClient({ id }: { id: string }) {
   const [notFound, setNotFound] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  // The person must tick this, after the summary is on screen, before the claim button works (#831).
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
   const [now, setNow] = useState(() => serverNow());
 
@@ -332,11 +335,46 @@ export default function InheritPageClient({ id }: { id: string }) {
         </div>
       )}
 
+      <div className="rounded-xl border border-white/10 bg-white/5 p-4" aria-labelledby="will-summary-heading" role="group">
+        <h2 id="will-summary-heading" className="text-sm font-semibold text-will-light">
+          Will summary
+        </h2>
+        <dl className="mt-2 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-will-light/50">Will ID</dt>
+            <dd className="font-mono text-will-light">#{will.id}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-will-light/50">Balance</dt>
+            <dd className="text-will-light">{formatUSDC(getSafeBalance(will.balance))} USDC</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-will-light/50">Check-in period</dt>
+            <dd className="text-will-light">{will.checkinPeriodDays} days</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-will-light/50">Grace period</dt>
+            <dd className="text-will-light">{will.gracePeriodDays} days</dd>
+          </div>
+        </dl>
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light">All beneficiaries</h2>
-        <BeneficiaryRows
-          rows={shares.map((row) => ({ address: row.address, value: `${formatUSDC(BigInt(row.share))} USDC` }))}
-        />
+        <ul className="mt-2 space-y-1.5">
+          {shares.map((row) => {
+            const percentage = will.beneficiaries.find((b) => b.address === row.address)?.percentage;
+            return (
+              <li key={row.address} className="flex justify-between text-sm">
+                <CopyAddress address={row.address} className="text-will-light/80" />
+                <span className="text-will-light">
+                  {percentage !== undefined ? `${percentage}% · ` : ''}
+                  {formatUSDC(BigInt(row.share))} USDC
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       {will.status === WillStatus.Released ? (
@@ -361,14 +399,29 @@ export default function InheritPageClient({ id }: { id: string }) {
           </div>
         </div>
       ) : canClaim ? (
-        <button
-          type="button"
-          onClick={handleClaim}
-          disabled={claiming}
-          className="w-full rounded-full bg-will-purple px-4 py-3 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60 active:scale-95"
-        >
-          {claiming ? 'Claiming…' : 'Claim Inheritance'}
-        </button>
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-will-light/80">
+            <input
+              type="checkbox"
+              checked={reviewConfirmed}
+              onChange={(event) => setReviewConfirmed(event.target.checked)}
+              disabled={claiming}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-will-purple"
+            />
+            <span>
+              I have reviewed the will summary and the beneficiaries above, and I want to release the
+              inheritance. This pays out all beneficiaries in one transaction and cannot be undone.
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={handleClaim}
+            disabled={claiming || !reviewConfirmed}
+            className="w-full rounded-full bg-will-purple px-4 py-3 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60 active:scale-95"
+          >
+            {claiming ? 'Claiming…' : 'Claim Inheritance'}
+          </button>
+        </div>
       ) : (
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-will-light/60">
           This will isn&apos;t ready to release yet. Distribution only becomes available once the owner
