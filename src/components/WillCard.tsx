@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
@@ -58,21 +58,63 @@ export interface WillCardProps {
   /** Shown only when the viewer owns this will and it is still active. */
   onCheckIn?: (willId: string) => void;
   checkingIn?: boolean;
+  /** Disables the card's actions, for example while the dashboard is refreshing. */
+  actionsDisabled?: boolean;
   /** Address of the connected user, to compute and show entitled share when relevant (e.g. Inheriting tab). */
   connectedAddress?: string | null;
   /** If true, surfaces the connected user's entitled share inline. */
   showEntitledShare?: boolean;
+  /** Called when the will data should be refreshed (manual button or 30s auto-refresh). */
+  onRefresh?: (willId: string) => void | Promise<void>;
+  /** External loading flag for the will data refresh. */
+  refreshing?: boolean;
 }
 
 function WillCardComponent({
   will,
   onCheckIn,
   checkingIn = false,
+  actionsDisabled = false,
   connectedAddress,
   showEntitledShare = false,
   searchQuery,
+  onRefresh,
+  refreshing = false,
 }: WillCardProps) {
-  const [showAllBeneficiaries, setShowAllBeneficiaries] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refresh = useCallback(async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh(will.id);
+    } finally {
+      if (mountedRef.current) {
+        setLastRefreshed(new Date());
+        setIsRefreshing(false);
+      }
+    }
+  }, [onRefresh, will.id]);
+
+  // Auto-refresh every 30s; cleared on unmount or when the callback changes.
+  useEffect(() => {
+    if (!onRefresh) return;
+    const interval = setInterval(() => {
+      void refresh();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [onRefresh, refresh]);
+
+  const loading = isRefreshing || refreshing;
   const needle = searchQuery?.trim().toLowerCase() ?? '';
   const matchedWhat = needle
     ? [
@@ -151,27 +193,9 @@ function WillCardComponent({
 
         {will.beneficiaries?.length ? (
           <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
-            {will.beneficiaries
-              // Beyond the first few, only a beneficiary that matches the search stays visible.
-              .filter(
-                (beneficiary, index) =>
-                  index < MAX_CARD_BENEFICIARIES || (needle !== '' && beneficiary.address.toLowerCase().includes(needle)),
-              )
-              .map((beneficiary) => (
-                <li key={beneficiary.address} className="max-w-full truncate" title={beneficiary.address}>
-                  <Highlight text={beneficiary.address} query={searchQuery} />
-                </li>
-              ))}
-            {hiddenBeneficiaries > 0 ? (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setShowAllBeneficiaries(true)}
-                  aria-haspopup="dialog"
-                  className="text-will-purple hover:underline"
-                >
-                  and {hiddenBeneficiaries} more
-                </button>
+            {will.beneficiaries.map((beneficiary) => (
+              <li key={beneficiary.address} className="max-w-full truncate break-all">
+                <Highlight text={beneficiary.address} query={searchQuery} />
               </li>
             ) : null}
           </ul>
@@ -210,23 +234,47 @@ function WillCardComponent({
             Will cancelled by owner
           </p>
         ) : null}
+
+        <p className="flex items-center gap-1.5 text-xs text-will-light/50">
+          {loading ? (
+            <span
+              className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-will-light/30 border-t-will-light/80"
+              role="status"
+              aria-label="Refreshing will data"
+            />
+          ) : null}
+          <time dateTime={lastRefreshed.toISOString()} title={lastRefreshed.toLocaleString()}>
+            Updated {formatRelativeTime(lastRefreshed)}
+          </time>
+        </p>
       </div>
 
       <div className="flex items-center gap-2">
+        {onRefresh ? (
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            aria-label={`Refresh will ${will.id}`}
+            className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        ) : null}
         {onCheckIn && will.status === WillStatus.Active ? (
           <button
             type="button"
             onClick={() => onCheckIn(will.id)}
-            disabled={checkingIn}
+            disabled={checkingIn || actionsDisabled}
             aria-label={`Check in for will ${will.id}`}
-            className="rounded-full bg-will-purple px-4 py-1.5 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
             {checkingIn ? 'Checking in…' : 'Check In'}
           </button>
         ) : null}
         <Link
           href={`/will/${will.id}`}
-          className="rounded-full border border-white/20 px-4 py-1.5 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+          className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light sm:flex-none"
           aria-label={`View details for will ${will.id}`}
         >
           Details
@@ -265,9 +313,12 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
     sameWill &&
     prev.onCheckIn === next.onCheckIn &&
     prev.checkingIn === next.checkingIn &&
+    prev.actionsDisabled === next.actionsDisabled &&
     prev.connectedAddress === next.connectedAddress &&
     prev.showEntitledShare === next.showEntitledShare &&
-    prev.searchQuery === next.searchQuery
+    prev.searchQuery === next.searchQuery &&
+    prev.onRefresh === next.onRefresh &&
+    prev.refreshing === next.refreshing
   );
 }
 

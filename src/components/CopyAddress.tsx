@@ -40,6 +40,7 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);
+      toast.success(t('copiedToast'));
       if (resetTimer.current) clearTimeout(resetTimer.current);
       resetTimer.current = setTimeout(() => {
         resetTimer.current = null;
@@ -63,7 +64,9 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
         onClick={handleCopy}
         aria-label={copied ? t('copied') : t('copyAddress', { address })}
         title={copied ? t('copied') : t('copyToClipboard')}
-        className="text-will-light/40 transition hover:text-will-light/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-will-purple rounded"
+        className={`rounded transition focus:outline-none focus-visible:ring-1 focus-visible:ring-will-purple ${
+          copied ? 'bg-emerald-500/15 text-emerald-400' : 'text-will-light/40 hover:text-will-light/80'
+        }`}
       >
         {copied ? (
           // Checkmark icon

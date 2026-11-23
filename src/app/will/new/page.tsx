@@ -16,6 +16,8 @@ import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
+import { isValidContractAddress } from '@/lib/willId';
+import { invalidateWillsCache } from '@/lib/willsCache';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -103,10 +105,6 @@ export function getSubmittedGuardians(
     .filter((guardian) => guardian.trim() !== '');
 }
 
-// Soroban contract strkey: 'C' followed by 55 base32 chars (RFC 4648 alphabet,
-// no padding). Catches typos here rather than deep in the SDK at submit time.
-const CONTRACT_ADDRESS_PATTERN = /^C[A-Z2-7]{55}$/;
-
 export default function NewWillPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -148,6 +146,8 @@ export default function NewWillPage() {
   const [submitting, setSubmitting] = useState(false);
   const [resolvingOnSubmit, setResolvingOnSubmit] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Submit-time error that belongs to one field (#816): shown on that field's step and cleared when the form changes.
+  const [fieldError, setFieldError] = useState<{ field: WillFormField; message: string } | null>(null);
   const [checkinPeriodError, setCheckinPeriodError] = useState<string | null>(null);
   const [gracePeriodError, setGracePeriodError] = useState<string | null>(null);
 
@@ -259,30 +259,77 @@ export default function NewWillPage() {
     }
   }, [cloneFromId]);
 
-  const tokenValid = CONTRACT_ADDRESS_PATTERN.test(token.trim());
+  const tokenValid = isValidContractAddress(token.trim());
   const showTokenError = token.trim() !== '' && !tokenValid;
   const isAmountZero = amount.trim() !== '' && Number(amount) === 0;
   const showAmountError = amount.trim() !== '' && (isAmountZero || !isValidAmount(amount));
   const isAmountValid = isValidAmount(amount) && !isAmountZero && tokenValid;
+  // Keep the latest form state in a ref so the 30s autosave interval below can
+  // serialize it without being torn down and recreated on every keystroke.
+  const formStateRef = useRef<FormState>({
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  });
+  formStateRef.current = {
+    step,
+    token,
+    amount,
+    beneficiaries,
+    checkinPeriodDays,
+    gracePeriodDays,
+    guardians,
+  };
+
+  // Auto-save the draft to localStorage every 30s so work is not lost if the
+  // user closes the browser mid-creation (#799).
   useEffect(() => {
-    const state: FormState = {
-      step,
-      token,
-      amount,
-      beneficiaries,
-      checkinPeriodDays,
-      gracePeriodDays,
-      guardians,
-    };
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined' || cloneFromId) return;
+
+    const interval = setInterval(() => {
+      const state = formStateRef.current;
       // Skip redundant writes when the serialized state has not changed.
       const serialized = JSON.stringify(state);
       if (lastSavedDraftRef.current === serialized) return;
       if (saveDraft(localStorage, state)) {
         lastSavedDraftRef.current = serialized;
       }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [cloneFromId]);
+
+  // Editing any field clears the field error that was reported on submit.
+  useEffect(() => {
+    setFieldError(null);
+  }, [token, amount, beneficiaries, checkinPeriodDays, gracePeriodDays, guardians]);
+
+  /**
+   * Reports a submit error. An error about a known field opens that field's step, marks the field
+   * and moves focus to it; any other error goes to the general message under the form.
+   */
+  function reportSubmitError(message: string) {
+    const field = classifyWillFormError(message);
+    if (!field) {
+      setError(message);
+      return;
     }
-  }, [step, token, amount, beneficiaries, checkinPeriodDays, gracePeriodDays, guardians]);
+    setError(null);
+    setFieldError({ field, message });
+    setStep(WILL_FORM_FIELD_STEP[field]);
+    setTimeout(() => {
+      const inputId = WILL_FORM_FIELD_INPUT_ID[field];
+      const target =
+        document.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+        (inputId ? document.getElementById(inputId) : null) ??
+        document.querySelector<HTMLElement>('main input, form input');
+      target?.focus();
+    }, 0);
+  }
 
   function resumeDraft() {
     const state = pendingDraftRef.current;
@@ -468,29 +515,30 @@ export default function NewWillPage() {
   async function handleSubmit() {
     setSubmitting(true);
     setError(null);
+    setFieldError(null);
     // Defense-in-depth: never submit a zero (or otherwise invalid) amount.
     if (!isValidAmount(amount) || Number(amount) === 0) {
-      setError('Amount must be greater than zero.');
+      reportSubmitError('Amount must be greater than zero.');
       setSubmitting(false);
       return;
     }
     const submittedToken = token.trim();
     // The step-level UI validation is helpful feedback, but this guard is the
     // authoritative boundary before an untrusted value reaches the SDK.
-    if (!CONTRACT_ADDRESS_PATTERN.test(submittedToken)) {
+    if (!isValidContractAddress(submittedToken)) {
       setError('Enter a valid Stellar contract address before creating a will.');
       setSubmitting(false);
       return;
     }
     if (!Number.isInteger(checkinPeriodDays) || checkinPeriodDays <= 0 || !Number.isInteger(gracePeriodDays) || gracePeriodDays <= 0) {
-      setError('Check-in and grace periods must be positive whole numbers.');
+      reportSubmitError('Check-in and grace periods must be positive whole numbers.');
       setSubmitting(false);
       return;
     }
 
     const relationError = getGracePeriodRelationError(checkinPeriodDays, gracePeriodDays);
     if (relationError) {
-      setError(relationError);
+      reportSubmitError(relationError);
       setSubmitting(false);
       return;
     }
@@ -498,7 +546,7 @@ export default function NewWillPage() {
     // Block submission when the check-in period exceeds the contract's safe
     // storage TTL window — on-chain data could be archived before the next check-in.
     if (isUnsafeCheckinPeriod(checkinPeriodDays)) {
-      setError(
+      reportSubmitError(
         `Check-in period must be ${SAFE_CHECKIN_WINDOW_DAYS} days or fewer to avoid storage archival risk.`,
       );
       setSubmitting(false);
@@ -507,7 +555,7 @@ export default function NewWillPage() {
 
     // Validate guardians before submission
     if (guardianTopError !== null) {
-      setError('Please fix the guardian address errors before submitting.');
+      reportSubmitError('Please fix the guardian address errors before submitting.');
       setSubmitting(false);
       return;
     }
@@ -515,7 +563,7 @@ export default function NewWillPage() {
     try {
       // Validate guardians before submission
       if (guardianTopError !== null) {
-        setError('Please fix the guardian address errors before submitting.');
+        reportSubmitError('Please fix the guardian address errors before submitting.');
         return;
       }
 
@@ -523,7 +571,7 @@ export default function NewWillPage() {
       // federated address string. The user must resolve it to a real G... key first.
       const unresolvedFederated = beneficiaries.filter((b) => isFederatedAddress(b.address));
       if (unresolvedFederated.length > 0) {
-        setError(
+        reportSubmitError(
           'One or more beneficiary addresses are still federated addresses. Please resolve them to Stellar addresses before submitting.',
         );
         return;
@@ -545,12 +593,13 @@ export default function NewWillPage() {
         gracePeriodDays,
         guardians: submittedGuardians,
       });
+      invalidateWillsCache();
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
       }
       router.push(`/will/${willId}`);
     } catch (err) {
-      setError(formatError(err));
+      reportSubmitError(formatError(err));
     } finally {
       setSubmitting(false);
     }
@@ -705,6 +754,15 @@ export default function NewWillPage() {
 
       {!cloneLoading && !cloneError && (
         <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+        {fieldError && WILL_FORM_FIELD_STEP[fieldError.field] === step ? (
+          <p
+            id="form-field-error"
+            role="alert"
+            className="mb-4 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+          >
+            <strong>{WILL_FORM_FIELD_LABEL[fieldError.field]}:</strong> {fieldError.message}
+          </p>
+        ) : null}
         {step === 0 ? (
           <div className="space-y-4">
             <div>
@@ -717,10 +775,14 @@ export default function NewWillPage() {
                 value={token}
                 onChange={(event) => setToken(event.target.value)}
                 placeholder="USDC Stellar Asset Contract (C...)"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none"
+                className={`mt-1 w-full rounded-lg border bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${showTokenError || fieldError?.field === 'token' ? 'border-red-400' : 'border-white/10'}`}
                 aria-describedby="token-help token-error"
-                aria-invalid={showTokenError}
+                aria-invalid={showTokenError || fieldError?.field === 'token'}
               />
+              <p id="token-help" className="mt-1 text-xs text-will-light/50">
+                Format: &quot;C&quot; followed by 55 letters (A–Z) or digits (2–7), 56 characters in
+                total. Copy it from the token&apos;s page in a Stellar explorer.
+              </p>
               {token.trim() === '' && step === 0 ? (
                 <p id="token-error" role="alert" className="mt-1 text-xs text-red-400">
                   Token contract address is required.
@@ -760,9 +822,9 @@ export default function NewWillPage() {
                     }
                   }}
                   placeholder="1000.00"
-                  className={`w-full rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${showAmountError ? 'border-red-400' : 'border-white/10'}`}
+                  className={`w-full rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${showAmountError || fieldError?.field === 'amount' ? 'border-red-400' : 'border-white/10'}`}
                   aria-describedby={showAmountError ? 'amount-help amount-error' : 'amount-help'}
-                  aria-invalid={showAmountError}
+                  aria-invalid={showAmountError || fieldError?.field === 'amount'}
                 />
                 {walletBalance && (
                   <button
@@ -837,8 +899,8 @@ export default function NewWillPage() {
                   }}
                   placeholder="Enter days"
                   aria-describedby={checkinPeriodError ? 'checkin-period-error' : undefined}
-                  aria-invalid={checkinPeriodError !== null}
-                  className={`rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${checkinPeriodError ? 'border-red-400' : 'border-white/10'}`}
+                  aria-invalid={checkinPeriodError !== null || fieldError?.field === 'checkin'}
+                  className={`rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${checkinPeriodError || fieldError?.field === 'checkin' ? 'border-red-400' : 'border-white/10'}`}
                 />
                 {checkinPeriodError ? (
                   <p id="checkin-period-error" role="alert" className="text-xs text-red-400">
@@ -907,8 +969,8 @@ export default function NewWillPage() {
                   }}
                   placeholder="Enter days"
                   aria-describedby={gracePeriodError ? 'grace-period-error' : undefined}
-                  aria-invalid={gracePeriodError !== null}
-                  className={`rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${gracePeriodError ? 'border-red-400' : 'border-white/10'}`}
+                  aria-invalid={gracePeriodError !== null || fieldError?.field === 'grace'}
+                  className={`rounded-lg border bg-white/5 px-3 py-2 text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none ${gracePeriodError || fieldError?.field === 'grace' ? 'border-red-400' : 'border-white/10'}`}
                 />
                 {gracePeriodError ? (
                   <p id="grace-period-error" role="alert" className="text-xs text-red-400">

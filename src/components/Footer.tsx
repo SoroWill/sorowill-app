@@ -7,22 +7,21 @@ export function Footer() {
   const t = useTranslations('common');
 
   return (
-    <footer className="flex flex-col items-center gap-4 border-t border-white/10 pt-8 pb-8 text-center text-sm text-will-light/50">
-      <div className="flex items-center gap-2">
+    <footer className="flex w-full flex-col items-center gap-3 overflow-x-hidden border-t border-white/10 px-4 pt-8 pb-8 text-center text-sm text-will-light/50 sm:gap-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <p>{t('builtOnStellar')}</p>
         <NetworkBadge />
       </div>
-      <nav aria-label={t('footerNav')} className="flex flex-wrap items-center justify-center gap-4">
-        {getSocialLinks().map((link) => (
-          <span key={link.id} className="contents">
-            <a href={link.url} target="_blank" rel="noopener noreferrer" className="hover:text-will-light">
-              {t(`${link.id}Link`)}
-            </a>
-            <span className="text-white/20" aria-hidden="true">
-              •
-            </span>
-          </span>
-        ))}
+      <nav
+        aria-label={t('footerNav')}
+        className="flex w-full max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:gap-4"
+      >
+        <a href="https://github.com/SoroWill/sorowill-app" target="_blank" rel="noreferrer" className="hover:text-will-light">
+          {t('githubLink')}
+        </a>
+        <span className="text-white/20" aria-hidden="true">
+          •
+        </span>
         <Link href="/terms" className="hover:text-will-light">
           {t('terms')}
         </Link>
