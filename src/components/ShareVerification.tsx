@@ -3,6 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useMounted } from '@/lib/useMounted';
 import { useToast } from '@/components/Toast';
+import { QR_DISPLAY_SCALE, verificationQrOptions } from '@/lib/qrOptions';
+
+/** `sorowill-verify-<id>.png` from a verification page URL such as `/verify/12`; falls back to a plain name. */
+export function qrFileName(pageUrl: string): string {
+  try {
+    const id = new URL(pageUrl).pathname.split('/').filter(Boolean).pop();
+    return id && /^[A-Za-z0-9_-]+$/.test(id) ? `sorowill-verify-${id}.png` : 'sorowill-verify.png';
+  } catch {
+    return 'sorowill-verify.png';
+  }
+}
+
+/** Size of the downloaded QR image; larger than the one on screen so it prints and scans well. */
+const QR_DOWNLOAD_WIDTH = 512;
 
 export function ShareVerification() {
   const [url, setUrl] = useState('');
@@ -20,15 +34,7 @@ export function ShareVerification() {
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    // Loaded on demand: the QR library is not needed until this panel is on screen.
-    import('qrcode')
-      .then(({ default: QRCode }) =>
-        QRCode.toDataURL(url, {
-          margin: 1,
-          width: 200,
-          color: { dark: '#7D00FF', light: '#ffffff' },
-        }),
-      )
+    QRCode.toDataURL(url, verificationQrOptions(QR_DISPLAY_SCALE))
       .then((dataUrl) => {
         if (!cancelled) setQrDataUrl(dataUrl);
       })
@@ -48,6 +54,23 @@ export function ShareVerification() {
     } catch (err) {
       console.error('Failed to copy text: ', err);
       toast.error('Failed to copy link — please copy it manually.');
+    }
+  }
+
+  async function handleDownloadQr() {
+    try {
+      const dataUrl = await QRCode.toDataURL(url, {
+        margin: 2,
+        width: QR_DOWNLOAD_WIDTH,
+        color: { dark: '#7D00FF', light: '#ffffff' },
+      });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = qrFileName(url);
+      link.click();
+    } catch (err) {
+      console.error('Failed to download QR code: ', err);
+      toast.error('Failed to download the QR code.');
     }
   }
 
@@ -80,13 +103,14 @@ export function ShareVerification() {
           <img
             src={qrDataUrl}
             alt="Verification Page QR Code"
-            width={180}
-            height={180}
+            width={200}
+            height={200}
             decoding="async"
+            style={{ imageRendering: 'pixelated' }}
             className="rounded"
           />
         ) : (
-          <div className="h-[180px] w-[180px] rounded bg-black/5 animate-pulse" />
+          <div className="h-[200px] w-[200px] rounded bg-black/5 animate-pulse" />
         )}
       </div>
 
@@ -108,6 +132,24 @@ export function ShareVerification() {
           }`}
         >
           {copied ? 'Copied!' : canShare ? 'Share Link' : 'Copy Link'}
+        </button>
+        {/* Sharing replaces copying on devices with a share sheet; keep a plain copy next to it. */}
+        {canShare && !copied ? (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-semibold text-will-light/80 transition hover:border-white/40"
+          >
+            Copy Link
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleDownloadQr}
+          disabled={!qrDataUrl}
+          className="rounded-full border border-white/20 px-4 py-1.5 text-xs font-semibold text-will-light/80 transition hover:border-white/40 disabled:opacity-50"
+        >
+          Download QR
         </button>
       </div>
     </div>

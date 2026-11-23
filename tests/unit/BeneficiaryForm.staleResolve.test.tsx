@@ -36,13 +36,13 @@ describe('BeneficiaryForm resolution uses the latest value (#327)', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Resolve' }));
-    fireEvent.change(screen.getByLabelText('Beneficiary 2 percentage'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Beneficiary 2 Percentage'), { target: { value: '40' } });
 
     await act(async () => {
       finish(RESOLVED);
     });
 
-    expect(screen.getByLabelText('Beneficiary 1 address')).toHaveValue(RESOLVED);
-    expect(screen.getByLabelText('Beneficiary 2 percentage')).toHaveValue(40);
+    expect(screen.getByLabelText('Beneficiary 1 Address')).toHaveValue(RESOLVED);
+    expect(screen.getByLabelText('Beneficiary 2 Percentage')).toHaveValue(40);
   });
 });

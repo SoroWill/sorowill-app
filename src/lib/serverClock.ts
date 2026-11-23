@@ -32,6 +32,21 @@ export function getClockOffset(): number {
   return offsetMs;
 }
 
+/**
+ * The user's IANA timezone (e.g. "Europe/Berlin"), used to render deadline
+ * times in the viewer's local zone. Falls back to UTC when the runtime cannot
+ * resolve a zone.
+ */
+export function getUserTimeZone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (typeof tz === 'string' && tz.length > 0) return tz;
+  } catch {
+    // Fall through to the UTC fallback.
+  }
+  return 'UTC';
+}
+
 /** Fetch server time and update the offset. Failures keep the previous offset. */
 export async function syncServerClock(signal?: AbortSignal): Promise<number> {
   try {

@@ -23,7 +23,8 @@
     "build-storybook": "storybook build",
     "analytics:mock": "echo 'plausible'",
     "check:changelog": "node scripts/validate-changelog.mjs",
-    "check:bundle": "node scripts/check-bundle-size.mjs"
+    "generate:openapi": "node scripts/generate-openapi.mjs",
+    "check:openapi": "node scripts/generate-openapi.mjs --check"
   },
   "dependencies": {
     "@sorowill/sdk": "^0.1.0",
