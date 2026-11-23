@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useMounted } from '@/lib/useMounted';
 import { useToast } from '@/components/Toast';
+import { QR_DISPLAY_SCALE, verificationQrOptions } from '@/lib/qrOptions';
 
 /** `sorowill-verify-<id>.png` from a verification page URL such as `/verify/12`; falls back to a plain name. */
 export function qrFileName(pageUrl: string): string {
@@ -34,11 +35,7 @@ export function ShareVerification() {
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
-    QRCode.toDataURL(url, {
-      margin: 1,
-      width: 200,
-      color: { dark: '#7D00FF', light: '#ffffff' },
-    })
+    QRCode.toDataURL(url, verificationQrOptions(QR_DISPLAY_SCALE))
       .then((dataUrl) => {
         if (!cancelled) setQrDataUrl(dataUrl);
       })
@@ -107,13 +104,14 @@ export function ShareVerification() {
           <img
             src={qrDataUrl}
             alt="Verification Page QR Code"
-            width={180}
-            height={180}
+            width={200}
+            height={200}
             decoding="async"
+            style={{ imageRendering: 'pixelated' }}
             className="rounded"
           />
         ) : (
-          <div className="h-[180px] w-[180px] rounded bg-black/5 animate-pulse" />
+          <div className="h-[200px] w-[200px] rounded bg-black/5 animate-pulse" />
         )}
       </div>
 

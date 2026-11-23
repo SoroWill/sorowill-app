@@ -4,6 +4,52 @@ import { confirmReminderSubscription, escapeHtml } from '@/lib/reminders';
 import { errorResponse, ErrorCodes } from '@/lib/errors';
 
 /**
+ * @openapi GET
+ * {
+ *   "summary": "Confirm a reminder subscription",
+ *   "description": "Opened from the link in the confirmation email. Answers with a small HTML page rather than JSON. A token is valid for 24 hours and works once.",
+ *   "tags": [
+ *     "Reminders"
+ *   ],
+ *   "parameters": [
+ *     {
+ *       "name": "token",
+ *       "in": "query",
+ *       "required": true,
+ *       "schema": {
+ *         "type": "string"
+ *       },
+ *       "description": "The token from the email link."
+ *     }
+ *   ],
+ *   "responses": {
+ *     "200": {
+ *       "description": "The subscription is confirmed.",
+ *       "content": {
+ *         "text/html": {
+ *           "schema": {
+ *             "type": "string"
+ *           },
+ *           "example": "<p>Your subscription to check-in reminder emails has been confirmed. Thank you!</p>"
+ *         }
+ *       }
+ *     },
+ *     "400": {
+ *       "description": "The token is missing, invalid, expired or already used.",
+ *       "content": {
+ *         "text/html": {
+ *           "schema": {
+ *             "type": "string"
+ *           },
+ *           "example": "<p>The confirmation link is invalid or has already been used.</p>"
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ */
+
+/**
  * GET /api/reminders/confirm?token=...
  *
  * Handles confirmation links sent to users via email.  Returns a
