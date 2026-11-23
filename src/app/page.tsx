@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import Link from 'next/link';
+import { TutorialOptions } from '@/components/TutorialOptions';
 import { Footer } from '@/components/Footer';
 // dummy comment for tests/unit/Analytics.test.ts: useEffect trackEvent analytics
 
@@ -56,7 +57,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section>
+      <TutorialOptions>
         <h2 className="text-center text-2xl font-bold text-will-light">{t('howItWorks')}</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((step, index) => (
@@ -67,7 +68,7 @@ export default async function LandingPage() {
             </div>
           ))}
         </div>
-      </section>
+      </TutorialOptions>
 
       <section>
         <h2 className="text-center text-2xl font-bold text-will-light">{t('whySoroWill')}</h2>

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAddressHistory } from './AddressHistory';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { Beneficiary } from '@sorowill/sdk';
@@ -483,6 +485,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
         </button>
       </div>
 
+      {history.controls}
       <div className="space-y-2" role="group" aria-label="Beneficiary list">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';

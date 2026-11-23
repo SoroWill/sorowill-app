@@ -6,6 +6,7 @@ import {
   WalletConnect,
   isSessionExpired,
 } from '@/components/WalletConnect';
+import { LAST_ACTIVITY_KEY, SESSION_IDLE_MS, SESSION_WARNING_MS } from '@/lib/walletSession';
 import { safeGetPublicKey } from '@/lib/freighter';
 
 const KEY = 'GDBRZV77PZDK7LRBXEUPZNGJNQLFQKAZD6PKS7JFAZAKU4H3FDON4JL4';
@@ -56,7 +57,8 @@ describe('WalletConnect session expiry (#407)', () => {
     mockGetPublicKey.mockResolvedValue(KEY);
 
     await act(async () => {
-      vi.advanceTimersByTime(SESSION_MAX_AGE_MS);
+      sessionStorage.setItem('sorowill:wallet-connected-at', String(Date.now() - SESSION_MAX_AGE_MS));
+      vi.advanceTimersByTime(SESSION_CHECK_INTERVAL_MS * 2);
     });
 
     expect(screen.getByText(SESSION_EXPIRED_MESSAGE)).toBeInTheDocument();
@@ -69,12 +71,41 @@ describe('WalletConnect session expiry (#407)', () => {
     expect(screen.queryByText(SESSION_EXPIRED_MESSAGE)).not.toBeInTheDocument();
   });
 
+  it('warns five minutes before idle expiry, then blocks reconnect on remount', async () => {
+    const { unmount } = render(<WalletConnect />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Connect Wallet' }));
+    });
+    mockGetPublicKey.mockResolvedValue(KEY);
+
+    await act(async () => {
+      vi.advanceTimersByTime(SESSION_IDLE_MS - SESSION_WARNING_MS);
+    });
+    expect(screen.getByRole('timer')).toHaveTextContent('5:00');
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByRole('timer')).toHaveTextContent('4:59');
+
+    await act(async () => {
+      vi.advanceTimersByTime(SESSION_WARNING_MS - 1000);
+    });
+    expect(screen.getByText(SESSION_EXPIRED_MESSAGE)).toBeInTheDocument();
+    expect(sessionStorage.getItem(LAST_ACTIVITY_KEY)).toBeNull();
+    unmount();
+    await act(async () => {
+      render(<WalletConnect />);
+    });
+    expect(screen.getByRole('button', { name: 'Connect Wallet' })).toBeInTheDocument();
+  });
+
   it('expires the session when the wallet stops reporting the connected account', async () => {
     await connect();
     mockGetPublicKey.mockResolvedValue(null);
 
     await act(async () => {
-      vi.advanceTimersByTime(SESSION_CHECK_INTERVAL_MS);
+      vi.advanceTimersByTime(SESSION_CHECK_INTERVAL_MS * 2);
     });
 
     expect(screen.getByText(SESSION_EXPIRED_MESSAGE)).toBeInTheDocument();

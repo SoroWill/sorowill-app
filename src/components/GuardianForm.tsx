@@ -295,6 +295,9 @@ export function GuardianForm({
   const [bulkInput, setBulkInput] = useState('');
   const [bulkSummary, setBulkSummary] = useState<BulkImportSummary | null>(null);
 
+  const history = useAddressHistory('guardians', (address) =>
+    isValidStellarAddress(address) || isFederatedAddress(address),
+  );
   const normalizedOwner = ownerAddress?.trim().toLowerCase() ?? '';
 
   // Focus management: when validation produces errors, move focus to the first
@@ -375,6 +378,7 @@ export function GuardianForm({
         incapacitated.
       </p>
 
+      {history.controls}
       {addError ? (
         <p
           className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-400"
@@ -466,6 +470,8 @@ export function GuardianForm({
                 onChange={(e) => onUpdate(index, e.target.value)}
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
+                list={history.list}
+                onBlur={(event) => history.remember(event.currentTarget.value)}
                 autoComplete="off"
                 aria-label={`Guardian ${index + 1} Address`}
                 aria-describedby={

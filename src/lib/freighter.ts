@@ -1,3 +1,5 @@
+import { isWalletSessionBlocked } from './walletSession';
+
 import {
   connectWallet,
   getPublicKey,
@@ -47,7 +49,9 @@ export async function safeGetPublicKey(): Promise<string | null> {
     return null;
   }
   try {
+    if (isWalletSessionBlocked()) return null;
     const publicKey = await getPublicKey();
+    if (isWalletSessionBlocked()) return null;
     if (typeof publicKey !== 'string' || publicKey.trim() === '') {
       return null;
     }
