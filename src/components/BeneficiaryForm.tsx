@@ -141,6 +141,26 @@ function sumPercentages(beneficiaries: Beneficiary[]): number {
 }
 
 /**
+ * Returns a per-row validation message for a single beneficiary's percentage,
+ * or `null` when the entry is valid. Mirrors the aggregate checks in
+ * `getBeneficiaryValidationMessage` so a row is highlighted for exactly the
+ * reasons that would block submission.
+ */
+export function getPercentageRowError(percentage: Beneficiary['percentage'] | bigint): string | null {
+  const value = toPercentageNumber(percentage);
+  if (value < 0 || value > 100) {
+    return 'Percentage must be between 0% and 100%';
+  }
+  if (!hasAtMostTwoDecimals(percentage)) {
+    return 'Percentage can have at most 2 decimal places';
+  }
+  if (toHundredths(percentage) % 100 !== 0) {
+    return 'Percentage must be a whole number (e.g. 33, not 33.5)';
+  }
+  return null;
+}
+
+/**
  * Tolerance for comparing the percentage total against 100. Percentages are
  * stored with at most two decimal places, so any drift is far below this
  * threshold; it only guards against floating-point noise (e.g. 99.99999).
@@ -501,7 +521,11 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                       // Inputs are restricted to 2 decimal places (the contract's basis-point precision).
                       updateRow(index, { percentage: Math.round(clamped * 100) / 100 });
                     }}
-                    className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-right text-sm text-will-light focus:border-will-purple focus:outline-none"
+                    aria-invalid={percentageError ? 'true' : undefined}
+                    aria-describedby={percentageError ? `beneficiary-percentage-error-${index}` : undefined}
+                    className={`w-20 rounded-lg border ${
+                      percentageError ? 'border-red-400' : 'border-white/10'
+                    } bg-white/5 px-2 py-2 text-right text-sm text-will-light focus:border-will-purple focus:outline-none`}
                   />
                 </div>
                 <span className="text-sm text-will-light/60 pb-2">%</span>
@@ -542,9 +566,29 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                 {addressError}
               </p>
             )}
+            {percentageError && (
+              <p id={`beneficiary-percentage-error-${index}`} role="alert" className="text-xs text-red-400">
+                {percentageError}
+              </p>
+            )}
           </div>
         );
         })}
+      </div>
+
+      <div className="space-y-1" role="status" aria-live="polite">
+        <p className={`text-sm ${isOverAllocated ? 'text-red-400' : 'text-will-light/70'}`}>
+          Total allocated: {total}% of 100%
+        </p>
+        {isOverAllocated ? (
+          <p className="text-xs text-red-400">
+            Over-allocated by {Math.round((total - 100) * 100) / 100}% — reduce shares so the total is 100%.
+          </p>
+        ) : remaining > 0 ? (
+          <p className="text-xs text-amber-400">{remaining}% remaining to allocate.</p>
+        ) : (
+          <p className="text-xs text-emerald-400">Fully allocated.</p>
+        )}
       </div>
 
       <div className="flex gap-2">
