@@ -14,6 +14,26 @@ function plural(value: number, unit: string): string {
 }
 
 /**
+ * Display text for the time left, using only the units that matter at that distance (#822):
+ * days and hours from one day on ("2d 03h 15m"), hours, minutes and seconds under a day
+ * ("3h 15m 09s"), minutes and seconds under an hour ("15m 09s") and seconds under a minute ("09s").
+ * Zero is shown as "0s". Trailing units are zero padded so the width stays steady while it ticks.
+ */
+export function formatCountdown(totalSeconds: number): string {
+  const clamped = Math.max(Math.floor(totalSeconds), 0);
+  const days = Math.floor(clamped / 86_400);
+  const hours = Math.floor((clamped % 86_400) / 3_600);
+  const minutes = Math.floor((clamped % 3_600) / 60);
+  const seconds = clamped % 60;
+  const two = (value: number) => value.toString().padStart(2, '0');
+
+  if (days >= 1) return `${days}d ${two(hours)}h ${two(minutes)}m`;
+  if (hours >= 1) return `${hours}h ${two(minutes)}m ${two(seconds)}s`;
+  if (minutes >= 1) return `${minutes}m ${two(seconds)}s`;
+  return `${seconds}s`;
+}
+
+/**
  * Spoken form of the remaining time, e.g. "1 day 2 hours 3 minutes remaining".
  * Minute precision keeps the accessible name from changing every second.
  */
@@ -95,13 +115,12 @@ export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
   }, [deadline]);
 
   const overdue = secondsLeft <= 0;
-  const { days, hours, minutes, seconds } = (() => {
+  const { days, hours, minutes } = (() => {
     const clamped = Math.max(secondsLeft, 0);
     const d = Math.floor(clamped / 86_400);
     const h = Math.floor((clamped % 86_400) / 3_600);
     const m = Math.floor((clamped % 3_600) / 60);
-    const s = Math.floor(clamped % 60);
-    return { days: d, hours: h, minutes: m, seconds: s };
+    return { days: d, hours: h, minutes: m };
   })();
 
   const colorClass = overdue
@@ -109,8 +128,6 @@ export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
     : secondsLeft < 3 * 86_400
       ? 'text-amber-400'
       : 'text-emerald-400';
-
-  const pad = (value: number) => value.toString().padStart(2, '0');
 
   return (
     <div className="flex flex-col gap-1">
@@ -125,7 +142,7 @@ export function CountdownTimer({ deadline, label }: CountdownTimerProps) {
         className={`font-mono text-2xl font-semibold tabular-nums ${colorClass}`}
       >
         {overdue ? `${t('overdue')} — ` : ''}
-        {pad(days)}:{pad(hours)}:{pad(minutes)}:{pad(seconds)}
+        {formatCountdown(secondsLeft)}
       </span>
       <time dateTime={deadline.toISOString()} className="text-xs text-will-light/60">
         Due {deadline.toLocaleString()}

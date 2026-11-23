@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { dispatchDueReminders } from '@/lib/reminders/dispatch';
+import { apiError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -198,10 +199,7 @@ async function handleDispatch(request: Request) {
   // Fail closed: if CRON_SECRET is not configured, reject the request rather
   // than skipping the auth check and exposing the endpoint publicly.
   if (!expectedToken) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 },
-    );
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   warnIfSecretTooShort(expectedToken);
@@ -210,7 +208,7 @@ async function handleDispatch(request: Request) {
   const expectedHeader = `Bearer ${expectedToken}`;
 
   if (!constantTimeEqual(authHeader, expectedHeader)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   const result = await dispatchDueReminders();
@@ -218,15 +216,16 @@ async function handleDispatch(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const expectedToken = process.env.CRON_SECRET;
 
   // Fail closed: if CRON_SECRET is not configured, reject the request rather
   // than skipping the auth check and exposing the endpoint publicly.
   if (!expectedToken) {
-    return NextResponse.json(
-      { sent: 0, skipped: 0, errors: ['Server misconfigured: CRON_SECRET is not set'] },
-      { status: 500 },
+    return apiError(
+      'INTERNAL_ERROR',
+      'Server misconfigured: CRON_SECRET is not set',
+      500,
     );
   }
 
@@ -236,7 +235,7 @@ export async function GET(request: Request) {
   const expectedHeader = `Bearer ${expectedToken}`;
 
   if (!constantTimeEqual(authHeader, expectedHeader)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiError('UNAUTHORIZED', 'Unauthorized', 401);
   }
 
   const result = await dispatchDueReminders();
@@ -244,6 +243,9 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   return handleDispatch(request);
 }
+
+export const GET = withCorrelationId(handleGET);
+export const POST = withCorrelationId(handlePOST);

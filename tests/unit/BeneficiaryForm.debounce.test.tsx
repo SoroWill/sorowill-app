@@ -27,7 +27,7 @@ describe('BeneficiaryForm federated address debounce (#725)', () => {
 
   it('performs one lookup after a complete address stops changing', async () => {
     render(<Harness />);
-    const input = screen.getByLabelText('Beneficiary 1 address');
+    const input = screen.getByLabelText('Beneficiary 1 Address');
 
     fireEvent.change(input, { target: { value: 'alice*ex' } });
     act(() => vi.advanceTimersByTime(200));

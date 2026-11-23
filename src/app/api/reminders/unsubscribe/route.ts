@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
+import { apiError } from '@/lib/errors';
 import { escapeHtml, unsubscribeReminderSubscription } from '@/lib/reminders';
+import { withCorrelationId } from '@/lib/correlation';
 
 /**
  * @openapi GET
@@ -180,6 +182,10 @@ async function handleUnsubscribe(request: Request) {
   }
 
   if (!token) {
+    if (request.method === 'POST') {
+      return apiError('INVALID_TOKEN', 'A valid unsubscribe token is required.', 400);
+    }
+
     return new NextResponse(
       `<!doctype html><html><body style="font-family: sans-serif; padding: 2rem;"><p>A valid unsubscribe token is required.</p></body></html>`,
       {
@@ -204,15 +210,15 @@ async function handleUnsubscribe(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not process unsubscribe request.';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return apiError('INTERNAL_ERROR', message, 500);
   }
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   return handleUnsubscribe(request);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   // Form encoding stays allowed for RFC 8058 one-click unsubscribe from mail clients.
   const unsupported = rejectUnsupportedContentType(request, [
     'application/json',
@@ -222,3 +228,6 @@ export async function POST(request: Request) {
 
   return handleUnsubscribe(request);
 }
+
+export const GET = withCorrelationId(handleGET);
+export const POST = withCorrelationId(handlePOST);

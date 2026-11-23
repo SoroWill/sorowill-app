@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
+import { apiError, ErrorCode } from '@/lib/errors';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { getSoroWillClient } from '@/lib/sorowill';
+import { withCorrelationId } from '@/lib/correlation';
 
 /**
  * @openapi POST
@@ -240,13 +242,12 @@ function isValidEmail(email: string): boolean {
   return EMAIL_REGEX.test(email);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const rate = checkRateLimit(`reminders:register:${getClientIp(request)}`, IP_LIMIT, IP_WINDOW_MS);
   if (!rate.allowed) {
-    return NextResponse.json(
-      { ok: false, error: 'Too many requests' },
-      { status: 429, headers: { 'Retry-After': String(rate.retryAfterSeconds) } },
-    );
+    return apiError(ErrorCode.RATE_LIMITED, 'Too many requests', {
+      headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+    });
   }
   const unsupported = rejectUnsupportedContentType(request);
   if (unsupported) return unsupported;
@@ -260,17 +261,11 @@ export async function POST(request: Request) {
     const message = typeof body?.message === 'string' ? body.message : '';
 
     if (!willId || !email || !owner || !signature || !message) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing required fields' },
-        { status: 400 },
-      );
+      return apiError(ErrorCode.VALIDATION_ERROR, 'Missing required fields');
     }
 
     if (!isValidEmail(email)) {
-      return NextResponse.json(
-        { ok: false, error: 'Invalid email format' },
-        { status: 400 },
-      );
+      return apiError(ErrorCode.VALIDATION_ERROR, 'Invalid email format');
     }
 
     // Verify the caller controls the connected wallet that owns this will.
@@ -286,32 +281,25 @@ export async function POST(request: Request) {
     }
 
     if (!authorized) {
-      return NextResponse.json(
-        { ok: false, error: 'Unauthorized' },
-        { status: 401 },
-      );
+      return apiError(ErrorCode.UNAUTHORIZED, 'Unauthorized');
     }
 
     // Verify the will actually exists on-chain before storing a subscription.
     try {
       const will = await getSoroWillClient().getWill(willId);
       if (!will) {
-        return NextResponse.json(
-          { ok: false, error: 'Will not found' },
-          { status: 404 },
-        );
+        return apiError(ErrorCode.NOT_FOUND, 'Will not found');
       }
     } catch {
-      return NextResponse.json(
-        { ok: false, error: 'Will not found' },
-        { status: 404 },
-      );
+      return apiError(ErrorCode.NOT_FOUND, 'Will not found');
     }
 
     const result = await registerReminderSubscription({ willId, email, owner });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not register reminder';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return apiError(ErrorCode.INTERNAL_ERROR, message);
   }
 }
+
+export const POST = withCorrelationId(handlePOST);
