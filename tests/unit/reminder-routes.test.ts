@@ -22,7 +22,14 @@ import { POST as registerRoute } from '@/app/api/reminders/register/route';
 import { GET as confirmRoute } from '@/app/api/reminders/confirm/route';
 import { GET as unsubscribeGetRoute } from '@/app/api/reminders/unsubscribe/route';
 
-const VALID_WILL_ID = 'C' + 'A'.repeat(55);
+const VALID_WILL_ID = '1';
+const VALID_OWNER = '0x' + 'ab'.repeat(20);
+const CSRF_TOKEN = 'a'.repeat(64);
+const registerHeaders = {
+  'content-type': 'application/json',
+  cookie: `sorowill_csrf=${CSRF_TOKEN}`,
+  'x-csrf-token': CSRF_TOKEN,
+};
 
 describe('reminder routes', () => {
   beforeEach(() => {
@@ -34,7 +41,7 @@ describe('reminder routes', () => {
       new Request('http://localhost/api/reminders/register', {
         method: 'POST',
         body: '{}',
-        headers: { 'content-type': 'application/json' },
+        headers: registerHeaders,
       }),
     );
     expect(response.status).toBe(400);
@@ -47,11 +54,11 @@ describe('reminder routes', () => {
         body: JSON.stringify({
           willId: VALID_WILL_ID,
           email: 'a@example.com',
-          owner: '0xabc',
+          owner: VALID_OWNER,
           signature: '0xsig',
           message: 'hello',
         }),
-        headers: { 'content-type': 'application/json' },
+        headers: registerHeaders,
       }),
     );
     expect(response.status).toBe(200);
@@ -68,11 +75,11 @@ describe('reminder routes', () => {
         body: JSON.stringify({
           willId,
           email: 'a@example.com',
-          owner: '0xabc',
+          owner: VALID_OWNER,
           signature: '0xsig',
           message: 'hello',
         }),
-        headers: { 'content-type': 'application/json' },
+        headers: registerHeaders,
       }),
     );
     expect(response.status).toBe(400);

@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -21,7 +22,9 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "analytics:mock": "echo 'plausible'",
-    "check:changelog": "node scripts/validate-changelog.mjs"
+    "check:changelog": "node scripts/validate-changelog.mjs",
+    "generate:openapi": "node scripts/generate-openapi.mjs",
+    "check:openapi": "node scripts/generate-openapi.mjs --check"
   },
   "dependencies": {
     "@sorowill/sdk": "^0.1.0",

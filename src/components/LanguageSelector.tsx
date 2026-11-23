@@ -7,6 +7,23 @@ import { supportedLocales, type SupportedLocale } from '@/i18n/negotiate';
 
 const DEFAULT_LOCALE: SupportedLocale = 'en';
 const LOCALE_COOKIE = 'NEXT_LOCALE';
+const LOCALE_STORAGE_KEY = 'sorowill_locale';
+
+function readStoredLocale(): string | null {
+  try {
+    return window.localStorage.getItem(LOCALE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeLocale(locale: SupportedLocale) {
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // Storage can be blocked; the cookie still remembers the choice.
+  }
+}
 
 export function isSupportedLocale(value: unknown): value is SupportedLocale {
   return typeof value === 'string' && (supportedLocales as readonly string[]).includes(value);
@@ -27,7 +44,8 @@ const localeLabels: Record<SupportedLocale, string> = {
 };
 
 function persistLocale(locale: SupportedLocale) {
-  document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=31536000`;
+  writeLocaleCookie(locale);
+  storeLocale(locale);
 }
 
 /**
@@ -44,7 +62,18 @@ export function LanguageSelector() {
     if (persisted !== undefined && !isSupportedLocale(persisted)) {
       writeLocaleCookie(DEFAULT_LOCALE);
     }
-  }, []);
+    const stored = readStoredLocale();
+    if (isSupportedLocale(persisted)) {
+      // Keep localStorage in step with the cookie the server reads.
+      if (stored !== persisted) storeLocale(persisted);
+    } else if (isSupportedLocale(stored) && stored !== locale) {
+      // The cookie is gone (cleared or expired) but the choice was saved: restore it and
+      // apply it now, so the page the server rendered is replaced by the saved language.
+      writeLocaleCookie(stored);
+      // Only reload when the cookie stuck, so blocked cookies cannot cause a reload loop.
+      if (readLocaleCookie() === stored) window.location.reload();
+    }
+  }, [locale]);
 
   const handleLocaleChange = (newLocale: string) => {
     if (!isSupportedLocale(newLocale) || newLocale === locale) return;

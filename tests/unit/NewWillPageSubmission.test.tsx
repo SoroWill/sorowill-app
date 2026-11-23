@@ -69,7 +69,7 @@ describe('NewWillPage submission', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     await user.type(
-      screen.getByLabelText('Beneficiary 1 address'),
+      screen.getByLabelText('Beneficiary 1 Address'),
       `G${'A'.repeat(55)}`,
     );
     await user.click(screen.getByRole('button', { name: 'Next' }));
@@ -94,7 +94,7 @@ describe('NewWillPage submission', () => {
     await user.type(screen.getByLabelText('Amount (USDC)'), '1');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.type(
-      screen.getByLabelText('Beneficiary 1 address'),
+      screen.getByLabelText('Beneficiary 1 Address'),
       `G${'A'.repeat(55)}`,
     );
     await user.click(screen.getByRole('button', { name: 'Next' }));
@@ -113,7 +113,7 @@ describe('NewWillPage submission', () => {
     await user.type(screen.getByLabelText('Amount (USDC)'), '1');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.type(
-      screen.getByLabelText('Beneficiary 1 address'),
+      screen.getByLabelText('Beneficiary 1 Address'),
       `G${'A'.repeat(55)}`,
     );
     await user.click(screen.getByRole('button', { name: 'Next' }));

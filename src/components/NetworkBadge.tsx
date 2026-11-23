@@ -57,6 +57,9 @@ export async function checkRpcHealth(rpcUrl: string): Promise<RpcHealth> {
   }
 }
 
+/** Shown wherever the testnet is displayed, so nobody mistakes it for the real network (#818). */
+export const TESTNET_WARNING = 'Test network: tokens here have no real value. Switch to Mainnet to use real funds.';
+
 function describeHealth(health: RpcHealth): string {
   switch (health.status) {
     case 'checking':
@@ -112,7 +115,7 @@ export function NetworkBadge() {
   const isMainnet = network === 'mainnet';
   const healthText = describeHealth(health);
   const networkLabel = isMainnet ? 'Mainnet' : 'Testnet';
-  const accessibleLabel = `Current network: ${networkLabel}. ${healthText}`;
+  const accessibleLabel = `Current network: ${networkLabel}. ${isMainnet ? '' : `${TESTNET_WARNING} `}${healthText}`;
 
   return (
     <span
@@ -124,11 +127,11 @@ export function NetworkBadge() {
       role="status"
       aria-live="polite"
       aria-label={accessibleLabel}
-      title={healthText}
+      title={isMainnet ? healthText : `${TESTNET_WARNING} ${healthText}`}
       data-rpc-status={health.status}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${DOT_CLASS[health.status]}`} aria-hidden="true" />
-      <span aria-hidden="true">{network}</span>
+      <span aria-hidden="true">{isMainnet ? network : `⚠ ${network}`}</span>
     </span>
   );
 }

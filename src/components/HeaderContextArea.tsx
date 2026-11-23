@@ -8,8 +8,8 @@ import { WalletConnect } from '@/components/WalletConnect';
 
 export function HeaderContextArea({ onSessionChange }: { onSessionChange?: () => void } = {}) {
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex items-center gap-3">
+    <div className="flex min-w-0 max-w-full flex-col items-end gap-1.5 sm:gap-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5 sm:gap-3 [&>*]:min-h-12 [&>*]:min-w-12">
         <LanguageSelector />
         <NetworkSwitcher />
         <ThemeToggle />
@@ -19,3 +19,4 @@ export function HeaderContextArea({ onSessionChange }: { onSessionChange?: () =>
     </div>
   );
 }
+</｜｜DSML｜｜ parameter>

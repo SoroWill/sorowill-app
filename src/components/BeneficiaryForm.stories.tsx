@@ -77,3 +77,47 @@ export const EmptyAddress: Story = {
     onChange: fn(),
   },
 };
+
+const invalidAddress: Beneficiary[] = [{ address: 'not-an-address', percentage: 100 }];
+
+const accountWhereContractNeeded: Beneficiary[] = [
+  { address: 'GDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', percentage: 100 },
+];
+
+const federated: Beneficiary[] = [{ address: 'alice*example.com', percentage: 100 }];
+
+const fractional: Beneficiary[] = [
+  { address: 'GDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', percentage: 33.5 },
+  { address: 'GBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', percentage: 66.5 },
+];
+
+/** Error state: the address is not a Stellar address. */
+export const InvalidAddress: Story = {
+  args: { value: invalidAddress, onChange: fn() },
+};
+
+/** Error state: the token needs a contract address (C...) and this is an account (G...). */
+export const AccountAddressWhereContractNeeded: Story = {
+  args: { value: accountWhereContractNeeded, addressType: 'contract', onChange: fn() },
+};
+
+/** A federated address (name*domain) that still has to be resolved. */
+export const FederatedAddress: Story = {
+  args: { value: federated, onChange: fn() },
+};
+
+/** Error state: percentages that are not whole numbers. */
+export const FractionalPercentages: Story = {
+  args: { value: fractional, onChange: fn() },
+};
+
+/** Edge case: many rows. */
+export const ManyBeneficiaries: Story = {
+  args: {
+    value: Array.from({ length: 10 }, (_, index) => ({
+      address: `G${String.fromCharCode(65 + index)}AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`,
+      percentage: 10,
+    })),
+    onChange: fn(),
+  },
+};

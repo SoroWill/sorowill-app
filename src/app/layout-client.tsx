@@ -5,18 +5,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
+import { TestnetBanner } from '@/components/TestnetBanner';
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [walletSession, setWalletSession] = useState(0);
-  const refreshWalletState = useCallback(() => setWalletSession((session) => session + 1), []);
+  const t = useTranslations('common');
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
+  const isContactActive = pathname === '/contact' || pathname.startsWith('/contact/');
 
   return (
     <ThemeProvider>
@@ -28,7 +30,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
             Soro<span className="text-will-purple">Will</span>
           </Link>
           <div className="flex items-center gap-6">
-          <nav className="hidden items-center gap-6 text-sm text-will-light/70 sm:flex">
+          <nav aria-label={t('primaryNav')} className="hidden items-center gap-6 text-sm text-will-light/70 sm:flex">
             <Link
               href="/dashboard"
               className={
@@ -38,7 +40,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
               }
               aria-current={isDashboardActive ? 'page' : undefined}
             >
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link
               href="/will/new"
@@ -49,7 +51,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
               }
               aria-current={isCreateWillActive ? 'page' : undefined}
             >
-              Create a Will
+              {t('createAWill')}
             </Link>
           </nav>
           {/* Outside the sm-only nav so wallet, network, language and theme
@@ -58,10 +60,26 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <Breadcrumbs pathname={pathname} />
-        <Fragment key={walletSession}>{children}</Fragment>
-      </main>
+      <TestnetBanner />
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <footer className="border-t border-white/10 bg-will-dark/80 dark:bg-will-dark/80">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-will-light/70 sm:flex-row sm:px-6">
+          <p>&copy; {new Date().getFullYear()} SoroWill. All rights reserved.</p>
+          <nav className="flex items-center gap-6">
+            <Link
+              href="/contact"
+              className={
+                isContactActive
+                  ? 'text-will-purple font-semibold'
+                  : 'hover:text-will-light transition-colors'
+              }
+              aria-current={isContactActive ? 'page' : undefined}
+            >
+              Contact Support
+            </Link>
+          </nav>
+        </div>
+      </footer>
       </ToastProvider>
     </ThemeProvider>
   );
