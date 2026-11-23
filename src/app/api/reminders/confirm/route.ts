@@ -17,7 +17,7 @@ import { errorResponse, ErrorCodes } from '@/lib/errors';
  * Error responses use the standardized API error format (#798):
  *   { error: { code, message } }
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const token = new URL(request.url).searchParams.get('token') ?? '';
 
   const result = await confirmReminderSubscription(token);
@@ -41,3 +41,5 @@ export async function GET(request: Request) {
     },
   );
 }
+
+export const GET = withCorrelationId(handleGET);

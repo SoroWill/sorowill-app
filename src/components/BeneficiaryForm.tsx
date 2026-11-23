@@ -84,6 +84,32 @@ export function toPercentageNumber(percentage: Beneficiary['percentage'] | bigin
   return typeof percentage === 'bigint' ? Number(percentage) : percentage;
 }
 
+function addressKey(address: string): string {
+  return address.trim().toLowerCase();
+}
+
+/**
+ * Rows whose address already appears in an earlier row, as `index -> index of the first row with
+ * that address`. Blank rows are ignored. Addresses are compared without case or surrounding
+ * spaces, so a pasted lowercase copy is still caught (#825).
+ */
+export function findDuplicateBeneficiaries(beneficiaries: Beneficiary[]): Map<number, number> {
+  const firstSeen = new Map<string, number>();
+  const duplicates = new Map<number, number>();
+  beneficiaries.forEach((b, index) => {
+    const key = addressKey(b.address);
+    if (!key) return;
+    const first = firstSeen.get(key);
+    if (first === undefined) firstSeen.set(key, index);
+    else duplicates.set(index, first);
+  });
+  return duplicates;
+}
+
+export function hasDuplicateBeneficiaryAddresses(beneficiaries: Beneficiary[]): boolean {
+  return findDuplicateBeneficiaries(beneficiaries).size > 0;
+}
+
 function getAddressErrors(
   beneficiaries: Beneficiary[],
   addressType: BeneficiaryAddressType = 'account',
@@ -180,6 +206,12 @@ const PERCENTAGE_SUM_EPSILON = 1e-9;
 function getBeneficiaryValidationMessage(beneficiaries: Beneficiary[]): string | null {
   if (beneficiaries.length === 0) {
     return 'Add at least one beneficiary';
+  }
+
+  const duplicates = findDuplicateBeneficiaries(beneficiaries);
+  if (duplicates.size > 0) {
+    const rows = [...duplicates].map(([index, first]) => `${first + 1} and ${index + 1}`).join(', ');
+    return `The same address is used more than once (beneficiary ${rows}). Remove the duplicate or use a different address`;
   }
 
   const hasInvalidRange = beneficiaries.some((b) => b.percentage < 0 || b.percentage > 100);
@@ -447,7 +479,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           aria-label="Distribute percentages equally among all beneficiaries"
           className="min-h-[48px] px-2 text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
-          Split equally
+          Split Equally
         </button>
       </div>
 
@@ -460,19 +492,25 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 flex-1">
                 <label htmlFor={`beneficiary-address-${index}`} className="sr-only">
-                  Beneficiary {index + 1} address
+                  Beneficiary {index + 1} Address
                 </label>
                 <input
                   id={`beneficiary-address-${index}`}
                   type="text"
-                  aria-label={`Beneficiary ${index + 1} address`}
+                  aria-label={`Beneficiary ${index + 1} Address`}
                   placeholder="Stellar address (G...) or federated address (name*domain.com)"
                   value={beneficiary.address}
                   onChange={(event) => updateRow(index, { address: event.target.value })}
                   onBlur={() => markTouched(index)}
                   onPaste={(event) => handleAddressPaste(index, event)}
-                  aria-invalid={addressErrors[index] ? 'true' : undefined}
-                  aria-describedby={addressErrors[index] ? `beneficiary-address-error-${index}` : undefined}
+                  aria-invalid={addressErrors[index] || duplicateRows.has(index) ? 'true' : undefined}
+                  aria-describedby={
+                    addressErrors[index]
+                      ? `beneficiary-address-error-${index}`
+                      : duplicateRows.has(index)
+                        ? `beneficiary-duplicate-${index}`
+                        : undefined
+                  }
                   aria-busy={resolvingId === beneficiaryId || undefined}
                   className={`w-full rounded-lg border ${
                     addressError ? 'border-red-400' : 'border-white/10'
@@ -541,12 +579,12 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
               <div className="flex items-end gap-1">
                 <div>
                   <label htmlFor={`beneficiary-percentage-${index}`} className="sr-only">
-                    Beneficiary {index + 1} percentage
+                    Beneficiary {index + 1} Percentage
                   </label>
                   <input
                     id={`beneficiary-percentage-${index}`}
                     type="number"
-                    aria-label={`Beneficiary ${index + 1} percentage`}
+                    aria-label={`Beneficiary ${index + 1} Percentage`}
                     min={0}
                     max={100}
                     step={0.01}
@@ -645,14 +683,14 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           }}
           className="min-h-[48px] flex-1 rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
-          Split equally
+          Split Equally
         </button>
         <button
           type="button"
           onClick={addRow}
           className="min-h-[48px] flex-1 rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
-          + Add beneficiary
+          + Add Beneficiary
         </button>
       </div>
 

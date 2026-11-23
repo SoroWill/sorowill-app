@@ -169,7 +169,7 @@ export const GuardianRow = memo(function GuardianRow({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <label htmlFor={`guardian-${index}`} className="sr-only">
-          Guardian {index + 1} address
+          Guardian {index + 1} Address
         </label>
         <input
           id={`guardian-${index}`}
@@ -358,7 +358,7 @@ export function GuardianForm({
           type="button"
           onClick={handleAdd}
           disabled={guardians.length >= MAX_GUARDIANS}
-          aria-label={`Add guardian (${guardians.length} of ${MAX_GUARDIANS})`}
+          aria-label={`Add Guardian (${guardians.length} of ${MAX_GUARDIANS})`}
           title={
             guardians.length >= MAX_GUARDIANS
               ? `Maximum of ${MAX_GUARDIANS} guardians reached`
@@ -366,7 +366,7 @@ export function GuardianForm({
           }
           className="min-h-[48px] self-start rounded-lg px-2 text-xs font-medium text-will-purple hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple disabled:opacity-40 sm:self-auto"
         >
-          + Add guardian
+          + Add Guardian
         </button>
       </div>
 
@@ -457,7 +457,7 @@ export function GuardianForm({
           <div key={guardianId} className="space-y-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor={`guardian-${index}`} className="sr-only">
-                Guardian {index + 1} address
+                Guardian {index + 1} Address
               </label>
               <input
                 id={`guardian-${index}`}
@@ -467,7 +467,7 @@ export function GuardianForm({
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
                 autoComplete="off"
-                aria-label={`Guardian ${index + 1} address`}
+                aria-label={`Guardian ${index + 1} Address`}
                 aria-describedby={
                   rowError
                     ? `guardian-error-${index}`

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { apiError } from '@/lib/errors';
 import { escapeHtml, unsubscribeReminderSubscription } from '@/lib/reminders';
+import { withCorrelationId } from '@/lib/correlation';
 
 async function handleUnsubscribe(request: Request) {
   const url = new URL(request.url);
@@ -56,11 +57,11 @@ async function handleUnsubscribe(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   return handleUnsubscribe(request);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   // Form encoding stays allowed for RFC 8058 one-click unsubscribe from mail clients.
   const unsupported = rejectUnsupportedContentType(request, [
     'application/json',
@@ -70,3 +71,6 @@ export async function POST(request: Request) {
 
   return handleUnsubscribe(request);
 }
+
+export const GET = withCorrelationId(handleGET);
+export const POST = withCorrelationId(handlePOST);

@@ -356,7 +356,9 @@ export default function NewWillPage() {
     beneficiaries.every((b) => b.address.trim() !== '') &&
     // Block progression if any beneficiary still holds an unresolved federated address.
     // The user must click "Resolve" before the address is replaced with the real G... key.
-    beneficiaries.every((b) => !isFederatedAddress(b.address));
+    beneficiaries.every((b) => !isFederatedAddress(b.address)) &&
+    // The same address twice is almost always a mistake and splits one person's share in two (#825).
+    !hasDuplicateBeneficiaryAddresses(beneficiaries);
 
   const { rowErrors: guardianRowErrors, topError: guardianTopError } = validateGuardians(guardians, ownerAddress, formNetworkRef.current);
   // Step 3 is valid when there are no row-level errors (blank rows are a
@@ -549,6 +551,12 @@ export default function NewWillPage() {
       reportSubmitError(
         `Check-in period must be ${SAFE_CHECKIN_WINDOW_DAYS} days or fewer to avoid storage archival risk.`,
       );
+      setSubmitting(false);
+      return;
+    }
+
+    if (hasDuplicateBeneficiaryAddresses(beneficiaries)) {
+      setError('The same beneficiary address is used more than once. Remove the duplicate before submitting.');
       setSubmitting(false);
       return;
     }

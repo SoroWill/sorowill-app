@@ -6,6 +6,7 @@ import { apiError, ErrorCode } from '@/lib/errors';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
 import { getSoroWillClient } from '@/lib/sorowill';
+import { withCorrelationId } from '@/lib/correlation';
 
 // Per-IP budget for reminder registration. See `src/lib/rate-limit.ts` for the
 // algorithm and its limits.
@@ -37,7 +38,7 @@ function isValidEmail(email: string): boolean {
   return EMAIL_REGEX.test(email);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const rate = checkRateLimit(`reminders:register:${getClientIp(request)}`, IP_LIMIT, IP_WINDOW_MS);
   if (!rate.allowed) {
     return apiError(ErrorCode.RATE_LIMITED, 'Too many requests', {
@@ -96,3 +97,5 @@ export async function POST(request: Request) {
     return apiError(ErrorCode.INTERNAL_ERROR, message);
   }
 }
+
+export const POST = withCorrelationId(handlePOST);

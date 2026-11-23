@@ -65,7 +65,7 @@ async function handleDispatch(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const expectedToken = process.env.CRON_SECRET;
 
   // Fail closed: if CRON_SECRET is not configured, reject the request rather
@@ -92,6 +92,9 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   return handleDispatch(request);
 }
+
+export const GET = withCorrelationId(handleGET);
+export const POST = withCorrelationId(handlePOST);
