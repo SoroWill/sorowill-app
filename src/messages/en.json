@@ -32,6 +32,7 @@
     "clipboardError": "Could not copy to clipboard. Check your browser permissions.",
     "copyToClipboard": "Copy to clipboard",
     "copied": "Copied!",
+    "copiedToast": "Address copied to clipboard",
     "copyAddress": "Copy {address}"
   },
   "landing": {

@@ -254,7 +254,9 @@ function DashboardPageOld() {
     }
   }, [publicKey, loadWills]);
 
-  const handleManualRefresh = useCallback(async () => {
+  // `silent` is used by the 60s auto-refresh: no success toast, no error banner and no
+  // cross-tab broadcast, so a background refresh never interrupts the user (#806).
+  const runRefresh = useCallback(async (silent: boolean) => {
     if (!publicKey) return;
     const startedAt = Date.now();
     setIsRefreshing(true);
@@ -265,7 +267,9 @@ function DashboardPageOld() {
         client = getSoroWillClient();
       } catch (initError) {
         setIsRefreshing(false);
-        setError(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        if (!silent) {
+          setError(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        }
         return;
       }
       const [owned, inheriting, guardian] = await Promise.all([
@@ -286,18 +290,38 @@ function DashboardPageOld() {
         guardianHasErrors: guardian.hasErrors,
       });
       setError(null);
-      channelRef.current?.postMessage({ type: 'wills-changed' });
-      toast.success('Data refreshed');
+      if (!silent) {
+        channelRef.current?.postMessage({ type: 'wills-changed' });
+        toast.success('Data refreshed');
+      }
     } catch (err) {
       console.error('[Dashboard] Failed to refresh wills:', err);
-      const message = formatError(err);
-      setError(message);
-      toast.error(message);
+      if (!silent) {
+        const message = formatError(err);
+        setError(message);
+        toast.error(message);
+      }
     } finally {
       setRefreshDurationMs(Date.now() - startedAt);
       setIsRefreshing(false);
     }
   }, [publicKey, toast]);
+
+  const handleManualRefresh = useCallback(() => runRefresh(false), [runRefresh]);
+
+  // Refresh every 60s while the tab is visible, unless a load, refresh or check-in is already running.
+  const handleAutoRefresh = useCallback(() => {
+    if (loading || isRefreshing || checkingInId !== null) return;
+    void runRefresh(true);
+  }, [loading, isRefreshing, checkingInId, runRefresh]);
+  useAutoRefresh(handleAutoRefresh, Boolean(publicKey));
+
+  // Re-render every 30s so "Last updated 2m ago" keeps counting between refreshes.
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((tick) => tick + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -824,6 +848,7 @@ function DashboardPageOld() {
                     will={will}
                     onCheckIn={tab === 'owned' ? handleCheckIn : undefined}
                     checkingIn={checkingInId === will.id}
+                    actionsDisabled={isRefreshing}
                     connectedAddress={publicKey}
                     showEntitledShare={tab === 'inheriting'}
                     searchQuery={search}
