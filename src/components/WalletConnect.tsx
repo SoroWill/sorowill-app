@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import {
   safeConnectWallet,
@@ -8,6 +9,7 @@ import {
   truncateAddress,
 } from '@/lib/freighter';
 import { formatError } from '@/lib/errors';
+import { clearCsrfToken } from '@/lib/csrfClient';
 
 // TODO(#4): Replace this Freighter-only connect flow with a wallet-selection
 // UI once @sorowill/sdk ships adapters for other wallets (Albedo, xBull,
@@ -20,7 +22,6 @@ import { formatError } from '@/lib/errors';
 // session on our side, hence "Clear session" rather than "Disconnect". The
 // flag below stops safeGetPublicKey() from silently reconnecting on the next
 // mount within the same tab session.
-const DISCONNECTED_KEY = 'sorowill:wallet-cleared';
 const BROADCAST_CHANNEL_NAME = 'wallet_state';
 
 // There is no auth token here: the "session" is the connected public key we
@@ -124,15 +125,19 @@ function setConnectedAt(value: number | null): void {
   }
   if (value === null) {
     window.sessionStorage.removeItem(CONNECTED_AT_KEY);
+    window.sessionStorage.removeItem(LAST_ACTIVITY_KEY);
   } else {
     window.sessionStorage.setItem(CONNECTED_AT_KEY, String(value));
   }
 }
 
-export function WalletConnect() {
+export function WalletConnect({ onSessionChange }: { onSessionChange?: () => void } = {}) {
   const [publicKey, setPublicKey] = useState<string | null>(null);
+  const t = useTranslations('common');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<ErrorInfo | null>(null);
+
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
 
   const isMounted = useRef(true);
 
@@ -143,23 +148,24 @@ export function WalletConnect() {
     };
   }, []);
 
-  function expireSession() {
+  const expireSession = useCallback(() => {
     setSessionCleared(true);
     setConnectedAt(null);
     setPublicKey(null);
+    onSessionChange?.();
     setError({ type: 'session_expired', message: SESSION_EXPIRED_MESSAGE });
-  }
+  }, [onSessionChange]);
 
   useEffect(() => {
     if (isSessionCleared()) {
       return;
     }
-    if (isSessionExpired(getConnectedAt())) {
+    if (isSessionExpired(getConnectedAt()) || (getIdleDeadline() ?? Infinity) <= Date.now()) {
       expireSession();
       return;
     }
     void safeGetPublicKey().then((key) => {
-      if (!isMounted.current) return;
+      if (!isMounted.current || isSessionCleared()) return;
       if (!key) {
         // No valid key from the wallet: treat as disconnected rather than
         // rendering an empty/invalid address.
@@ -170,9 +176,52 @@ export function WalletConnect() {
       if (getConnectedAt() === null) {
         setConnectedAt(Date.now());
       }
+      if (getIdleDeadline() === null) sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
       setPublicKey(key);
     });
-  }, []);
+  }, [expireSession]);
+
+  useEffect(() => {
+    if (!publicKey) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+
+    function remaining() {
+      return (getIdleDeadline() ?? Date.now()) - Date.now();
+    }
+
+    function updateCountdown() {
+      clearTimeout(timer);
+      const milliseconds = remaining();
+      if (milliseconds <= 0) {
+        expireSession();
+        return;
+      }
+      const warn = milliseconds <= SESSION_WARNING_MS;
+      setRemainingSeconds(warn ? Math.ceil(milliseconds / 1000) : null);
+      timer = setTimeout(updateCountdown, warn ? Math.min(milliseconds, 1000) : milliseconds - SESSION_WARNING_MS);
+    }
+
+    function extend(event: Event) {
+      if (!event.isTrusted) return;
+      if (remaining() > 0) {
+        sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+      }
+      updateCountdown();
+    }
+
+    const activityEvents = ['pointerdown', 'keydown', 'wheel'];
+    for (const event of activityEvents) window.addEventListener(event, extend, { passive: true });
+    document.addEventListener('visibilitychange', updateCountdown);
+    updateCountdown();
+
+    return () => {
+      clearTimeout(timer);
+      for (const event of activityEvents) window.removeEventListener(event, extend);
+      document.removeEventListener('visibilitychange', updateCountdown);
+      setRemainingSeconds(null);
+    };
+  }, [expireSession, publicKey]);
 
   // Re-validate the session while connected: expire it once it outlives
   // SESSION_MAX_AGE_MS or the wallet no longer reports the same account.
@@ -202,15 +251,16 @@ export function WalletConnect() {
     };
 
     const check = async () => {
-      if (isSessionExpired(getConnectedAt())) {
+      if (isSessionExpired(getConnectedAt()) || (getIdleDeadline() ?? Infinity) <= Date.now()) {
         expireSession();
         return;
       }
       const current = await safeGetPublicKey();
-      if (!cancelled && isMounted.current && (!current || current !== publicKey)) {
-        expireSession();
-      }
       if (cancelled || !isMounted.current) return;
+      if ((getIdleDeadline() ?? Infinity) <= Date.now()) {
+        expireSession();
+        return;
+      }
       channel?.postMessage({ type: 'session_checked', publicKey: current });
       applyResult(current);
     };
@@ -231,7 +281,7 @@ export function WalletConnect() {
         channel.close();
       }
     };
-  }, [publicKey]);
+  }, [expireSession, publicKey]);
 
   useEffect(() => {
     const channel = openWalletChannel();
@@ -241,11 +291,15 @@ export function WalletConnect() {
       const { type, publicKey: incomingKey } = event.data;
 
       if (type === 'wallet_connected' && incomingKey) {
-        setSessionCleared(false);
+        if (isSessionCleared() || (getIdleDeadline() ?? Infinity) <= Date.now()) return;
         setConnectedAt(Date.now());
+        sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+        onSessionChange?.();
         setError(null);
         setPublicKey(incomingKey);
       } else if (type === 'wallet_disconnected') {
+        setSessionCleared(true);
+        onSessionChange?.();
         setConnectedAt(null);
         setPublicKey(null);
       }
@@ -257,19 +311,21 @@ export function WalletConnect() {
       channel.removeEventListener('message', handleMessage);
       channel.close();
     };
-  }, []);
+  }, [onSessionChange]);
 
   async function handleConnect() {
     setConnecting(true);
     setError(null);
-    setSessionCleared(false);
     try {
       const connection = await safeConnectWallet();
       if (!connection.publicKey) {
         throw new Error('Wallet did not return a public key');
       }
+      setSessionCleared(false);
       setConnectedAt(Date.now());
+      sessionStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
       setPublicKey(connection.publicKey);
+      onSessionChange?.();
 
       const channel = openWalletChannel();
       if (channel) {
@@ -287,10 +343,13 @@ export function WalletConnect() {
   }
 
   function handleClearSession() {
+    // The CSRF token belongs to this session, so it goes with it (#840).
+    void clearCsrfToken();
     setSessionCleared(true);
     setConnectedAt(null);
     setPublicKey(null);
     setError(null);
+    onSessionChange?.();
 
     const channel = openWalletChannel();
     if (channel) {
@@ -304,6 +363,14 @@ export function WalletConnect() {
   if (publicKey) {
     return (
       <div className="flex items-center gap-3">
+        {remainingSeconds !== null && (
+          <div className="fixed inset-x-4 top-full mx-auto mt-2 max-w-sm rounded-lg border border-amber-400 bg-will-dark p-3 text-sm text-will-light">
+            <p role="status">Wallet session will expire due to inactivity. Interact with the page to stay connected.</p>
+            <p role="timer">
+              {`Time remaining ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`}
+            </p>
+          </div>
+        )}
         <span className="rounded-full bg-white/10 px-3 py-1.5 font-mono text-sm text-will-light">
           {truncateAddress(publicKey)}
         </span>
@@ -312,7 +379,7 @@ export function WalletConnect() {
           onClick={handleClearSession}
           className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-will-light/70 transition hover:border-white/40 hover:text-will-light"
         >
-          Disconnect
+          {t('disconnect')}
         </button>
       </div>
     );
@@ -326,20 +393,20 @@ export function WalletConnect() {
         disabled={connecting}
         className="rounded-full bg-will-purple px-4 py-1.5 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {connecting ? 'Connecting…' : 'Connect Wallet'}
+        {connecting ? t('connecting') : t('connectWallet')}
       </button>
       {error ? (
         <div className="max-w-xs text-right text-xs text-red-400">
           {error.type === 'not_installed' ? (
             <>
-              <p className="mb-1">Freighter wallet not installed. Install it to continue.</p>
+              <p className="mb-1">{t('freighterNotInstalled')}</p>
               <a
                 href="https://www.freighter.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-red-300 underline hover:text-red-200"
               >
-                Install Freighter
+                {t('installFreighter')}
               </a>
             </>
           ) : (

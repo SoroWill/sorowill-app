@@ -47,6 +47,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     setTheme(initialTheme);
     document.documentElement.setAttribute('data-theme', initialTheme);
+
+    // Without a saved choice the theme follows the OS, including when the OS
+    // preference changes while the page is open. Choosing a theme with the
+    // toggle saves it, after which the OS preference no longer applies (#809).
+    if (stored !== null || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof query.addEventListener !== 'function') return;
+    const onSystemChange = (event: MediaQueryListEvent) => {
+      if (readStoredTheme() !== null) return;
+      const systemTheme: Theme = event.matches ? 'dark' : 'light';
+      setTheme(systemTheme);
+      document.documentElement.setAttribute('data-theme', systemTheme);
+    };
+    query.addEventListener('change', onSystemChange);
+    return () => query.removeEventListener('change', onSystemChange);
   }, []);
 
   // Follow OS preference changes while the user has not made an explicit

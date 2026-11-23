@@ -9,6 +9,8 @@
     "disconnect": "Desconectar",
     "viewOnGithub": "Ver en GitHub",
     "githubLink": "GitHub",
+    "twitterLink": "Twitter",
+    "discordLink": "Discord",
     "mitLicense": "Licencia MIT",
     "builtOnStellar": "SoroWill, construido en Stellar",
     "terms": "Términos de Uso",
@@ -29,12 +31,25 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
-    "copyAddress": "Copiar {address}"
+    "copyAddress": "Copiar {address}",
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "lastRefreshed": "Última actualización: {time}",
+    "neverRefreshed": "Aún no actualizado"
   },
   "landing": {
     "heroTitle": "Protege tu herencia criptográfica",
     "heroDescription": "SoroWill es un protocolo de herencia descentralizado en Stellar Soroban. Bloquea USDC, nombra tus beneficiarios y deja que un contrato inteligente cumpla tus deseos si alguna vez desapareces.",
     "createYourWill": "Crear tu testamento",
+    "tutorial": {
+      "skip": "Omitir tutorial",
+      "full": "Tutorial completo",
+      "quickStart": "Guía de inicio rápido",
+      "connect": "Conecta tu billetera de Stellar.",
+      "configure": "Añade beneficiarios y elige un intervalo de confirmación. Revisa y firma el testamento.",
+      "checkIn": "Usa el panel para confirmar tu actividad antes de la fecha límite.",
+      "create": "Crear un testamento"
+    },
     "howItWorks": "Cómo funciona",
     "whySoroWill": "Por qué SoroWill",
     "steps": {
@@ -149,6 +164,25 @@
     "amountUSDC": "Monto (USDC)",
     "recipientAddress": "Dirección del destinatario"
   },
+  "verify": {
+    "accountBalance": "Saldo de la cuenta",
+    "balanceLoading": "Cargando saldo…",
+    "balanceError": "No se pudo cargar el saldo de la cuenta.",
+    "requiredAmount": "Monto requerido: {amount} USDC",
+    "lowBalanceWarning": "Tu saldo es bajo. Necesitas al menos {amount} USDC para completar esta operación.",
+    "insufficientBalance": "Saldo insuficiente para completar esta operación.",
+    "fundAccount": "Fondear cuenta",
+    "fundAccountDescription": "Añade fondos a tu cuenta Stellar para continuar."
+  },
+  "inherit": {
+    "guardianAccountCheck": "Verificando cuenta del tutor…",
+    "guardianAccountExists": "La cuenta del tutor está financiada y lista.",
+    "guardianAccountNotFound": "Esta cuenta aún no existe en la red Stellar.",
+    "guardianAccountNotFunded": "La cuenta del tutor no está financiada. Debe tener al menos {amount} XLM para activarse.",
+    "guardianSetupInstructions": "Pídele al tutor que fondee su cuenta con al menos {amount} XLM. Puede usar el Friendbot en testnet o transferir XLM desde un exchange o monedero existente.",
+    "fundWithFriendbot": "Fondear con Friendbot",
+    "guardianAccountCheckError": "No se pudo verificar la cuenta del tutor. Inténtalo de nuevo."
+  },
   "faq": {
     "title": "Cómo funciona y Preguntas Frecuentes",
     "subtitle": "Todo lo que necesitas saber sobre SoroWill, el protocolo de herencia en cadena sin confianza para Stellar.",
@@ -179,6 +213,10 @@
       }
     },
     "faqHeading": "Preguntas Frecuentes",
+    "toc": {
+      "heading": "En esta página",
+      "backToTop": "Volver arriba"
+    },
     "items": [
       { "question": "¿Cómo funciona SoroWill?", "answer": "SoroWill es un contrato inteligente en Stellar Soroban que automatiza la herencia. Bloqueas USDC en el contrato, especificas los beneficiarios y los períodos de chequeo, y demuestras que sigues activo haciendo el chequeo antes de cada fecha límite. Si pierdes un chequeo, cualquiera puede activar el período de gracia. Si el período de gracia pasa sin respuesta de tu parte, el contrato distribuye automáticamente tus fondos a tus beneficiarios según los porcentajes que estableciste." },
       { "question": "¿Qué sucede si pierdo un chequeo?", "answer": "Si pierdes una fecha límite de chequeo, cualquiera puede activar un período de gracia (que estableciste durante la creación, típicamente 3-14 días). Durante este período de gracia, aún puedes responder y evitar la liberación. Simplemente necesitas acceder a SoroWill y hacer el chequeo de nuevo. Si no respondes antes de que termine el período de gracia, los fondos se liberan a tus beneficiarios automáticamente." },

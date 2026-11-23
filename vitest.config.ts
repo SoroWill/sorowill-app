@@ -24,5 +24,15 @@ export default defineConfig({
       // fails with "No test suite found in file".
       'src/lib/reminders.test.ts',
     ],
+    // `npm run test:coverage` (#835). It needs the v8 provider: `npm i -D @vitest/coverage-v8`.
+    // Coverage is measured over the code that unit tests can reach: libraries, hooks, components,
+    // i18n and the API routes. Page files are covered by the end-to-end tests instead.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'lcov'],
+      include: ['src/lib/**', 'src/hooks/**', 'src/components/**', 'src/i18n/**', 'src/app/api/**'],
+      exclude: ['**/*.stories.tsx', '**/*.test.{ts,tsx}', 'src/lib/reminders.test.ts'],
+      thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
+    },
   },
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -8,19 +9,22 @@ import { WillStatus, type Will } from '@sorowill/sdk';
 
 import { safeGetPublicKey } from '@/lib/freighter';
 import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
-import { formatError, formatLoadError, classifyCheckInError, formatCheckInError } from '@/lib/errors';
+import { formatError, formatLoadError, classifyCheckInError, formatCheckInError, isWillStatusChangedError } from '@/lib/errors';
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
-import { exportWillsToCSV } from '@/lib/willExport';
+import { exportFileName, exportWillsToCSV, exportWillsToJSON } from '@/lib/willExport';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
-import { BatchTopUpPanel } from '@/components/BatchTopUpPanel';
 import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
+import { getCachedWills, isWillsCacheFresh, setCachedWills } from '@/lib/willsCache';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
+
+// Only shown in multi-select mode, so it is loaded when first needed rather than with the page.
+const BatchTopUpPanel = dynamic(() => import('@/components/BatchTopUpPanel').then((mod) => mod.BatchTopUpPanel));
 
 // TODO(#5): Add an activity feed (check-ins, top-ups, guardian votes) once
 // @sorowill/sdk exposes an event subscription/query API — SoroWillClient
@@ -101,6 +105,25 @@ function DashboardPageOld() {
   }, [tab]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  // Restore the last used filters after mount (avoids an SSR hydration mismatch).
+  useEffect(() => {
+    const filters = loadDashboardFilters();
+    setSearch(filters.search);
+    setStatusFilter(filters.statusFilter as StatusFilter);
+  }, []);
+
+  // Persist filter changes so they survive a refresh or a new session.
+  useEffect(() => {
+    const filters: DashboardFilters = { search, statusFilter };
+    saveDashboardFilters(filters);
+  }, [search, statusFilter]);
+
+  const handleClearFilters = useCallback(() => {
+    clearDashboardFilters();
+    setSearch(DEFAULT_DASHBOARD_FILTERS.search);
+    setStatusFilter(DEFAULT_DASHBOARD_FILTERS.statusFilter as StatusFilter);
+  }, []);
   const [ownedWills, setOwnedWills] = useState<Will[]>([]);
   const [inheritingWills, setInheritingWills] = useState<Will[]>([]);
   const [guardianWills, setGuardianWills] = useState<Will[]>([]);
@@ -152,13 +175,30 @@ function DashboardPageOld() {
     onHelp: handleShortcutHelp,
   });
 
-  const loadWills = useCallback(async (owner: string) => {
+  // `force` skips the 60s cache (check-ins, retries). Otherwise cached wills are shown at once
+  // and refetched in the background when they are older than the cache TTL (#811).
+  const loadWills = useCallback(async (owner: string, force = false) => {
+    const cached = force ? undefined : getCachedWills(owner);
+    if (cached) {
+      setOwnedWills(cached.owned);
+      setInheritingWills(cached.inheriting);
+      setGuardianWills(cached.guardian);
+      setGuardianScanWarning(cached.guardianHasErrors);
+      setLastFetchTime(new Date(cached.fetchedAt));
+      setLoading(false);
+      if (isWillsCacheFresh(cached)) {
+        setIsStale(false);
+        return;
+      }
+      setIsStale(true);
+    }
+
     loadControllerRef.current?.abort();
     const controller = new AbortController();
     loadControllerRef.current = controller;
     const { signal } = controller;
 
-    setLoading(true);
+    if (!cached) setLoading(true);
     setError(null);
     try {
       let client;
@@ -188,10 +228,17 @@ function DashboardPageOld() {
       setGuardianScanWarning(guardian.hasErrors);
       setLastFetchTime(new Date());
       setIsStale(false);
+      setCachedWills(owner, {
+        owned,
+        inheriting,
+        guardian: guardian.wills,
+        guardianHasErrors: guardian.hasErrors,
+      });
     } catch (err) {
       if (signal.aborted) {
         return;
       }
+      setIsStale(false);
       console.error('[Dashboard] Failed to load wills:', err);
       setError(formatLoadError(err));
     } finally {
@@ -206,11 +253,13 @@ function DashboardPageOld() {
 
   const handleRetry = useCallback(() => {
     if (publicKey) {
-      void loadWills(publicKey);
+      void loadWills(publicKey, true);
     }
   }, [publicKey, loadWills]);
 
-  const handleManualRefresh = useCallback(async () => {
+  // `silent` is used by the 60s auto-refresh: no success toast, no error banner and no
+  // cross-tab broadcast, so a background refresh never interrupts the user (#806).
+  const runRefresh = useCallback(async (silent: boolean) => {
     if (!publicKey) return;
     const startedAt = Date.now();
     setIsRefreshing(true);
@@ -221,7 +270,9 @@ function DashboardPageOld() {
         client = getSoroWillClient();
       } catch (initError) {
         setIsRefreshing(false);
-        setError(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        if (!silent) {
+          setError(`Failed to initialize Soroban client: ${initError instanceof Error ? initError.message : String(initError)}`);
+        }
         return;
       }
       const [owned, inheriting, guardian] = await Promise.all([
@@ -235,19 +286,45 @@ function DashboardPageOld() {
       setGuardianScanWarning(guardian.hasErrors);
       setLastFetchTime(new Date());
       setIsStale(false);
+      setCachedWills(publicKey, {
+        owned,
+        inheriting,
+        guardian: guardian.wills,
+        guardianHasErrors: guardian.hasErrors,
+      });
       setError(null);
-      channelRef.current?.postMessage({ type: 'wills-changed' });
-      toast.success('Data refreshed');
+      if (!silent) {
+        channelRef.current?.postMessage({ type: 'wills-changed' });
+        toast.success('Data refreshed');
+      }
     } catch (err) {
       console.error('[Dashboard] Failed to refresh wills:', err);
-      const message = formatError(err);
-      setError(message);
-      toast.error(message);
+      if (!silent) {
+        const message = formatError(err);
+        setError(message);
+        toast.error(message);
+      }
     } finally {
       setRefreshDurationMs(Date.now() - startedAt);
       setIsRefreshing(false);
     }
   }, [publicKey, toast]);
+
+  const handleManualRefresh = useCallback(() => runRefresh(false), [runRefresh]);
+
+  // Refresh every 60s while the tab is visible, unless a load, refresh or check-in is already running.
+  const handleAutoRefresh = useCallback(() => {
+    if (loading || isRefreshing || checkingInId !== null) return;
+    void runRefresh(true);
+  }, [loading, isRefreshing, checkingInId, runRefresh]);
+  useAutoRefresh(handleAutoRefresh, Boolean(publicKey));
+
+  // Re-render every 30s so "Last updated 2m ago" keeps counting between refreshes.
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick((tick) => tick + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -292,7 +369,7 @@ function DashboardPageOld() {
       );
       setLastFetchTime(now);
       if (publicKey) {
-        await loadWills(publicKey);
+        await loadWills(publicKey, true);
       }
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Check-in successful');
@@ -308,7 +385,7 @@ function DashboardPageOld() {
         setError(displayMessage);
         toast.error(displayMessage);
         if (publicKey) {
-          await loadWills(publicKey);
+          await loadWills(publicKey, true);
         }
         channelRef.current?.postMessage({ type: 'wills-changed' });
       } else {
@@ -354,6 +431,21 @@ function DashboardPageOld() {
       URL.revokeObjectURL(url);
     } catch (error) {
       toast.error(`CSV export failed: ${formatError(error)}`);
+    }
+  }, [activeList, toast]);
+
+  const handleExportJSON = useCallback(() => {
+    try {
+      const json = exportWillsToJSON(activeList);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = exportFileName('json');
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(`JSON export failed: ${formatError(error)}`);
     }
   }, [activeList, toast]);
 
@@ -526,6 +618,15 @@ function DashboardPageOld() {
               Export CSV ({activeList.length})
             </button>
           )}
+          {tab === 'owned' && ownedWills.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            >
+              Export JSON ({activeList.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={handleManualRefresh}
@@ -642,6 +743,15 @@ function DashboardPageOld() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={handleClearFilters}
+          disabled={!isFiltering}
+          aria-label="Clear filters"
+          className="rounded-lg border border-white/10 px-3 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Clear filters
+        </button>
       </div>
 
       {showShortcutsHelp ? (
@@ -765,6 +875,7 @@ function DashboardPageOld() {
                     will={will}
                     onCheckIn={tab === 'owned' ? handleCheckIn : undefined}
                     checkingIn={checkingInId === will.id}
+                    actionsDisabled={isRefreshing}
                     connectedAddress={publicKey}
                     showEntitledShare={tab === 'inheriting'}
                     searchQuery={search}

@@ -1,0 +1,619 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SoroWill API",
+    "version": "0.1.0",
+    "description": "HTTP endpoints of the SoroWill web app. Generated from the @openapi comments in src/app/api; do not edit by hand. Run `npm run generate:openapi` after changing a route."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "The deployment that serves this app"
+    }
+  ],
+  "paths": {
+    "/api/reminders/confirm": {
+      "get": {
+        "summary": "Confirm a reminder subscription",
+        "description": "Opened from the link in the confirmation email. Answers with a small HTML page rather than JSON. A token is valid for 24 hours and works once.",
+        "tags": [
+          "Reminders"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The token from the email link."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription is confirmed.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>Your subscription to check-in reminder emails has been confirmed. Thank you!</p>"
+              }
+            }
+          },
+          "400": {
+            "description": "The token is missing, invalid, expired or already used.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>The confirmation link is invalid or has already been used.</p>"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reminders/dispatch": {
+      "get": {
+        "summary": "Send due reminders (GET)",
+        "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set. Unlike POST, GET answers 500 instead of 401 when CRON_SECRET is not set.",
+        "tags": [
+          "Reminders"
+        ],
+        "security": [
+          {
+            "cronBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reminder run finished.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "sent": 3,
+                  "skipped": 1,
+                  "errors": []
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The bearer token is missing or wrong.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "CRON_SECRET is not set on the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "sent": 0,
+                  "skipped": 0,
+                  "errors": [
+                    "Server misconfigured: CRON_SECRET is not set"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Send due reminders (POST)",
+        "description": "Sends the reminder emails that are due. Meant for a scheduled job. Needs `Authorization: Bearer <CRON_SECRET>` and is refused when CRON_SECRET is not set.",
+        "tags": [
+          "Reminders"
+        ],
+        "security": [
+          {
+            "cronBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The reminder run finished.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "sent": 3,
+                  "skipped": 1,
+                  "errors": []
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The bearer token is missing or wrong, or CRON_SECRET is not set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reminders/register": {
+      "post": {
+        "summary": "Register an email reminder for a will",
+        "description": "Subscribes an email address to check-in reminders for a will. The caller proves they control the owner's wallet by signing `message`. The will must exist on-chain. A confirmation email is sent and the subscription is active once its link is opened. Limited to 10 requests per hour per client IP.",
+        "tags": [
+          "Reminders"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "willId",
+                  "email",
+                  "owner",
+                  "signature",
+                  "message"
+                ],
+                "properties": {
+                  "willId": {
+                    "type": "string",
+                    "description": "Numeric will id.",
+                    "example": "42"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254
+                  },
+                  "owner": {
+                    "type": "string",
+                    "description": "Address of the will owner who signed the message."
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "The text that was signed."
+                  },
+                  "signature": {
+                    "type": "string",
+                    "description": "Signature of `message` by `owner`."
+                  }
+                }
+              },
+              "example": {
+                "willId": "42",
+                "email": "owner@example.com",
+                "owner": "0x0000000000000000000000000000000000000001",
+                "message": "Enable reminders for will 42",
+                "signature": "0x..."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subscription was stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "subscription": {
+                      "type": "object",
+                      "properties": {
+                        "willId": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "owner": {
+                          "type": "string"
+                        },
+                        "confirmed": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "subscription": {
+                    "willId": "42",
+                    "email": "owner@example.com",
+                    "owner": "0x0000000000000000000000000000000000000001",
+                    "confirmed": false,
+                    "createdAt": "2026-01-01T00:00:00.000Z",
+                    "updatedAt": "2026-01-01T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A field is missing, the email is invalid, or the subscription could not be stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Missing required fields"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not match the owner.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The will does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Will not found"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The Content-Type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Unsupported Content-Type; expected application/json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client. Retry after the number of seconds in the Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds until the next attempt is allowed."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Too many requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Could not register reminder"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reminders/unsubscribe": {
+      "get": {
+        "summary": "Unsubscribe from reminders (link)",
+        "description": "Answers with a small HTML page. The token comes from the unsubscribe link in a reminder email.",
+        "tags": [
+          "Reminders"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The token from the email link."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription is removed.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>You have been unsubscribed from check-in reminder emails for this will.</p>"
+              }
+            }
+          },
+          "400": {
+            "description": "The token is missing or not valid.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>A valid unsubscribe token is required.</p>"
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Could not process unsubscribe request."
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Unsubscribe from reminders (one click)",
+        "description": "Answers with a small HTML page. The token comes from the unsubscribe link in a reminder email. The form encoding is accepted for one-click unsubscribe from mail clients (RFC 8058). The token may also be sent as a query parameter.",
+        "tags": [
+          "Reminders"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "token": "3f0c1a52b7c04e8f9a1d"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subscription is removed.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>You have been unsubscribed from check-in reminder emails for this will.</p>"
+              }
+            }
+          },
+          "400": {
+            "description": "The token is missing or not valid.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "<p>A valid unsubscribe token is required.</p>"
+              }
+            }
+          },
+          "415": {
+            "description": "The Content-Type is neither JSON nor form encoded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Unsupported Content-Type; expected application/json or application/x-www-form-urlencoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "ok": false,
+                  "error": "Could not process unsubscribe request."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/time": {
+      "get": {
+        "summary": "Server time",
+        "description": "Returns the server's current time in epoch milliseconds so clients can correct deadline maths for a skewed local clock. Never cached.",
+        "tags": [
+          "Time"
+        ],
+        "responses": {
+          "200": {
+            "description": "The current server time.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "now"
+                  ],
+                  "properties": {
+                    "now": {
+                      "type": "integer",
+                      "format": "int64",
+                      "description": "Epoch milliseconds."
+                    }
+                  }
+                },
+                "example": {
+                  "now": 1767225600000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Missing required fields"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "cronBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The value of the CRON_SECRET environment variable."
+      }
+    }
+  }
+}

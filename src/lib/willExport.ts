@@ -106,7 +106,8 @@ export function exportWillsToCSV(wills: Will[]): string {
       .map((b) => {
         if (typeof b === 'string') return '';
         const extra = b as { note?: unknown; notes?: unknown; memo?: unknown };
-        return String(extra.note ?? extra.notes ?? extra.memo ?? '');
+        const note = extra.note ?? extra.notes ?? extra.memo;
+        return note === null || note === undefined ? '' : String(note);
       })
       .join(';');
 
@@ -136,6 +137,40 @@ export function exportWillsToCSV(wills: Will[]): string {
   });
 
   return [headers.join(','), ...rows].join('\n');
+}
+
+/** Version of the JSON export layout, bumped if the shape changes. */
+export const JSON_EXPORT_VERSION = 1;
+
+/** JSON has no bigint, so bigint values (balances, votes) are written as decimal strings. */
+function jsonReplacer(_key: string, value: unknown): unknown {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
+/**
+ * Exports wills as pretty printed JSON (#827). Every field the will has is included, with bigint
+ * values written as strings and dates as ISO 8601. `balanceFormatted` sits next to the raw
+ * `balance` so the file is readable without knowing the token's decimals. Beneficiary addresses
+ * are validated first, as for the CSV export.
+ */
+export function exportWillsToJSON(wills: Will[], exportedAt: Date = new Date()): string {
+  validateBeneficiariesForExport(wills);
+
+  const entries = wills.map((will) => ({
+    ...will,
+    balanceFormatted: formatExportBalance(will.balance, will.token),
+  }));
+
+  return JSON.stringify(
+    { version: JSON_EXPORT_VERSION, exportedAt: exportedAt.toISOString(), count: entries.length, wills: entries },
+    jsonReplacer,
+    2,
+  );
+}
+
+/** File name for an export, for example `sorowill-wills-2026-11-22.json`. */
+export function exportFileName(extension: 'csv' | 'json', date: Date = new Date()): string {
+  return `sorowill-wills-${date.toISOString().slice(0, 10)}.${extension}`;
 }
 
 export function validateExportData(original: Will, exported: unknown): boolean {

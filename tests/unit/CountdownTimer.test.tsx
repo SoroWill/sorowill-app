@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { CountdownTimer } from '@/components/CountdownTimer';
+import { CountdownTimer, formatCountdown } from '@/components/CountdownTimer';
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -17,17 +17,17 @@ function getCountdownText(): string {
 }
 
 describe('CountdownTimer', () => {
-  it('renders the countdown in DD:HH:MM:SS format', () => {
+  it('renders days, hours and minutes when a day or more is left', () => {
     // The component floors elapsed time to whole seconds, so asserting an
     // exact seconds value is inherently flaky: any render/test-harness delay
     // between capturing `future` and the first computeSeconds() call shifts
     // the displayed seconds down by however long that took. Days/hours/
     // minutes are stable against a few seconds of delay, so only those are
-    // asserted exactly; seconds is checked against the DD:HH:MM:SS shape.
+    // asserted exactly; a day or more left shows no seconds at all.
     const future = new Date(Date.now() + 86_400_000 + 3_600_000 + 60_000 + 30_000);
     render(<CountdownTimer deadline={future} />);
     const text = getCountdownText();
-    expect(text).toMatch(/^01:01:01:\d{2}$/);
+    expect(text).toBe('1d 01h 01m');
   });
 
   it('shows overdue when deadline is in the past', () => {
@@ -50,18 +50,17 @@ describe('CountdownTimer', () => {
 
   it('updates every second via setInterval', () => {
     vi.useFakeTimers();
-    // deadline = now + 1 day + 2.5 s
-    // Initial render: floor((now + 1d + 2500 - now) / 1000) = floor(86402.5) = 86402 s = 01:00:00:02
-    // After +1 s advance: deadline - now = 86401.5ms → 86401 s = 01:00:00:01
-    // After +2 s advance: deadline - now = 86400.5ms → 86400 s = 01:00:00:00
-    const future = new Date(Date.now() + 86_400_000 + 2_500);
+    // deadline = now + 1 hour + 2.5 s
+    // Initial render: floor(3602.5) = 3602 s = 1h 00m 02s
+    // After +2 s advance: deadline - now = 3600.5 s → 3600 s = 1h 00m 00s
+    const future = new Date(Date.now() + 3_600_000 + 2_500);
     render(<CountdownTimer deadline={future} />);
-    expect(getCountdownText()).toBe('01:00:00:02');
+    expect(getCountdownText()).toBe('1h 00m 02s');
 
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(getCountdownText()).toBe('01:00:00:00');
+    expect(getCountdownText()).toBe('1h 00m 00s');
 
     vi.useRealTimers();
   });
@@ -134,5 +133,28 @@ describe('CountdownTimer', () => {
     render(<CountdownTimer deadline={future} />);
     expect(screen.getByText(new RegExp(`Due ${future.toLocaleString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))).toBeInTheDocument();
     expect(screen.getByText(/3 days left/)).toBeInTheDocument();
+  });
+});
+
+describe('formatCountdown (#822)', () => {
+  it('shows days, hours and minutes from one day on', () => {
+    expect(formatCountdown(86_400)).toBe('1d 00h 00m');
+    expect(formatCountdown(2 * 86_400 + 3 * 3_600 + 15 * 60 + 9)).toBe('2d 03h 15m');
+  });
+
+  it('shows hours, minutes and seconds under a day', () => {
+    expect(formatCountdown(86_399)).toBe('23h 59m 59s');
+    expect(formatCountdown(3_600)).toBe('1h 00m 00s');
+  });
+
+  it('shows minutes and seconds under an hour', () => {
+    expect(formatCountdown(3_599)).toBe('59m 59s');
+    expect(formatCountdown(60)).toBe('1m 00s');
+  });
+
+  it('shows only seconds under a minute and never goes negative', () => {
+    expect(formatCountdown(59)).toBe('59s');
+    expect(formatCountdown(0)).toBe('0s');
+    expect(formatCountdown(-5)).toBe('0s');
   });
 });
