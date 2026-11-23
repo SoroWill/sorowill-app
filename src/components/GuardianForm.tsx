@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { isFederatedAddress } from '@/lib/federated';
@@ -185,7 +185,7 @@ export const GuardianRow = memo(function GuardianRow({
               : `guardian-hint-${index}`
           }
           aria-invalid={rowError ? 'true' : undefined}
-          className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
+          className={`min-h-[48px] min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-will-purple ${
             rowError
               ? 'border-red-400/60 bg-red-500/5 focus:border-red-400'
               : guardian.trim() === ''
@@ -198,7 +198,7 @@ export const GuardianRow = memo(function GuardianRow({
             type="button"
             onClick={() => onResolve(index, guardian)}
             disabled={isResolving}
-            className="whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
+            className="min-h-[48px] whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple disabled:opacity-40"
           >
             {isResolving ? 'Resolving…' : 'Resolve'}
           </button>
@@ -207,7 +207,7 @@ export const GuardianRow = memo(function GuardianRow({
           type="button"
           onClick={() => onRemove(index)}
           aria-label={`Remove guardian ${index + 1}`}
-          className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
+          className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple"
         >
           ✕
         </button>
@@ -231,7 +231,10 @@ export const GuardianRow = memo(function GuardianRow({
       )}
 
       {resolutionError && (
-        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
+        <div
+          className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2"
+          role="alert"
+        >
           <p className="text-xs text-red-400">{resolutionError}</p>
         </div>
       )}
@@ -294,6 +297,20 @@ export function GuardianForm({
 
   const normalizedOwner = ownerAddress?.trim().toLowerCase() ?? '';
 
+  // Focus management: when validation produces errors, move focus to the first
+  // invalid guardian input so keyboard and screen-reader users land on the problem.
+  useEffect(() => {
+    if (!topError && rowErrors.every((e) => !e)) return;
+    const firstInvalidIndex = rowErrors.findIndex((e) => !!e);
+    const container = fieldsetRef.current;
+    if (!container) return;
+    const target =
+      firstInvalidIndex >= 0
+        ? container.querySelector<HTMLInputElement>(`#guardian-${firstInvalidIndex}`)
+        : null;
+    (target ?? container.querySelector<HTMLInputElement>('input'))?.focus();
+  }, [topError, rowErrors]);
+
   const handleAdd = () => {
     if (normalizedOwner) {
       const ownerAlreadyPresent = guardians.some(
@@ -332,8 +349,8 @@ export function GuardianForm({
   };
 
   return (
-    <fieldset className="space-y-3">
-      <div className="flex items-center justify-between">
+    <fieldset ref={fieldsetRef} className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <legend className="text-sm font-medium text-will-light">
           Guardians (optional, up to {MAX_GUARDIANS})
         </legend>
@@ -347,7 +364,7 @@ export function GuardianForm({
               ? `Maximum of ${MAX_GUARDIANS} guardians reached`
               : undefined
           }
-          className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
+          className="min-h-[48px] self-start rounded-lg px-2 text-xs font-medium text-will-purple hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple disabled:opacity-40 sm:self-auto"
         >
           + Add guardian
         </button>
@@ -438,7 +455,7 @@ export function GuardianForm({
         const rowError = rowErrors[index] || (isOwner ? OWNER_AS_GUARDIAN_ERROR : '');
         return (
           <div key={guardianId} className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor={`guardian-${index}`} className="sr-only">
                 Guardian {index + 1} address
               </label>
@@ -457,7 +474,7 @@ export function GuardianForm({
                     : `guardian-hint-${index}`
                 }
                 aria-invalid={rowError ? 'true' : undefined}
-                className={`min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none ${
+                className={`min-h-[48px] min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-will-purple ${
                   rowError
                     ? 'border-red-400/60 bg-red-500/5 focus:border-red-400'
                     : guardian.trim() === '' && guardians.length > 0
@@ -465,24 +482,26 @@ export function GuardianForm({
                     : 'border-white/10 bg-white/5 focus:border-will-purple'
                 }`}
               />
-              {isFederatedAddress(guardian) && (
+              <div className="flex items-center gap-2">
+                {isFederatedAddress(guardian) && (
+                  <button
+                    type="button"
+                    onClick={() => onResolve(index, guardian)}
+                    disabled={resolvingGuardianId === guardianId}
+                    className="min-h-[48px] flex-1 whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple disabled:opacity-40 sm:flex-none"
+                  >
+                    {resolvingGuardianId === guardianId ? 'Resolving…' : 'Resolve'}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => onResolve(index, guardian)}
-                  disabled={resolvingGuardianId === guardianId}
-                  className="whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
+                  onClick={() => onRemove(index)}
+                  aria-label={`Remove guardian ${index + 1}`}
+                  className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple"
                 >
-                  {resolvingGuardianId === guardianId ? 'Resolving…' : 'Resolve'}
+                  ✕
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                aria-label={`Remove guardian ${index + 1}`}
-                className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
-              >
-                ✕
-              </button>
+              </div>
             </div>
 
             {resolvedGuardians.has(guardianId) && (
@@ -503,7 +522,10 @@ export function GuardianForm({
             )}
 
             {guardianResolutionError.has(guardianId) && (
-              <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
+              <div
+                className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2"
+                role="alert"
+              >
                 <p className="text-xs text-red-400">{guardianResolutionError.get(guardianId)}</p>
               </div>
             )}
@@ -519,7 +541,11 @@ export function GuardianForm({
             ) : null}
 
             {!rowError && getAddressFeedback(guardian) ? (
-              <p className="text-xs text-amber-400/80" role="status">
+              <p
+                id={`guardian-feedback-${index}`}
+                className="text-xs text-amber-400/80"
+                role="status"
+              >
                 {getAddressFeedback(guardian)}
               </p>
             ) : null}
@@ -541,6 +567,7 @@ export function GuardianForm({
         <p
           className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-400"
           role="alert"
+          aria-live="assertive"
         >
           {topError}
         </p>

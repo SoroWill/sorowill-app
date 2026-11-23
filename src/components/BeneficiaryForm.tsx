@@ -445,7 +445,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           onClick={applyEqualSplit}
           disabled={value.length === 0}
           aria-label="Distribute percentages equally among all beneficiaries"
-          className="text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
+          className="min-h-[48px] px-2 text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
           Split equally
         </button>
@@ -457,7 +457,7 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           const addressError = touchedRows.has(beneficiaryId) ? addressErrors[index] : undefined;
           return (
           <div key={beneficiaryId} className="space-y-2">
-            <div className="flex items-end gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 flex-1">
                 <label htmlFor={`beneficiary-address-${index}`} className="sr-only">
                   Beneficiary {index + 1} address
@@ -479,14 +479,63 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   } bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none`}
                 />
               </div>
-              {isFederatedAddress(beneficiary.address) && (
+              <div className="flex items-end gap-2">
+                {isFederatedAddress(beneficiary.address) && (
+                  <button
+                    type="button"
+                    onClick={() => resolveBeneficiaryAddress(index, beneficiary.address)}
+                    disabled={resolvingId === beneficiaryId}
+                    className="min-h-[48px] whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
+                  >
+                    {resolvingId === beneficiaryId ? 'Resolving…' : 'Resolve'}
+                  </button>
+                )}
+                <div className="flex items-end gap-1">
+                  <div>
+                    <label htmlFor={`beneficiary-percentage-${index}`} className="sr-only">
+                      Beneficiary {index + 1} percentage
+                    </label>
+                    <input
+                      id={`beneficiary-percentage-${index}`}
+                      type="number"
+                      aria-label={`Beneficiary ${index + 1} percentage`}
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={beneficiary.percentage}
+                      aria-invalid={hasPrecisionWarning ? 'true' : undefined}
+                      aria-describedby={percentageDescribedBy || undefined}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        setPrecisionWarnings((prev) => {
+                          const next = new Map(prev);
+                          if (beneficiaryId && hasExcessPrecision(raw)) next.set(beneficiaryId, raw.trim());
+                          else next.delete(beneficiaryId);
+                          return next;
+                        });
+                        if (raw === '') {
+                          updateRow(index, { percentage: 0 });
+                          return;
+                        }
+                        const val = Number(raw);
+                        // Clamp the range but keep fractions, so a non-integer surfaces the
+                        // "whole numbers" validation message instead of being silently truncated.
+                        const clamped = isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
+                        // Inputs are restricted to 2 decimal places (the contract's basis-point precision).
+                        updateRow(index, { percentage: Math.round(clamped * 100) / 100 });
+                      }}
+                      className="min-h-[48px] w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-right text-sm text-will-light focus:border-will-purple focus:outline-none"
+                    />
+                  </div>
+                  <span className="text-sm text-will-light/60 pb-2">%</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => resolveBeneficiaryAddress(index, beneficiary.address)}
-                  disabled={resolvingId === beneficiaryId}
-                  className="whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
+                  onClick={() => removeRow(index)}
+                  aria-label={`Remove beneficiary ${index + 1}`}
+                  className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
                 >
-                  {resolvingId === beneficiaryId ? 'Resolving…' : 'Resolve'}
+                  ✕
                 </button>
               )}
               <div className="flex items-end gap-1">
@@ -530,17 +579,13 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                 </div>
                 <span className="text-sm text-will-light/60 pb-2">%</span>
               </div>
-              <button
-                type="button"
-                onClick={() => removeRow(index)}
-                aria-label={`Remove beneficiary ${index + 1}`}
-                className="rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
-              >
-                ✕
-              </button>
             </div>
-            {precisionWarnings.has(beneficiaryId) && (
-              <p role="status" className="ml-1 text-xs text-amber-400">
+            {hasPrecisionWarning && (
+              <p
+                id={`beneficiary-percentage-warning-${index}`}
+                role="status"
+                className="ml-1 text-xs text-amber-400"
+              >
                 {precisionWarnings.get(beneficiaryId)}% has more than 2 decimal places and was rounded to{' '}
                 {beneficiary.percentage}%. Adjust the value, or continue with the rounded percentage.
               </p>
@@ -548,12 +593,12 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
             {resolvedAddresses.has(beneficiaryId) && (
               <div className="ml-1 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2">
                 <p className="text-xs text-emerald-400">Resolved address:</p>
-                <p className="font-mono text-xs text-emerald-300">{resolvedAddresses.get(beneficiaryId)}</p>
+                <p className="font-mono text-xs text-emerald-300 break-all">{resolvedAddresses.get(beneficiaryId)}</p>
               </div>
             )}
             {resolutionError.has(beneficiaryId) && (
               <div className="ml-1 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2">
-                <p className="text-xs text-red-400">{resolutionError.get(beneficiaryId)}</p>
+                <p role="alert" className="text-xs text-red-400">{resolutionError.get(beneficiaryId)}</p>
               </div>
             )}
             {addressError && (
@@ -598,14 +643,14 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
             const splits = equalSplit(value.length);
             onChange(value.map((b, i) => ({ ...b, percentage: splits[i] })));
           }}
-          className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
+          className="min-h-[48px] flex-1 rounded-lg border border-white/10 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
           Split equally
         </button>
         <button
           type="button"
           onClick={addRow}
-          className="flex-1 rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
+          className="min-h-[48px] flex-1 rounded-lg border border-dashed border-white/20 py-2 text-sm text-will-light/70 transition hover:border-will-purple hover:text-will-light"
         >
           + Add beneficiary
         </button>

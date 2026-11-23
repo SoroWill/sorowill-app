@@ -183,7 +183,7 @@ function WillCardComponent({
         {will.beneficiaries?.length ? (
           <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
             {will.beneficiaries.map((beneficiary) => (
-              <li key={beneficiary.address} className="truncate">
+              <li key={beneficiary.address} className="max-w-full truncate break-all">
                 <Highlight text={beneficiary.address} query={searchQuery} />
               </li>
             ))}
@@ -248,14 +248,14 @@ function WillCardComponent({
             onClick={() => onCheckIn(will.id)}
             disabled={checkingIn}
             aria-label={`Check in for will ${will.id}`}
-            className="rounded-full bg-will-purple px-4 py-1.5 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
           >
             {checkingIn ? 'Checking in…' : 'Check In'}
           </button>
         ) : null}
         <Link
           href={`/will/${will.id}`}
-          className="rounded-full border border-white/20 px-4 py-1.5 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+          className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light sm:flex-none"
           aria-label={`View details for will ${will.id}`}
         >
           Details
