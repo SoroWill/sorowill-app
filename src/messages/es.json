@@ -241,6 +241,20 @@
       "button": "Crear tu Testamento"
     }
   },
+  "expirationWarning": {
+    "30Title": "Tu testamento expira en 30 días",
+    "30Description": "Confirma tu presencia en {days} días para mantener este testamento activo.",
+    "7Title": "Tu testamento expira en 7 días",
+    "7Description": "Solo quedan {days} días antes de la fecha límite. Confirma tu presencia ahora para mantenerlo activo.",
+    "1Title": "Tu testamento expira mañana",
+    "1Description": "Queda menos de {days} día antes de la fecha límite. Confirma tu presencia ahora o el testamento se activará.",
+    "methods": "Las alertas se envían por {methods}.",
+    "method": {
+      "in-app": "aviso en la aplicación",
+      "email": "correo electrónico",
+      "push": "notificación push"
+    }
+  },
   "status": {
     "active": "Activo",
     "triggered": "Activado — período de gracia en ejecución",

@@ -234,6 +234,20 @@
       "button": "Create Your Will"
     }
   },
+  "expirationWarning": {
+    "30Title": "Your will expires in 30 days",
+    "30Description": "Check in within {days} days to keep this will active.",
+    "7Title": "Your will expires in 7 days",
+    "7Description": "Only {days} days left before the check-in deadline. Check in now to keep this will active.",
+    "1Title": "Your will expires tomorrow",
+    "1Description": "Less than {days} day left before the check-in deadline. Check in now or the will will be triggered.",
+    "methods": "Alerts are sent via {methods}.",
+    "method": {
+      "in-app": "in-app banner",
+      "email": "email",
+      "push": "push notification"
+    }
+  },
   "status": {
     "active": "Active",
     "triggered": "Triggered — grace period running",
