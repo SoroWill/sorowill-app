@@ -2,6 +2,7 @@
 export { dispatchReminderEmails, dispatchReminderBatch, dispatchDueReminders } from '@/lib/reminders/dispatch';
 
 import { parseRetryAfter } from '@/lib/rate-limit';
+import type { NotificationChannel } from '@/lib/notificationChannels';
 
 export type ReminderKind = 'well-before' | 'imminent';
 
@@ -89,6 +90,10 @@ export interface ReminderSubscription {
   willId: string;
   email: string;
   owner: string;
+  /** Channels this subscription is delivered over (#904). Defaults to email. */
+  channels?: NotificationChannel[];
+  /** Phone number used for SMS delivery, when `sms` is selected. */
+  phone?: string | null;
   confirmed: boolean;
   confirmationToken?: string | null;
   confirmationExpiresAt?: string | null;
@@ -124,11 +129,27 @@ export interface ReminderHistoryEntry {
   email: string;
   wellBeforeSentAt?: string;
   imminentSentAt?: string;
+  /** Channels the reminder was delivered over (#904). */
+  channels?: NotificationChannel[];
+}
+
+/** An in-app notification queued for a will owner (#904). */
+export interface InAppNotification {
+  id: string;
+  willId: string;
+  owner: string;
+  kind: ReminderKind;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt?: string | null;
 }
 
 export interface ReminderStore {
   subscriptions: Record<string, ReminderSubscription>;
   history: Record<string, ReminderHistoryEntry>;
+  /** In-app notifications, keyed by notification id. */
+  notifications?: Record<string, InAppNotification>;
 }
 
 export interface ReminderRegistrationResult {
@@ -309,12 +330,13 @@ async function readStore(): Promise<ReminderStore> {
   }
   const payload = (await response.json()) as { result: string | null };
   if (!payload.result) {
-    return { subscriptions: {}, history: {} };
+    return { subscriptions: {}, history: {}, notifications: {} };
   }
   const parsed = JSON.parse(payload.result) as Partial<ReminderStore>;
   return {
     subscriptions: parsed.subscriptions ?? {},
     history: parsed.history ?? {},
+    notifications: parsed.notifications ?? {},
   };
 }
 
