@@ -88,7 +88,17 @@ export function BatchTopUpPanel({
           {exceedsBalance && <span className="block text-xs font-normal text-red-400">Total exceeds your available balance ({walletBalance} USDC).</span>}
           {invalidWillIds.length > 0 && <span className="block text-xs font-normal text-red-400">Enter a valid amount for every selected will (no scientific notation).</span>}
         </span>
-        <button type="submit" disabled={isSubmitting || invalidWillIds.length > 0 || exceedsBalance} className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60">
+        <button
+          type="submit"
+          // Keep keyboard (Enter → form submit) and mouse paths independent, but
+          // prevent a click from also submitting the form and calling onSubmit twice.
+          onClick={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+          disabled={isSubmitting || invalidWillIds.length > 0 || exceedsBalance}
+          className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60"
+        >
           {isSubmitting ? 'Submitting Batch…' : 'Submit Batch Top-up'}
         </button>
       </div>

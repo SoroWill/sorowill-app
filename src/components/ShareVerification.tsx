@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { useMounted } from '@/lib/useMounted';
 import { useToast } from '@/components/Toast';
 import { QR_DISPLAY_SCALE, verificationQrOptions } from '@/lib/qrOptions';

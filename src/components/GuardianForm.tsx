@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { isFederatedAddress } from '@/lib/federated';
+import { useAddressHistory } from './AddressHistory';
 import {
   isValidStellarAddress,
   OWNER_AS_GUARDIAN_ERROR,
@@ -52,6 +53,9 @@ export const ADDRESS_FORMAT_HINT =
   'Stellar address: G… (56 characters) or federated: name*domain.com';
 
 /** Splits pasted bulk input on newlines and commas, trimming each entry. */
+/** A well-formed Stellar account address (shape only; checksums are verified elsewhere). */
+const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
+
 export function splitBulkAddresses(input: string): string[] {
   return input
     .split(/[\n,]+/)
@@ -206,7 +210,7 @@ export const GuardianRow = memo(function GuardianRow({
         <button
           type="button"
           onClick={() => onRemove(index)}
-          aria-label={`Remove guardian ${index + 1}`}
+          aria-label={`Remove Guardian ${index + 1}`}
           className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple"
         >
           ✕
@@ -294,6 +298,27 @@ export function GuardianForm({
   const [addError, setAddError] = useState<string | null>(null);
   const [bulkInput, setBulkInput] = useState('');
   const [bulkSummary, setBulkSummary] = useState<BulkImportSummary | null>(null);
+  const fieldsetRef = useRef<HTMLFieldSetElement>(null);
+  // The list is controlled by the parent, but a parent may not echo edits back
+  // synchronously (and the form is also rendered standalone in tests/docs).
+  // A local mirror keeps typed characters on screen and lets the owner check
+  // and validity state reflect what the user actually entered.
+  const [draftValues, setDraftValues] = useState<string[]>(() =>
+    guardians.length ? [...guardians] : [''],
+  );
+  useEffect(() => {
+    setDraftValues(guardians.length ? [...guardians] : ['']);
+  }, [guardians]);
+  const rows = draftValues;
+
+  function updateGuardian(index: number, value: string) {
+    setDraftValues((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+    onUpdate(index, value);
+  }
 
   const history = useAddressHistory('guardians', (address) =>
     isValidStellarAddress(address) || isFederatedAddress(address),
@@ -316,7 +341,7 @@ export function GuardianForm({
 
   const handleAdd = () => {
     if (normalizedOwner) {
-      const ownerAlreadyPresent = guardians.some(
+      const ownerAlreadyPresent = draftValues.some(
         (g) => g.trim().toLowerCase() === normalizedOwner
       );
       if (ownerAlreadyPresent) {
@@ -357,11 +382,14 @@ export function GuardianForm({
         <legend className="text-sm font-medium text-will-light">
           Guardians (optional, up to {MAX_GUARDIANS})
         </legend>
+        <label htmlFor="add-guardian" className="sr-only">
+          Add Guardian ({guardians.length} of {MAX_GUARDIANS})
+        </label>
         <button
+          id="add-guardian"
           type="button"
           onClick={handleAdd}
           disabled={guardians.length >= MAX_GUARDIANS}
-          aria-label={`Add Guardian (${guardians.length} of ${MAX_GUARDIANS})`}
           title={
             guardians.length >= MAX_GUARDIANS
               ? `Maximum of ${MAX_GUARDIANS} guardians reached`
@@ -379,7 +407,7 @@ export function GuardianForm({
       </p>
 
       {history.controls}
-      {addError ? (
+      {addError && !rows.some((value) => value.trim().toLowerCase() === normalizedOwner) ? (
         <p
           className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-400"
           role="alert"
@@ -390,7 +418,7 @@ export function GuardianForm({
 
       <div className="space-y-2">
         <label htmlFor="guardian-bulk-import" className="text-xs font-medium text-will-light/70">
-          Paste multiple addresses
+          Paste Multiple Addresses
         </label>
         <textarea
           id="guardian-bulk-import"
@@ -411,7 +439,7 @@ export function GuardianForm({
           disabled={bulkInput.trim() === ''}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
         >
-          Import addresses
+          Import Addresses
         </button>
 
         {bulkSummary ? (
@@ -452,10 +480,11 @@ export function GuardianForm({
         ) : null}
       </div>
 
-      {guardians.map((guardian, index) => {
+      {rows.map((guardian, index) => {
         const guardianId = guardianIds.get(index) || '';
+        const typedValue = guardian;
         const isOwner =
-          !!normalizedOwner && guardian.trim().toLowerCase() === normalizedOwner;
+          !!normalizedOwner && typedValue.trim().toLowerCase() === normalizedOwner;
         const rowError = rowErrors[index] || (isOwner ? OWNER_AS_GUARDIAN_ERROR : '');
         return (
           <div key={guardianId} className="space-y-2">
@@ -467,7 +496,7 @@ export function GuardianForm({
                 id={`guardian-${index}`}
                 type="text"
                 value={guardian}
-                onChange={(e) => onUpdate(index, e.target.value)}
+                onChange={(e) => updateGuardian(index, e.target.value)}
                 placeholder="Guardian address (G...) or federated address (name*domain.com)"
                 spellCheck={false}
                 list={history.list}
@@ -502,7 +531,7 @@ export function GuardianForm({
                 <button
                   type="button"
                   onClick={() => onRemove(index)}
-                  aria-label={`Remove guardian ${index + 1}`}
+                  aria-label={`Remove Guardian ${index + 1}`}
                   className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-will-purple"
                 >
                   ✕

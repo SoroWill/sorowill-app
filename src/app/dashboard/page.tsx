@@ -13,7 +13,16 @@ import { formatError, formatLoadError, classifyCheckInError, formatCheckInError,
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
 import { exportFileName, exportWillsToCSV, exportWillsToJSON } from '@/lib/willExport';
-import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
+import {
+  DEFAULT_DASHBOARD_FILTERS,
+  clearDashboardFilters,
+  loadDashboardFilters,
+  loadDashboardTab,
+  saveDashboardFilters,
+  saveDashboardTab,
+  type DashboardFilters,
+} from '@/lib/dashboardTab';
+import { useAutoRefresh } from '@/lib/useAutoRefresh';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { useBatchTopUp } from '@/hooks/useBatchTopUp';
@@ -110,19 +119,22 @@ function DashboardPageOld() {
   useEffect(() => {
     const filters = loadDashboardFilters();
     setSearch(filters.search);
-    setStatusFilter(filters.statusFilter as StatusFilter);
+    setStatusFilter(filters.status as StatusFilter);
   }, []);
 
   // Persist filter changes so they survive a refresh or a new session.
   useEffect(() => {
-    const filters: DashboardFilters = { search, statusFilter };
+    const filters: DashboardFilters = {
+      search,
+      status: statusFilter as DashboardFilters['status'],
+    };
     saveDashboardFilters(filters);
   }, [search, statusFilter]);
 
   const handleClearFilters = useCallback(() => {
     clearDashboardFilters();
     setSearch(DEFAULT_DASHBOARD_FILTERS.search);
-    setStatusFilter(DEFAULT_DASHBOARD_FILTERS.statusFilter as StatusFilter);
+    setStatusFilter(DEFAULT_DASHBOARD_FILTERS.status as StatusFilter);
   }, []);
   const [ownedWills, setOwnedWills] = useState<Will[]>([]);
   const [inheritingWills, setInheritingWills] = useState<Will[]>([]);

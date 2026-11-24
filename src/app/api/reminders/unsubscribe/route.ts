@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { apiError } from '@/lib/errors';
-import { escapeHtml, unsubscribeReminderSubscription } from '@/lib/reminders';
+import { escapeHtml } from '@/lib/html';
+import { unsubscribeReminderSubscription } from '@/lib/reminders';
 import { withCorrelationId } from '@/lib/correlation';
 
 /**

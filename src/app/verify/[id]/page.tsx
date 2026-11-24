@@ -20,6 +20,7 @@ import { isWillNotFoundError } from '@/lib/errors';
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { StatusBanner } from '@/components/StatusBanner';
 import { ShareVerification } from '@/components/ShareVerification';
+import { BeneficiaryRows } from '@/components/BeneficiaryRows';
 import { CopyAddress } from '@/components/CopyAddress';
 import { SignatureExpiryNotice } from '@/components/SignatureExpiryNotice';
 import { getSignatureExpiryStatus, parseSignatureInfo } from '@/lib/signatureExpiry';
