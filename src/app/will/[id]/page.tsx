@@ -24,6 +24,7 @@ import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
+import { ContractUpgradePanel } from '@/components/ContractUpgradePanel';
 import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
@@ -435,6 +436,10 @@ export default function WillDetailPage() {
       </div>
 
       <StatusBanner status={will.status} />
+
+      <div className="print-hide">
+        <ContractUpgradePanel />
+      </div>
 
       {error ? (
         <div className="flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 p-4 print-hide">

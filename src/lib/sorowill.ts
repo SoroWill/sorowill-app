@@ -111,6 +111,38 @@ export function getContractId(): string {
   return getContractIdForNetwork(getNetwork());
 }
 
+/**
+ * Reads the contract version reported by the deployed contract (#906).
+ *
+ * The SDK does not expose a typed `version()` call yet, so this invokes the
+ * entry point directly through the client's contract handle. Returns `null`
+ * when the version cannot be read (older contract without `version()`, RPC
+ * failure) so callers can simply hide the migration UI.
+ */
+export async function getContractVersion(context?: SoroWillClientContext): Promise<number | null> {
+  const client = getSoroWillClient(context) as unknown as {
+    getContractVersion?: () => Promise<number | bigint | string>;
+    contract?: { call?: (method: string) => Promise<unknown> };
+  };
+
+  try {
+    if (typeof client.getContractVersion === 'function') {
+      const value = await client.getContractVersion();
+      const parsed = Number(value);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+    if (typeof client.contract?.call === 'function') {
+      const value = await client.contract.call('version');
+      const parsed = Number(value);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 /** The Soroban RPC URL configured for this deployment, for display/linking purposes. */
 export function getRpcUrl(): string {
   const network = getNetwork();
