@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -11,6 +11,8 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
 import { TestnetBanner } from '@/components/TestnetBanner';
+import { PhishingWarningBanner } from '@/components/PhishingWarningBanner';
+import { SecurityBadge } from '@/components/SecurityBadge';
 
 const RTL_LOCALES = ['ar', 'he'];
 
@@ -74,11 +76,15 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <PhishingWarningBanner />
       <TestnetBanner />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
       <footer className="border-t border-white/10 bg-will-dark/80 dark:bg-will-dark/80">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-will-light/70 sm:flex-row sm:px-6">
-          <p>&copy; {new Date().getFullYear()} SoroWill. All rights reserved.</p>
+          <div className="flex items-center gap-3">
+            <p>&copy; {new Date().getFullYear()} SoroWill. All rights reserved.</p>
+            <SecurityBadge />
+          </div>
           <nav className="flex items-center gap-6">
             <Link
               href="/contact"
