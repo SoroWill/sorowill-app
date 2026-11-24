@@ -18,7 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts",
-    "test:reminders": "vitest run src/lib/reminders.test.ts",
+    "test:reminders": "vitest run tests/unit/reminders.test.ts src/lib/reminders.test.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "analytics:mock": "echo 'plausible'",
