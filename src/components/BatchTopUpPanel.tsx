@@ -71,6 +71,11 @@ export function BatchTopUpPanel({
                   />
                   <span className="text-xs text-will-light/70">USDC</span>
                 </div>
+                {invalidWillIds.includes(willId) && (
+                  <span className="text-xs font-medium text-amber-300">
+                    ✗ {amounts[willId]?.trim() ? 'Invalid amount — fix before submitting' : 'Amount required'}
+                  </span>
+                )}
                 {result && (
                   <span className={`text-xs font-medium ${result.status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
                     {result.status === 'success' ? '✓ Success' : `✗ ${result.message}`}
@@ -87,6 +92,7 @@ export function BatchTopUpPanel({
           Total Amount: {formatUSDC(total)} USDC
           {exceedsBalance && <span className="block text-xs font-normal text-red-400">Total exceeds your available balance ({walletBalance} USDC).</span>}
           {invalidWillIds.length > 0 && <span className="block text-xs font-normal text-red-400">Enter a valid amount for every selected will (no scientific notation).</span>}
+          {invalidWillIds.length > 0 && <span className="block text-xs font-normal text-red-400">Fix the {invalidWillIds.length} highlighted will{invalidWillIds.length === 1 ? '' : 's'} before submitting — nothing has been sent yet.</span>}
         </span>
         <button type="submit" disabled={isSubmitting || invalidWillIds.length > 0 || exceedsBalance} className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60">
           {isSubmitting ? 'Submitting Batch…' : 'Submit Batch Top-up'}

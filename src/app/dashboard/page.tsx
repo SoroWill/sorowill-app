@@ -816,6 +816,12 @@ function DashboardPageOld() {
               toast.error('Total top-up amount exceeds your available balance.');
               return;
             }
+            if (batchTopUp.invalidWillIds.length > 0) {
+              toast.error(
+                `Fix ${batchTopUp.invalidWillIds.length} invalid amount${batchTopUp.invalidWillIds.length === 1 ? '' : 's'} before submitting — no top-ups were sent.`,
+              );
+              return;
+            }
             void batchTopUp.submit(async () => {
               if (publicKey) await loadWills(publicKey);
             });

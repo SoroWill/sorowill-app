@@ -74,6 +74,10 @@ export function useBatchTopUp(walletBalance: string | null) {
   const submit = useCallback(async (onComplete: () => Promise<void>) => {
     if (selectedWillIds.length === 0 || exceedsBalance) return;
 
+    // #765: validate every amount before submitting any, so a single bad entry
+    // never leaves the batch half-applied. The caller surfaces the failures.
+    if (invalidWillIds.length > 0) return;
+
     setIsSubmitting(true);
     setResults({});
     const nextResults: Record<string, BatchTopUpResult> = {};
@@ -81,10 +85,6 @@ export function useBatchTopUp(walletBalance: string | null) {
 
     for (const willId of selectedWillIds) {
       const amount = amounts[willId];
-      if (!amount || !isValidAmount(amount)) {
-        nextResults[willId] = { status: 'error', message: 'Invalid or missing amount' };
-        continue;
-      }
 
       try {
         const response = await client.topUp(willId, toStroops(amount).toString());
@@ -98,7 +98,7 @@ export function useBatchTopUp(walletBalance: string | null) {
     setResults(nextResults);
     setIsSubmitting(false);
     await onComplete();
-  }, [amounts, exceedsBalance, selectedWillIds]);
+  }, [amounts, exceedsBalance, invalidWillIds, selectedWillIds]);
 
   return {
     amounts,
