@@ -30,6 +30,7 @@ import {
 } from '@/lib/activityLog';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
+import { NetworkStatusMonitor } from '@/components/NetworkStatusMonitor';
 
 // Only shown in multi-select mode, so it is loaded when first needed rather than with the page.
 const BatchTopUpPanel = dynamic(() => import('@/components/BatchTopUpPanel').then((mod) => mod.BatchTopUpPanel));
@@ -568,6 +569,9 @@ function DashboardPageOld() {
   };
   return (
     <div className="space-y-6">
+      {/* #896: Network status, gas price trend and transaction speed */}
+      <NetworkStatusMonitor />
+
       {/* Top Guardian Alert */}
       {activeGuardianWills.length > 0 && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-300 text-sm flex justify-between items-center">
