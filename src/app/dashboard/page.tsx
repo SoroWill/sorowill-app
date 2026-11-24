@@ -20,6 +20,7 @@ import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { getCachedWills, isWillsCacheFresh, setCachedWills } from '@/lib/willsCache';
+import { getRolesForAddress, hasPermission, ROLE_LABELS } from '@/lib/rbac';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
 
@@ -398,6 +399,14 @@ function DashboardPageOld() {
     }
   }, [publicKey, loadWills, toast]);
 
+  // Role-based access control: the roles this wallet holds across its wills.
+  const roles = useMemo(
+    () => getRolesForAddress(publicKey, [...ownedWills, ...inheritingWills, ...guardianWills]),
+    [publicKey, ownedWills, inheritingWills, guardianWills],
+  );
+  const canCreateWill = hasPermission(roles, 'will:create');
+  const canCheckIn = hasPermission(roles, 'will:check-in');
+
   const baseList = useMemo(
     () => (tab === 'owned' ? ownedWills : tab === 'inheriting' ? inheritingWills : guardianWills),
     [guardianWills, inheritingWills, ownedWills, tab],
@@ -643,14 +652,30 @@ function DashboardPageOld() {
             )}
             {isRefreshing ? 'Refreshing…' : '↻ Refresh'}
           </button>
-          <Link
-            href="/will/new"
-            className="rounded-full bg-will-purple px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-will-purple/90"
-          >
-            + New Will
-          </Link>
+          {canCreateWill && (
+            <Link
+              href="/will/new"
+              className="rounded-full bg-will-purple px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-will-purple/90"
+            >
+              + New Will
+            </Link>
+          )}
         </div>
       </div>
+
+      {roles.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-will-light/60" aria-label="Your roles">
+          <span>Your roles:</span>
+          {roles.map((role) => (
+            <span
+              key={role}
+              className="rounded-full border border-white/20 px-2 py-0.5 font-medium text-will-light/80"
+            >
+              {ROLE_LABELS[role]}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-will-light/60">
         <span>Last updated {formatTimeAgo(lastFetchTime)}</span>
@@ -873,7 +898,7 @@ function DashboardPageOld() {
                 <div className="flex-1">
                   <WillCard
                     will={will}
-                    onCheckIn={tab === 'owned' ? handleCheckIn : undefined}
+                    onCheckIn={tab === 'owned' && canCheckIn ? handleCheckIn : undefined}
                     checkingIn={checkingInId === will.id}
                     actionsDisabled={isRefreshing}
                     connectedAddress={publicKey}
