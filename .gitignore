@@ -54,3 +54,13 @@ tests/e2e/__snapshots__/*-linux.png
 
 # Local-only notes, never pushed
 issue.md
+
+# exported signed PDF packages (local downloads, not source)
+*.pdf.json
+
+# vitest / jest coverage
+lcov.info
+*.lcov
+
+# package manager debug logs
+pnpm-debug.log*
