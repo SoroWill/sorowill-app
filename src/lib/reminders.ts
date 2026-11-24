@@ -131,6 +131,39 @@ export interface ReminderStore {
   history: Record<string, ReminderHistoryEntry>;
 }
 
+/**
+ * Validates an untrusted value (e.g. a backup file being restored) as a
+ * reminder store. Returns the normalized store, or an error message when the
+ * shape is wrong, so a corrupt backup can never overwrite good data.
+ */
+export function parseReminderStore(
+  value: unknown,
+): { ok: true; store: ReminderStore } | { ok: false; error: string } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return { ok: false, error: 'Backup payload must be a JSON object.' };
+  }
+  const candidate = value as Partial<ReminderStore>;
+  const subscriptions = candidate.subscriptions ?? {};
+  const history = candidate.history ?? {};
+  if (typeof subscriptions !== 'object' || subscriptions === null || Array.isArray(subscriptions)) {
+    return { ok: false, error: 'Backup "subscriptions" must be an object.' };
+  }
+  if (typeof history !== 'object' || history === null || Array.isArray(history)) {
+    return { ok: false, error: 'Backup "history" must be an object.' };
+  }
+  for (const [key, sub] of Object.entries(subscriptions)) {
+    if (typeof sub !== 'object' || sub === null || typeof (sub as ReminderSubscription).willId !== 'string') {
+      return { ok: false, error: `Backup subscription "${key}" is malformed.` };
+    }
+  }
+  for (const [key, entry] of Object.entries(history)) {
+    if (typeof entry !== 'object' || entry === null || typeof (entry as ReminderHistoryEntry).willId !== 'string') {
+      return { ok: false, error: `Backup history entry "${key}" is malformed.` };
+    }
+  }
+  return { ok: true, store: { subscriptions, history } };
+}
+
 export interface ReminderRegistrationResult {
   ok: boolean;
   subscription?: ReminderSubscription;
@@ -330,6 +363,34 @@ async function writeStore(store: ReminderStore): Promise<void> {
   });
   if (!response.ok) {
     throw new Error(`Failed to write reminder store: ${response.status}`);
+  }
+}
+
+/**
+ * Reads the whole reminder store (subscriptions + history) under the store
+ * lock. Used by the backup job (#913) so a snapshot is never taken while a
+ * registration/unsubscribe/dispatch is mid-write.
+ */
+export async function readReminderStoreSnapshot(): Promise<ReminderStore> {
+  const lockToken = await acquireLock();
+  try {
+    return await readStore();
+  } finally {
+    await releaseLock(lockToken);
+  }
+}
+
+/**
+ * Replaces the whole reminder store with `store` under the store lock. Used by
+ * the restore job (#913). The payload is validated by the caller before it
+ * reaches this function.
+ */
+export async function replaceReminderStore(store: ReminderStore): Promise<void> {
+  const lockToken = await acquireLock();
+  try {
+    await writeStore(store);
+  } finally {
+    await releaseLock(lockToken);
   }
 }
 
