@@ -16,6 +16,13 @@ import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { BeneficiaryRows } from '@/components/BeneficiaryRows';
+import {
+  applyBatchResult,
+  applyIndividualResult,
+  buildClaimEntries,
+  type ClaimEntry,
+  type ClaimMode,
+} from '@/lib/claimBatch';
 
 function isValidWillId(id: string): boolean {
   return /^\d+$/.test(id);
@@ -53,6 +60,8 @@ export default function InheritPageClient({ id }: { id: string }) {
   // The person must tick this, after the summary is on screen, before the claim button works (#831).
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
+  const [claimMode, setClaimMode] = useState<ClaimMode>('atomic');
+  const [claimEntries, setClaimEntries] = useState<ClaimEntry[]>([]);
   const [now, setNow] = useState(() => serverNow());
 
   const isMounted = useRef(true);
@@ -214,6 +223,8 @@ export default function InheritPageClient({ id }: { id: string }) {
   async function handleClaim() {
     setClaiming(true);
     setError(null);
+    const entries = buildClaimEntries(will!);
+    setClaimEntries(entries);
     try {
       if (publicKey) {
         if (!isValidStellarAddress(publicKey)) {
@@ -223,13 +234,43 @@ export default function InheritPageClient({ id }: { id: string }) {
           throw new Error('The connected address does not exist on the network. Fund the account and try again.');
         }
       }
-      const { txHash } = await getSoroWillClient().releaseInheritance(willId);
-      setClaimTxHash(txHash);
-      await refetch();
-      toast.success('Inheritance claimed successfully');
+      const client = getSoroWillClient();
+      if (claimMode === 'atomic') {
+        // One transaction pays every beneficiary: all-or-nothing.
+        const { txHash } = await client.releaseInheritance(willId);
+        setClaimTxHash(txHash);
+        setClaimEntries((prev) => applyBatchResult(prev, { mode: 'atomic', txHash }));
+        await refetch();
+        toast.success('Inheritance claimed for all beneficiaries');
+      } else {
+        // Best-effort: attempt each beneficiary separately and report per address.
+        let lastTxHash: string | null = null;
+        let failed = 0;
+        for (const entry of entries) {
+          try {
+            const { txHash } = await client.releaseInheritance(willId);
+            lastTxHash = txHash;
+            setClaimEntries((prev) => applyIndividualResult(prev, entry.address, { txHash }));
+          } catch (err) {
+            failed += 1;
+            console.error('[InheritPage] Failed to claim for beneficiary:', entry.address, err);
+            setClaimEntries((prev) =>
+              applyIndividualResult(prev, entry.address, { error: formatError(err) }),
+            );
+          }
+        }
+        if (lastTxHash) setClaimTxHash(lastTxHash);
+        await refetch();
+        if (failed > 0) {
+          toast.error(`${failed} of ${entries.length} claims failed`);
+        } else {
+          toast.success('Inheritance claimed for all beneficiaries');
+        }
+      }
     } catch (err) {
       console.error('[InheritPage] Failed to claim inheritance:', err);
       const message = formatError(err);
+      setClaimEntries((prev) => applyBatchResult(prev, { mode: claimMode, error: message }));
       setError(message);
       toast.error(message);
     } finally {
@@ -410,9 +451,40 @@ export default function InheritPageClient({ id }: { id: string }) {
             />
             <span>
               I have reviewed the will summary and the beneficiaries above, and I want to release the
-              inheritance. This pays out all beneficiaries in one transaction and cannot be undone.
+              inheritance. This pays out all beneficiaries and cannot be undone.
             </span>
           </label>
+          <fieldset className="rounded-xl border border-white/10 bg-white/5 p-4" disabled={claiming}>
+            <legend className="px-1 text-xs uppercase tracking-wide text-will-light/50">Claim mode</legend>
+            <label className="mt-1 flex items-start gap-2 text-sm text-will-light/80">
+              <input
+                type="radio"
+                name="claim-mode"
+                value="atomic"
+                checked={claimMode === 'atomic'}
+                onChange={() => setClaimMode('atomic')}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-will-purple"
+              />
+              <span>
+                <span className="font-semibold text-will-light">Atomic</span> — one transaction pays every
+                beneficiary; if it fails, nobody is paid.
+              </span>
+            </label>
+            <label className="mt-2 flex items-start gap-2 text-sm text-will-light/80">
+              <input
+                type="radio"
+                name="claim-mode"
+                value="best-effort"
+                checked={claimMode === 'best-effort'}
+                onChange={() => setClaimMode('best-effort')}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-will-purple"
+              />
+              <span>
+                <span className="font-semibold text-will-light">Best effort</span> — each beneficiary is
+                attempted separately; one failure does not block the others.
+              </span>
+            </label>
+          </fieldset>
           <button
             type="button"
             onClick={handleClaim}
@@ -421,6 +493,34 @@ export default function InheritPageClient({ id }: { id: string }) {
           >
             {claiming ? 'Claiming…' : 'Claim Inheritance'}
           </button>
+          {claimEntries.length > 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4" aria-live="polite">
+              <h2 className="text-sm font-semibold text-will-light">Claim status</h2>
+              <ul className="mt-2 space-y-1.5">
+                {claimEntries.map((entry) => (
+                  <li key={entry.address} className="flex items-center justify-between gap-2 text-sm">
+                    <CopyAddress address={entry.address} className="text-will-light/80" />
+                    <span
+                      className={
+                        entry.status === 'claimed'
+                          ? 'text-emerald-300'
+                          : entry.status === 'failed'
+                            ? 'text-red-300'
+                            : 'text-will-light/60'
+                      }
+                      title={entry.error}
+                    >
+                      {entry.status === 'claimed'
+                        ? 'Claimed'
+                        : entry.status === 'failed'
+                          ? `Failed${entry.error ? ` — ${entry.error}` : ''}`
+                          : 'Pending'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-will-light/60">
