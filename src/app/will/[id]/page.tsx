@@ -126,6 +126,8 @@ export default function WillDetailPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [castingVoteId, setCastingVoteId] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
+  // When the current guardian co-sign request was opened (#897); null until a guardian votes.
+  const [coSignRequestedAt, setCoSignRequestedAt] = useState<Date | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [activityHydratedFor, setActivityHydratedFor] = useState<string | null>(null);
   const [exportingCertificate, setExportingCertificate] = useState(false);
@@ -714,6 +716,7 @@ export default function WillDetailPage() {
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
           hasVoted={guardianHasVoted}
+          coSignRequestedAt={coSignRequestedAt}
           onCastVote={() => {
             setCastingVoteId(will.id);
             void runAction(
@@ -724,6 +727,7 @@ export default function WillDetailPage() {
                 if (publicKey) {
                   markGuardianVoted(will.id, publicKey);
                   setHasVoted(true);
+                  setCoSignRequestedAt((current) => current ?? new Date());
                 }
               },
             ).finally(() => setCastingVoteId(null));

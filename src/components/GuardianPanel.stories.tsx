@@ -99,6 +99,27 @@ export const QuorumUnreachable: Story = {
   },
 };
 
+/** Co-sign request open: one signature in, one still pending, deadline tracked. */
+export const CoSignInProgress: Story = {
+  args: {
+    guardians: threeGuardians,
+    guardianVotes: 1,
+    coSignRequestedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+  },
+};
+
+/** Co-sign request timed out before quorum was reached. */
+export const CoSignTimedOut: Story = {
+  args: {
+    guardians: threeGuardians,
+    guardianVotes: 1,
+    isGuardian: true,
+    isActive: true,
+    onCastVote: fn(),
+    coSignRequestedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+  },
+};
+
 /** The owner copies an invite link for each guardian. */
 export const OwnerWithInviteLinks: Story = {
   args: {
