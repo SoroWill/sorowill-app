@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
 
+import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { formatCheckinLabel, formatRelativeTime, parseCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { BeneficiaryListDialog } from './BeneficiaryListDialog';
@@ -12,6 +13,29 @@ import { StatusBanner } from './StatusBanner';
 
 /** Beneficiaries listed on the card before the rest move behind "and N more" (#821). */
 export const MAX_CARD_BENEFICIARIES = 3;
+
+export type GuardianVoteStatus = 'approved' | 'pending' | 'rejected';
+
+const GUARDIAN_VOTE_STATUS_CLASS: Record<GuardianVoteStatus, string> = {
+  approved: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+  pending: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
+  rejected: 'border-red-400/40 bg-red-400/10 text-red-300',
+};
+
+/**
+ * Derives a guardian's vote status for a will (#763). The contract only
+ * exposes an aggregate vote count, so a guardian who has not voted is
+ * "pending" while the will can still be voted on, and "rejected" once the
+ * will is cancelled or released without their vote.
+ */
+export function getGuardianVoteStatus(
+  will: Pick<Will, 'status' | 'guardianVotes'>,
+  hasVoted: boolean,
+): GuardianVoteStatus {
+  if (hasVoted) return 'approved';
+  if (will.status === WillStatus.Cancelled || will.status === WillStatus.Released) return 'rejected';
+  return 'pending';
+}
 
 /**
  * Splits `text` into segments, flagging case-insensitive occurrences of
@@ -68,6 +92,8 @@ export interface WillCardProps {
   onRefresh?: (willId: string) => void | Promise<void>;
   /** External loading flag for the will data refresh. */
   refreshing?: boolean;
+  /** Whether the connected user has already cast their guardian vote for this will (#763). */
+  hasVoted?: boolean;
 }
 
 function WillCardComponent({
@@ -80,6 +106,7 @@ function WillCardComponent({
   searchQuery,
   onRefresh,
   refreshing = false,
+  hasVoted = false,
 }: WillCardProps) {
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -157,6 +184,15 @@ function WillCardComponent({
     }
   }, [showEntitledShare, connectedAddress, will.balance, will.beneficiaries]);
 
+  // Guardian vote status for the connected user (#763).
+  const isGuardian = useMemo(
+    () =>
+      !!connectedAddress &&
+      (will.guardians ?? []).some((g) => g.toLowerCase() === connectedAddress.toLowerCase()),
+    [connectedAddress, will.guardians],
+  );
+  const guardianVotes = Number(will.guardianVotes ?? 0);
+  const voteStatus = isGuardian ? getGuardianVoteStatus(will, hasVoted) : null;
 
   return (
     <article
@@ -190,6 +226,22 @@ function WillCardComponent({
             </>
           ) : null}
         </div>
+
+        {voteStatus ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="Your guardian vote status">
+            <span
+              className={`rounded-full border px-2 py-0.5 font-medium ${GUARDIAN_VOTE_STATUS_CLASS[voteStatus]}`}
+              role="status"
+              data-testid="guardian-vote-status"
+              data-status={voteStatus}
+            >
+              Your vote: {voteStatus}
+            </span>
+            <span className="text-will-light/60">
+              {Math.min(guardianVotes, GUARDIAN_THRESHOLD)}/{GUARDIAN_THRESHOLD} guardian votes
+            </span>
+          </div>
+        ) : null}
 
         {will.beneficiaries?.length ? (
           <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
