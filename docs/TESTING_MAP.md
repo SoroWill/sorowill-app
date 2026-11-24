@@ -17,7 +17,7 @@ This document provides a consolidated map of all test suites, frameworks, and ve
 
 ## Single Test Runner Policy
 
-- **Vitest** is the sole unit test runner (removing fragmented Jest configurations). All unit and component tests are located under `tests/unit/` or alongside source files in `src/`.
+- **Vitest** is the sole unit test runner (removing fragmented Jest configurations). All unit and component tests are located under `tests/unit/` or alongside source files in `src/`. There is no Jest runner: `src/__tests__/` is not a test location, so new tests belong in `tests/unit/` (or next to the source file) where `vitest.config.ts` picks them up.
 - **Playwright** is the sole E2E and visual testing tool, configured to run against the production build server (`npm run start`).
 - **Storybook** stories are validated during CI builds (`npm run build-storybook`).
 - **Reminders** are verified with `npm run test:reminders` (a Vitest run of `src/lib/reminders.test.ts`, also picked up by `npm run test`).
