@@ -50,6 +50,32 @@ not YAML. Shared pieces (the `Error` schema and the `cronBearer` security scheme
 | GET | `/api/reminders/confirm` | Confirm a subscription from the email link |
 | GET, POST | `/api/reminders/unsubscribe` | Unsubscribe from the email link or with one click |
 | GET, POST | `/api/reminders/dispatch` | Send due reminders (needs `CRON_SECRET`) |
+| POST | `/api/oauth/token` | Exchange integration client credentials for an access token |
+| GET | `/api/public/v1/status` | Public API status (needs an OAuth access token) |
+
+## Third-party integrations
+
+Integrations authenticate with the OAuth 2.0 client-credentials grant:
+
+1. Ask a maintainer for a client id and secret. They are configured server-side in
+   `OAUTH_CLIENTS` as comma-separated `clientId:clientSecret` pairs; `OAUTH_TOKEN_SECRET` is the
+   HMAC key for access tokens (when unset, a random per-process key is used and tokens do not
+   survive a restart). Neither value is ever exposed to the browser.
+2. `POST /api/oauth/token` with `grant_type=client_credentials` and the credentials as HTTP Basic
+   auth or as `client_id`/`client_secret` form fields. The response holds `access_token`,
+   `token_type` (`Bearer`) and `expires_in` (3600 seconds).
+3. Send `Authorization: Bearer <access_token>` to the public API. An invalid or expired token
+   answers `401 invalid_token`; request a new one.
+
+Rate limits are fixed windows, per client (per IP for token requests), and every limited response
+carries `Retry-After`:
+
+| Endpoint | Limit |
+|---|---|
+| `POST /api/oauth/token` | 20 requests per hour per IP |
+| `GET /api/public/v1/status` | 120 requests per minute per client |
+
+The public API answers with `X-RateLimit-Limit` and `X-RateLimit-Remaining` headers.
 
 ## Adding a route
 

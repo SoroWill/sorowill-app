@@ -169,5 +169,41 @@ export function getClientIp(request: Request): string {
 }
 
 export function resetRateLimits(): void {
-  windows.clear();
+  buckets.clear();
+}
+
+/**
+ * Fixed-window limiter used by the public integration API (#905).
+ *
+ * Unlike `checkRateLimit` above, the budget is passed in by the caller (so a
+ * plan can set its own quota) and the bucket is keyed by an arbitrary
+ * identifier (an OAuth client id, or an IP for unauthenticated callers).
+ */
+export interface WindowRateLimitResult {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  /** Seconds until the current window resets, for the `Retry-After` header. */
+  retryAfterSeconds: number;
+}
+
+export function checkWindowRateLimit(
+  key: string,
+  max: number,
+  windowMs: number,
+): WindowRateLimitResult {
+  const now = Date.now();
+  let bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + windowMs };
+    buckets.set(key, bucket);
+  }
+
+  bucket.count += 1;
+  return {
+    allowed: bucket.count <= max,
+    limit: max,
+    remaining: Math.max(0, max - bucket.count),
+    retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+  };
 }
