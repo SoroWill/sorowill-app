@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { formatUSDC, toStroops, validateBeneficiaries, type Beneficiary } from '@sorowill/sdk';
@@ -15,6 +15,7 @@ import { formatError, classifyCloneError, type CloneErrorKind } from '@/lib/erro
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { isValidAmount } from '@/lib/amount';
 import { isValidContractAddress } from '@/lib/willId';
 import { invalidateWillsCache } from '@/lib/willsCache';
@@ -176,24 +177,35 @@ export default function NewWillPage() {
     }
   }, [cloneFromId, toast]);
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        setLoadingBalance(true);
-        const publicKey = await safeGetPublicKey();
-        if (publicKey) {
-          const balance = await getUserBalance(publicKey);
-          setWalletBalance(balance);
-        }
-      } catch {
-        setWalletBalance(null);
-      } finally {
-        setLoadingBalance(false);
+  // Fetch the balance on mount and refresh it whenever the tab becomes visible
+  // again, so the displayed balance and the Max button never go stale (#762).
+  const refreshBalance = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setLoadingBalance(true);
+      const publicKey = await safeGetPublicKey();
+      if (!publicKey) {
+        if (!signal?.aborted) setWalletBalance(null);
+        return;
       }
-    };
-
-    void fetchBalance();
+      const balance = await getUserBalance(publicKey, signal);
+      if (signal?.aborted) return;
+      setWalletBalance(balance);
+    } catch {
+      if (!signal?.aborted) setWalletBalance(null);
+    } finally {
+      if (!signal?.aborted) setLoadingBalance(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshBalance(controller.signal);
+    return () => controller.abort();
+  }, [refreshBalance]);
+
+  useRefreshOnVisible(() => {
+    void refreshBalance();
+  });
 
   useEffect(() => {
     if (!ownerAddress || debouncedAmount === '') return;
@@ -837,11 +849,9 @@ export default function NewWillPage() {
                 <label htmlFor="amount" className="text-sm font-medium text-will-light">
                   Amount (USDC)
                 </label>
-                {walletBalance && (
-                  <div className="text-xs text-will-light/60">
-                    Balance: {loadingBalance ? '...' : walletBalance}
-                  </div>
-                )}
+                <div className="text-xs text-will-light/60">
+                  {loadingBalance ? 'Balance: ...' : walletBalance ? `Balance: ${walletBalance}` : 'Balance: unavailable'}
+                </div>
               </div>
               <div className="relative mt-1 flex items-center">
                 <input
@@ -863,10 +873,11 @@ export default function NewWillPage() {
                   aria-describedby={showAmountError ? 'amount-help amount-error' : 'amount-help'}
                   aria-invalid={showAmountError || fieldError?.field === 'amount'}
                 />
-                {walletBalance && (
+                {walletBalance && !loadingBalance && (
                   <button
                     type="button"
                     onClick={setMaxAmount}
+                    aria-label="Use maximum available balance"
                     className="absolute right-2 rounded px-2 py-1 text-xs font-medium text-will-purple hover:bg-white/5"
                   >
                     Max
