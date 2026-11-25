@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { useAddressHistory } from './AddressHistory';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +10,6 @@ import type { Beneficiary } from '@sorowill/sdk';
 
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { formatError } from '@/lib/errors';
-import { AddressSuggestions, SplitSuggestions } from './FormSuggestions';
 
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
@@ -474,7 +475,10 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   return (
     <fieldset className="space-y-3">
       <div className="flex items-center justify-between">
-        <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+        <span className="inline-flex items-center">
+          <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+          <HelpTooltip label={FIELD_HELP.beneficiaries.label} text={FIELD_HELP.beneficiaries.text} docsHref={FIELD_HELP_DOCS} />
+        </span>
         <button
           type="button"
           onClick={applyEqualSplit}
@@ -487,23 +491,6 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       </div>
 
       {history.controls}
-      <SplitSuggestions
-        count={value.length}
-        onApply={(percentages) => onChange(value.map((row, i) => ({ ...row, percentage: percentages[i] ?? 0 })))}
-      />
-      <AddressSuggestions
-        kind="beneficiaries"
-        label="Recent beneficiaries"
-        exclude={value.map((b) => b.address)}
-        onPick={(address) => {
-          const empty = value.findIndex((b) => !b.address.trim());
-          onChange(
-            empty >= 0
-              ? value.map((row, i) => (i === empty ? { ...row, address } : row))
-              : [...value, { address, percentage: 0 }],
-          );
-        }}
-      />
       <div className="space-y-2" role="group" aria-label="Beneficiary list">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';

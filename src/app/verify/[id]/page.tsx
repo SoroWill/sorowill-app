@@ -23,6 +23,7 @@ import { ShareVerification } from '@/components/ShareVerification';
 import { CopyAddress } from '@/components/CopyAddress';
 import { SignatureExpiryNotice } from '@/components/SignatureExpiryNotice';
 import { getSignatureExpiryStatus, parseSignatureInfo } from '@/lib/signatureExpiry';
+import { openShareToken, recordShareAccess } from '@/lib/shareLinks';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   let title = 'Verify Will';
@@ -48,13 +49,32 @@ export default async function VerifyPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ signedAt?: string | string[]; expires?: string | string[] }>;
+  searchParams?: Promise<{ signedAt?: string | string[]; expires?: string | string[]; share?: string | string[] }>;
 }) {
   const { id } = await params;
-  const signature = parseSignatureInfo((await searchParams) ?? {});
+  const query = (await searchParams) ?? {};
+  const signature = parseSignatureInfo(query);
   if (!isValidWillId(id)) {
     notFound();
   }
+
+  // #875: a time-limited share link is refused once expired or tampered with;
+  // a valid one is counted for the creator's access stats.
+  const shareToken = Array.isArray(query.share) ? query.share[0] : query.share;
+  const share = shareToken ? openShareToken(shareToken, id) : null;
+  if (share && !share.ok) {
+    return (
+      <div className="mx-auto max-w-xl space-y-4" data-testid="share-link-refused">
+        <h1 className="text-2xl font-bold text-will-light">Verify Will #{id}</h1>
+        <p role="alert" className="rounded-xl border border-red-400/40 bg-red-500/10 p-4 text-sm text-red-300">
+          {share.reason === 'expired'
+            ? 'This share link has expired. Ask the person who shared it for a new link.'
+            : 'This share link is not valid.'}
+        </p>
+      </div>
+    );
+  }
+  if (share?.ok) recordShareAccess(share.linkId);
 
   let will;
   try {
@@ -79,6 +99,12 @@ export default async function VerifyPage({
           wallet is required to view this page.
         </p>
       </div>
+
+      {share?.ok ? (
+        <p className="print-hide rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-will-light/70" data-testid="share-link-notice">
+          Shared link, valid until {new Date(share.expiresAt).toUTCString()}.
+        </p>
+      ) : null}
 
       {signature ? <SignatureExpiryNotice status={getSignatureExpiryStatus(signature)} willId={will.id} /> : null}
 

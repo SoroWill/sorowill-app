@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -20,8 +22,6 @@ import { isValidContractAddress } from '@/lib/willId';
 import { invalidateWillsCache } from '@/lib/willsCache';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
-import { AddressSuggestions } from '@/components/FormSuggestions';
-import { recordWillFormUsage } from '@/lib/formSuggestions';
 import { validateGuardians } from '@/lib/guardianValidation';
 import { useStableRowIds } from '@/lib/useStableRowIds';
 import {
@@ -632,7 +632,6 @@ export default function NewWillPage() {
         gracePeriodDays,
         guardians: submittedGuardians,
       });
-      recordWillFormUsage({ beneficiaries, guardians: submittedGuardians });
       invalidateWillsCache();
       if (typeof window !== 'undefined') {
         clearDraft(localStorage);
@@ -809,6 +808,7 @@ export default function NewWillPage() {
               <label htmlFor="token-address" className="text-sm font-medium text-will-light">
                 Token contract address
               </label>
+              <HelpTooltip label={FIELD_HELP.tokenAddress.label} text={FIELD_HELP.tokenAddress.text} docsHref={FIELD_HELP_DOCS} />
               <input
                 id="token-address"
                 type="text"
@@ -837,9 +837,12 @@ export default function NewWillPage() {
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="amount" className="text-sm font-medium text-will-light">
-                  Amount (USDC)
-                </label>
+                <span className="inline-flex items-center">
+                  <label htmlFor="amount" className="text-sm font-medium text-will-light">
+                    Amount (USDC)
+                  </label>
+                  <HelpTooltip label={FIELD_HELP.amount.label} text={FIELD_HELP.amount.text} docsHref={FIELD_HELP_DOCS} />
+                </span>
                 {walletBalance && (
                   <div className="text-xs text-will-light/60">
                     Balance: {loadingBalance ? '...' : walletBalance}
@@ -893,6 +896,7 @@ export default function NewWillPage() {
           <fieldset className="space-y-6">
             <div>
               <legend className="text-sm font-medium text-will-light">Check-in period</legend>
+              <HelpTooltip label={FIELD_HELP.checkinPeriod.label} text={FIELD_HELP.checkinPeriod.text} docsHref={FIELD_HELP_DOCS} />
               <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Check-in period options">
                 {CHECKIN_OPTIONS.map((days) => (
                   <button
@@ -963,6 +967,7 @@ export default function NewWillPage() {
             </div>
             <div>
               <legend className="text-sm font-medium text-will-light">Grace period</legend>
+              <HelpTooltip label={FIELD_HELP.gracePeriod.label} text={FIELD_HELP.gracePeriod.text} docsHref={FIELD_HELP_DOCS} />
               <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Grace period options">
                 {GRACE_OPTIONS.map((days) => (
                   <button
@@ -1052,18 +1057,6 @@ export default function NewWillPage() {
 
         {step === 3 ? (
           <>
-            <AddressSuggestions
-              kind="guardians"
-              label="Recent guardians"
-              exclude={guardians}
-              onPick={(address) =>
-                setGuardians((prev) => {
-                  const empty = prev.findIndex((g) => !g.trim());
-                  if (empty >= 0) return prev.map((g, i) => (i === empty ? address : g));
-                  return prev.length < MAX_GUARDIANS ? [...prev, address] : prev;
-                })
-              }
-            />
             <GuardianForm
               guardians={guardians}
               guardianIds={stableGuardianIds}
