@@ -36,6 +36,17 @@ const WillCalendar = dynamic(() => import('@/components/WillCalendar').then((mod
 const WILLS_PAGE_SIZE = 20;
 
 type Tab = 'owned' | 'inheriting' | 'guardianship';
+
+/** localStorage key tracking whether `guardian` has already voted on `willId` (#763). */
+function guardianVoteStorageKey(willId: string, guardian: string): string {
+  return `sorowill-guardian-voted-${willId}-${guardian}`;
+}
+
+/** Whether `guardian` has already cast their release vote for `willId` in this browser. */
+function hasGuardianVoted(willId: string, guardian: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(guardianVoteStorageKey(willId, guardian)) === 'true';
+}
 type StatusFilter = 'all' | WillStatus;
 
 const STATUS_FILTERS: StatusFilter[] = [
@@ -856,6 +867,12 @@ function DashboardPageOld() {
               toast.error('Total top-up amount exceeds your available balance.');
               return;
             }
+            if (batchTopUp.invalidWillIds.length > 0) {
+              toast.error(
+                `Fix ${batchTopUp.invalidWillIds.length} invalid amount${batchTopUp.invalidWillIds.length === 1 ? '' : 's'} before submitting — no top-ups were sent.`,
+              );
+              return;
+            }
             void batchTopUp.submit(async () => {
               if (publicKey) await loadWills(publicKey);
             });
@@ -930,6 +947,9 @@ function DashboardPageOld() {
                     connectedAddress={publicKey}
                     showEntitledShare={tab === 'inheriting'}
                     searchQuery={search}
+                    hasVoted={
+                      tab === 'guardianship' && publicKey ? hasGuardianVoted(will.id, publicKey) : false
+                    }
                   />
                 </div>
               </div>

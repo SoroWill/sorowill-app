@@ -10,6 +10,7 @@ import type { Beneficiary } from '@sorowill/sdk';
 
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { formatError } from '@/lib/errors';
+import { getWhitelistError, useBeneficiaryWhitelist } from '@/lib/beneficiaryWhitelist';
 
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
@@ -117,6 +118,7 @@ export function hasDuplicateBeneficiaryAddresses(beneficiaries: Beneficiary[]): 
 function getAddressErrors(
   beneficiaries: Beneficiary[],
   addressType: BeneficiaryAddressType = 'account',
+  whitelist: readonly string[] = [],
 ): Record<number, string> {
   const errors: Record<number, string> = {};
   beneficiaries.forEach((b, i) => {
@@ -131,6 +133,10 @@ function getAddressErrors(
       errors[i] =
         getAddressTypeMismatchError(b.address, addressType) ??
         (suggestion ? `Invalid Stellar address — did you mean ${suggestion}?` : 'Invalid Stellar address');
+    } else if (b.address) {
+      // Only whitelisted addresses may be added as beneficiaries (#892).
+      const whitelistError = getWhitelistError(b.address, whitelist);
+      if (whitelistError) errors[i] = whitelistError;
     }
   });
   return errors;
@@ -705,6 +711,8 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
           + Add Beneficiary
         </button>
       </div>
+
+      <BeneficiaryWhitelistPanel whitelist={whitelist} />
 
       <button
         type="button"
