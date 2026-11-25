@@ -434,6 +434,14 @@ function DashboardPageOld() {
     }
   }, [publicKey, loadWills, toast]);
 
+  // Role-based access control: the roles this wallet holds across its wills.
+  const roles = useMemo(
+    () => getRolesForAddress(publicKey, [...ownedWills, ...inheritingWills, ...guardianWills]),
+    [publicKey, ownedWills, inheritingWills, guardianWills],
+  );
+  const canCreateWill = hasPermission(roles, 'will:create');
+  const canCheckIn = hasPermission(roles, 'will:check-in');
+
   const baseList = useMemo(
     () => (tab === 'owned' ? ownedWills : tab === 'inheriting' ? inheritingWills : guardianWills),
     [guardianWills, inheritingWills, ownedWills, tab],
@@ -770,12 +778,14 @@ function DashboardPageOld() {
             )}
             {isRefreshing ? 'Refreshing…' : '↻ Refresh'}
           </button>
-          <Link
-            href="/will/new"
-            className="rounded-full bg-will-purple px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-will-purple/90"
-          >
-            + New Will
-          </Link>
+          {canCreateWill && (
+            <Link
+              href="/will/new"
+              className="rounded-full bg-will-purple px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-will-purple/90"
+            >
+              + New Will
+            </Link>
+          )}
         </div>
       </div>
 
@@ -1013,7 +1023,7 @@ function DashboardPageOld() {
                 <div className="flex-1">
                   <WillCard
                     will={will}
-                    onCheckIn={tab === 'owned' ? handleCheckIn : undefined}
+                    onCheckIn={tab === 'owned' && canCheckIn ? handleCheckIn : undefined}
                     checkingIn={checkingInId === will.id}
                     actionsDisabled={isRefreshing}
                     connectedAddress={publicKey}
