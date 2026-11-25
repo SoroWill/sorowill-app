@@ -11,7 +11,8 @@ import {
   safeGetPublicKey,
   truncateAddress,
 } from '@/lib/freighter';
-import { getNetwork, getSoroWillClient } from '@/lib/sorowill';
+import { getNetwork } from '@/lib/network';
+import { getSoroWillClient } from '@/lib/sorowill';
 import { GUARDIAN_THRESHOLD, MAX_GUARDIANS } from '@/lib/constants';
 import { formatError, classifyCloneError, type CloneErrorKind } from '@/lib/errors';
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
@@ -20,6 +21,19 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { isValidAmount } from '@/lib/amount';
 import { isValidContractAddress } from '@/lib/willId';
 import { invalidateWillsCache } from '@/lib/willsCache';
+import {
+  WILL_FORM_FIELD_INPUT_ID,
+  WILL_FORM_FIELD_LABEL,
+  WILL_FORM_FIELD_STEP,
+  classifyWillFormError,
+  type WillFormField,
+} from '@/lib/willFormErrors';
+import {
+  firstIncompleteStepBefore,
+  getStepProblems,
+  type WillStepData,
+} from '@/lib/willStepValidation';
+import { hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';

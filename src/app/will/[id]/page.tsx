@@ -27,6 +27,8 @@ import { DestructiveActionConfirmation } from '@/components/DestructiveActionCon
 import { StatusBanner } from '@/components/StatusBanner';
 import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
+import { WillPasswordGate } from '@/components/WillPasswordGate';
+import { WillPasswordPanel } from '@/components/WillPasswordPanel';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
 import { invalidateWillsCache } from '@/lib/willsCache';
@@ -390,6 +392,7 @@ export default function WillDetailPage() {
   const beneficiaryMap = new Map(will.beneficiaries.map((b) => [b.address, b.percentage]));
 
   return (
+    <WillPasswordGate willId={will.id}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3 print-section">
         <div>
@@ -744,6 +747,8 @@ export default function WillDetailPage() {
         />
       </div>
 
+      {isOwner ? <WillPasswordPanel willId={will.id} /> : null}
+
       <div className="print-hide rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light">Recent activity</h2>
         {activity.length === 0 ? (
@@ -771,5 +776,6 @@ export default function WillDetailPage() {
         )}
       </div>
     </div>
+    </WillPasswordGate>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { validateGuardians } from '@/lib/validation';
+import { validateGuardians } from '@/lib/guardianValidation';
 import { accountExists } from '@/lib/balance';
 
 interface Guardian {
@@ -32,9 +32,10 @@ export default function InheritPage() {
       return;
     }
 
-    const validation = validateGuardians([trimmed]);
-    if (!validation.valid) {
-      setValidationError(validation.error ?? t('invalidGuardianAddress'));
+    const validation = validateGuardians([trimmed], null);
+    const problem = validation.topError ?? validation.rowErrors[0];
+    if (problem) {
+      setValidationError(problem || t('invalidGuardianAddress'));
       setAccountStatus('unknown');
       return;
     }
@@ -93,7 +94,15 @@ export default function InheritPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">{t('title')}</h1>
+      <h1 className="mb-2 text-2xl font-bold">{t('title')}</h1>
+
+      <p className="mb-6 text-sm text-gray-600">
+        Named as a beneficiary and not sure which wills you are in?{' '}
+        <Link href="/inherit/lookup" className="font-medium text-blue-600 hover:underline">
+          Look up wills by your address
+        </Link>
+        .
+      </p>
 
       <section className="mb-8">
         <h2 className="mb-4 text-lg font-semibold">{t('guardiansTitle')}</h2>

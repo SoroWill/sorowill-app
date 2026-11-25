@@ -44,7 +44,8 @@ function describeRemaining(
   hours: number,
   minutes: number,
 ): string {
-  if (overdue) return overdueText;
+  // Sentence-case the translated label for a consistent accessible name.
+  if (overdue) return overdueText.charAt(0).toUpperCase() + overdueText.slice(1);
   return `${plural(days, 'day')} ${plural(hours, 'hour')} ${plural(minutes, 'minute')} remaining`;
 }
 

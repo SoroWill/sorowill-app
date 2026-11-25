@@ -103,94 +103,51 @@ export function getNetworkMismatchMessage(
 
   return `Your Freighter wallet is connected to the ${normalizedConnected} network, but SoroWill requires the ${normalizedExpected} network. Please switch your Freighter wallet to the ${normalizedExpected} network to continue.`;
 }
-```
 
-```typescript
-// src/lib/validation.test.ts
-import { describe, it, expect, vi } from "vitest";
-import {
-  getNetworkMismatch,
-  isTransactionBlockedByNetworkMismatch,
-  getNetworkMismatchMessage,
-} from "@/lib/validation";
+export interface DetectedNetworkMismatch {
+  /** The network the app is configured for (e.g. `testnet`). */
+  appNetwork: string;
+  /** The network the wallet reported. */
+  walletNetwork: string;
+}
 
-vi.mock("@/lib/freighter", () => ({
-  normalizeWalletNetwork: (network: string | null | undefined) => {
-    if (!network) return null;
-    return network;
-  },
-}));
+/**
+ * Compares the app's configured network with the one the wallet reports, for
+ * the mismatch banner. Returns `null` when the wallet network is unknown (so a
+ * disconnected wallet does not raise a banner) or when they agree.
+ *
+ * `appNetwork` accepts both the app's own values (`testnet`/`mainnet`) and the
+ * canonical names (`TESTNET`/`PUBLIC`).
+ */
+/**
+ * Canonicalises a network name for comparison. Unknown names are returned
+ * uppercased rather than discarded, so the banner can still name a wallet on a
+ * network this app does not know about (e.g. `FUTURENET`).
+ */
+function canonicalNetwork(network: string): string {
+  switch (network.trim().toUpperCase()) {
+    case "PUBLIC":
+    case "MAINNET":
+    case "PUBLIC_NETWORK":
+      return "PUBLIC";
+    case "TESTNET":
+    case "TEST_NETWORK":
+      return "TESTNET";
+    default:
+      return network.trim().toUpperCase();
+  }
+}
 
-describe("getNetworkMismatch", () => {
-  it("reports no mismatch when networks match", () => {
-    const result = getNetworkMismatch("TESTNET", "TESTNET");
-    expect(result.mismatched).toBe(false);
-    expect(result.connectedNetwork).toBe("TESTNET");
-    expect(result.expectedNetwork).toBe("TESTNET");
-  });
+export function detectNetworkMismatch(
+  appNetwork: string,
+  walletNetwork: string | null | undefined,
+): DetectedNetworkMismatch | null {
+  const rawWallet = (walletNetwork ?? "").trim();
+  if (!rawWallet) return null;
 
-  it("normalizes aliases before comparing", () => {
-    const result = getNetworkMismatch("MAINNET", "PUBLIC");
-    expect(result.mismatched).toBe(false);
-    expect(result.connectedNetwork).toBe("PUBLIC");
-  });
+  const app = canonicalNetwork(appNetwork ?? "");
+  const wallet = canonicalNetwork(rawWallet);
 
-  it("reports a mismatch when networks differ", () => {
-    const result = getNetworkMismatch("PUBLIC", "TESTNET");
-    expect(result.mismatched).toBe(true);
-    expect(result.connectedNetwork).toBe("PUBLIC");
-    expect(result.expectedNetwork).toBe("TESTNET");
-  });
-
-  it("reports a mismatch when the wallet network is null", () => {
-    const result = getNetworkMismatch(null, "TESTNET");
-    expect(result.mismatched).toBe(true);
-    expect(result.connectedNetwork).toBeNull();
-  });
-
-  it("reports a mismatch when the wallet network is undefined", () => {
-    const result = getNetworkMismatch(undefined, "TESTNET");
-    expect(result.mismatched).toBe(true);
-    expect(result.connectedNetwork).toBeNull();
-  });
-
-  it("reports a mismatch when the wallet network is unknown", () => {
-    const result = getNetworkMismatch("SOMETHING_ELSE", "TESTNET");
-    expect(result.mismatched).toBe(true);
-    expect(result.connectedNetwork).toBeNull();
-  });
-});
-
-describe("isTransactionBlockedByNetworkMismatch", () => {
-  it("returns false when networks match", () => {
-    expect(isTransactionBlockedByNetworkMismatch("TESTNET", "TESTNET")).toBe(false);
-  });
-
-  it("returns true when networks differ", () => {
-    expect(isTransactionBlockedByNetworkMismatch("PUBLIC", "TESTNET")).toBe(true);
-  });
-
-  it("returns true when the wallet network is missing", () => {
-    expect(isTransactionBlockedByNetworkMismatch(null, "TESTNET")).toBe(true);
-    expect(isTransactionBlockedByNetworkMismatch(undefined, "TESTNET")).toBe(true);
-  });
-});
-
-describe("getNetworkMismatchMessage", () => {
-  it("returns an empty string when networks match", () => {
-    expect(getNetworkMismatchMessage("TESTNET", "TESTNET")).toBe("");
-  });
-
-  it("suggests switching networks when mismatched", () => {
-    const message = getNetworkMismatchMessage("PUBLIC", "TESTNET");
-    expect(message).toContain("PUBLIC");
-    expect(message).toContain("TESTNET");
-    expect(message.toLowerCase()).toContain("switch");
-  });
-
-  it("asks the user to connect when no network is detected", () => {
-    const message = getNetworkMismatchMessage(null, "TESTNET");
-    expect(message.toLowerCase()).toContain("connect");
-    expect(message).toContain("TESTNET");
-  });
-});
+  if (!app || app === wallet) return null;
+  return { appNetwork, walletNetwork: rawWallet };
+}
