@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMounted } from '@/lib/useMounted';
 import { useToast } from '@/components/Toast';
 import { QR_DISPLAY_SCALE, verificationQrOptions } from '@/lib/qrOptions';
+import { TimeLimitedShareLink } from '@/components/TimeLimitedShareLink';
 
 /** `sorowill-verify-<id>.png` from a verification page URL such as `/verify/12`; falls back to a plain name. */
 export function qrFileName(pageUrl: string): string {
@@ -152,6 +153,8 @@ export function ShareVerification() {
           Download QR
         </button>
       </div>
+
+      {url ? <TimeLimitedShareLink pageUrl={url} /> : null}
     </div>
   );
 }
