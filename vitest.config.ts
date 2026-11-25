@@ -16,14 +16,9 @@ export default defineConfig({
     globals: true,
     css: false,
     include: ['tests/unit/**/*.{test,spec}.{ts,tsx}', 'src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: [
-      'tests/e2e/**',
-      // Standalone script run via `npm run test:reminders` (tsx, not
-      // vitest) -- it uses its own console-based assertions, not
-      // describe/it, so vitest's `src/**/*.test.ts` pattern picking it up
-      // fails with "No test suite found in file".
-      'src/lib/reminders.test.ts',
-    ],
+    // Only Playwright specs are excluded: they need a running browser and are
+    // executed by `npm run test:e2e` / `npm run test:a11y`, not by vitest.
+    exclude: ['tests/e2e/**'],
     // `npm run test:coverage` (#835). It needs the v8 provider: `npm i -D @vitest/coverage-v8`.
     // Coverage is measured over the code that unit tests can reach: libraries, hooks, components,
     // i18n and the API routes. Page files are covered by the end-to-end tests instead.
@@ -31,7 +26,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text-summary', 'lcov'],
       include: ['src/lib/**', 'src/hooks/**', 'src/components/**', 'src/i18n/**', 'src/app/api/**'],
-      exclude: ['**/*.stories.tsx', '**/*.test.{ts,tsx}', 'src/lib/reminders.test.ts'],
+      exclude: ['**/*.stories.tsx', '**/*.test.{ts,tsx}'],
       thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
     },
   },

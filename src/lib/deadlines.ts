@@ -111,6 +111,59 @@ export function graceDeadline(will: Will): Date | null {
   return addDays(will.triggerTime, will.gracePeriodDays);
 }
 
+/**
+ * Expiration warning thresholds, in days before the check-in deadline. The
+ * warning system fires one alert per threshold, from the widest to the
+ * narrowest, so a user who opens the app late still sees the most urgent one.
+ */
+export const EXPIRATION_WARNING_DAYS = [30, 7, 1] as const;
+
+export type ExpirationWarningLevel = (typeof EXPIRATION_WARNING_DAYS)[number];
+
+/** How an expiration warning reaches the user. */
+export type ExpirationAlertMethod = 'in-app' | 'email' | 'push';
+
+export const EXPIRATION_ALERT_METHODS: readonly ExpirationAlertMethod[] = [
+  'in-app',
+  'email',
+  'push',
+];
+
+export interface ExpirationWarning {
+  /** Days before the deadline this warning belongs to (30, 7 or 1). */
+  level: ExpirationWarningLevel;
+  /** Whole days left until the deadline, floored at 0. */
+  daysRemaining: number;
+  /** The check-in deadline the warning refers to. */
+  deadline: Date;
+  /** Channels the warning should be delivered through. */
+  methods: readonly ExpirationAlertMethod[];
+}
+
+/**
+ * Returns the most urgent expiration warning that applies right now, or null
+ * when the deadline is further than 30 days away or already passed.
+ *
+ * `daysRemaining` is floored so "1 day before" means the final 24 hours, and
+ * the narrowest matching threshold wins (1 day over 7 days over 30 days).
+ * `methods` defaults to every supported channel; callers that know the user's
+ * preferences pass the enabled subset.
+ */
+export function getExpirationWarning(
+  deadline: Date,
+  now: number = serverNow(),
+  methods: readonly ExpirationAlertMethod[] = EXPIRATION_ALERT_METHODS,
+): ExpirationWarning | null {
+  const msRemaining = deadline.getTime() - now;
+  if (msRemaining <= 0) {
+    return null;
+  }
+
+  const daysRemaining = Math.floor(msRemaining / MS_PER_DAY);
+  const level = EXPIRATION_WARNING_DAYS.find((threshold) => daysRemaining < threshold);
+  return level === undefined ? null : { level, daysRemaining, deadline, methods };
+}
+
 export enum WillErrorCode {
   NotFound = 'NOT_FOUND',
   Network = 'NETWORK_ERROR',

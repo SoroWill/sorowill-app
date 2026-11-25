@@ -1,8 +1,9 @@
 'use client';
 
-import { Fragment, useCallback, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { currentWillDeepLink, willAppUrl } from '@/lib/deepLink';
 
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
@@ -11,8 +12,12 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { HeaderContextArea } from '@/components/HeaderContextArea';
 import { TestnetBanner } from '@/components/TestnetBanner';
+import { getBranding } from '@/lib/branding';
 
 const RTL_LOCALES = ['ar', 'he'];
+
+// Read once per module: NEXT_PUBLIC_* values are inlined at build time.
+const branding = getBranding();
 
 function resolveDirection(): 'rtl' | 'ltr' {
   if (typeof document === 'undefined') return 'ltr';
@@ -25,9 +30,15 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const t = useTranslations('common');
 
+  // Header/wallet controls call this when the session changes; bumping the
+  // counter re-renders the layout so children see the new wallet state.
+  const [, setSessionVersion] = useState(0);
+  const refreshWalletState = useCallback(() => setSessionVersion((version) => version + 1), []);
+
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
   const isContactActive = pathname === '/contact' || pathname.startsWith('/contact/');
+  const willDeepLink = currentWillDeepLink(pathname);
 
   useEffect(() => {
     const dir = resolveDirection();
@@ -40,8 +51,8 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-10 border-b border-white/10 bg-will-dark/80 backdrop-blur dark:bg-will-dark/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-will-light">
-            <Image src="/logo.svg" alt="SoroWill Logo" width={24} height={24} className="h-6 w-6 shrink-0" priority />
-            Soro<span className="text-will-purple">Will</span>
+            <Image src={branding.logoUrl} alt={`${branding.name} logo`} width={24} height={24} className="h-6 w-6 shrink-0" priority />
+            <span>{branding.name}</span>
           </Link>
           <div className="flex items-center gap-6">
           <nav aria-label={t('primaryNav')} className="hidden items-center gap-6 text-sm text-will-light/70 sm:flex">
@@ -75,10 +86,22 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <TestnetBanner />
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        {willDeepLink && (
+          <p className="mb-4 text-sm text-will-light/70">
+            <a
+              href={willAppUrl(willDeepLink.id)}
+              className="text-will-purple underline-offset-2 hover:underline"
+            >
+              {t('openInApp')}
+            </a>
+          </p>
+        )}
+        {children}
+      </main>
       <footer className="border-t border-white/10 bg-will-dark/80 dark:bg-will-dark/80">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-will-light/70 sm:flex-row sm:px-6">
-          <p>&copy; {new Date().getFullYear()} SoroWill. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} {branding.name}. All rights reserved.</p>
           <nav className="flex items-center gap-6">
             <Link
               href="/contact"
