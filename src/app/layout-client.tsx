@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { currentWillDeepLink, willAppUrl } from '@/lib/deepLink';
 
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
@@ -37,6 +38,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   const isCreateWillActive = pathname === '/will/new' || pathname.startsWith('/will/new/');
   const isContactActive = pathname === '/contact' || pathname.startsWith('/contact/');
+  const willDeepLink = currentWillDeepLink(pathname);
 
   useEffect(() => {
     const dir = resolveDirection();
@@ -84,7 +86,19 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <TestnetBanner />
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        {willDeepLink && (
+          <p className="mb-4 text-sm text-will-light/70">
+            <a
+              href={willAppUrl(willDeepLink.id)}
+              className="text-will-purple underline-offset-2 hover:underline"
+            >
+              {t('openInApp')}
+            </a>
+          </p>
+        )}
+        {children}
+      </main>
       <footer className="border-t border-white/10 bg-will-dark/80 dark:bg-will-dark/80">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-will-light/70 sm:flex-row sm:px-6">
           <p>&copy; {new Date().getFullYear()} {branding.name}. All rights reserved.</p>

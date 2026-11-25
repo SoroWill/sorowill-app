@@ -17,7 +17,7 @@ import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError, formatLoadError } from '@/lib/errors';
 import { fetchWithCsrf } from '@/lib/csrfClient';
-import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
+import { nextCheckinDeadline, graceDeadline, getExpirationWarning } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { WillVersionHistory } from '@/components/WillVersionHistory';
@@ -25,6 +25,7 @@ import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
+import { ExpirationWarningBanner } from '@/components/ExpirationWarningBanner';
 import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { WillPasswordGate } from '@/components/WillPasswordGate';
@@ -131,6 +132,8 @@ export default function WillDetailPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [castingVoteId, setCastingVoteId] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
+  // When the current guardian co-sign request was opened (#897); null until a guardian votes.
+  const [coSignRequestedAt, setCoSignRequestedAt] = useState<Date | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [activityHydratedFor, setActivityHydratedFor] = useState<string | null>(null);
   const [exportingCertificate, setExportingCertificate] = useState(false);
@@ -389,6 +392,8 @@ export default function WillDetailPage() {
 
   const checkinDeadline = nextCheckinDeadline(will);
   const checkinOverdue = will.status === WillStatus.Active && serverNow() >= checkinDeadline.getTime();
+  const expirationWarning =
+    will.status === WillStatus.Active ? getExpirationWarning(checkinDeadline) : null;
 
   const grace = graceDeadline(will);
   const graceExpired = will.status === WillStatus.Triggered && grace !== null && serverNow() >= grace.getTime();
@@ -444,6 +449,8 @@ export default function WillDetailPage() {
       </div>
 
       <StatusBanner status={will.status} />
+
+      {expirationWarning ? <ExpirationWarningBanner warning={expirationWarning} /> : null}
 
       {error ? (
         <div className="flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 p-4 print-hide">
@@ -831,6 +838,7 @@ export default function WillDetailPage() {
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
           hasVoted={guardianHasVoted}
+          coSignRequestedAt={coSignRequestedAt}
           onCastVote={() => {
             setCastingVoteId(will.id);
             void runAction(
@@ -841,6 +849,7 @@ export default function WillDetailPage() {
                 if (publicKey) {
                   markGuardianVoted(will.id, publicKey);
                   setHasVoted(true);
+                  setCoSignRequestedAt((current) => current ?? new Date());
                 }
               },
             ).finally(() => setCastingVoteId(null));

@@ -52,6 +52,12 @@ export function Footer() {
         <span className="text-white/20" aria-hidden="true">
           •
         </span>
+        <Link href="/help" className="hover:text-will-light">
+          {t('help')}
+        </Link>
+        <span className="text-white/20" aria-hidden="true">
+          •
+        </span>
         <span>{t('mitLicense')}</span>
       </nav>
     </footer>
