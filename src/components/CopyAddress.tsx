@@ -62,7 +62,7 @@ export function CopyAddress({ address, label, className = '' }: CopyAddressProps
       <button
         type="button"
         onClick={handleCopy}
-        aria-label={copied ? t('copied') : t('copyAddress', { address })}
+        aria-label={copied ? t('copied') : t('copyToClipboard')}
         title={copied ? t('copied') : t('copyToClipboard')}
         className={`rounded transition focus:outline-none focus-visible:ring-1 focus-visible:ring-will-purple ${
           copied ? 'bg-emerald-500/15 text-emerald-400' : 'text-will-light/40 hover:text-will-light/80'

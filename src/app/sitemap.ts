@@ -18,6 +18,7 @@ const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/', changeFrequency: 'daily', priority: 1.0 },
   { path: '/dashboard', changeFrequency: 'daily', priority: 0.8 },
   { path: '/will/new', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/inherit/lookup', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/stats', changeFrequency: 'daily', priority: 0.6 },
   { path: '/faq', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/changelog', changeFrequency: 'weekly', priority: 0.5 },

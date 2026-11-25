@@ -3,12 +3,35 @@ import { formatUSDC } from '@sorowill/sdk';
 
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import type { BatchTopUpResult } from '@/hooks/useBatchTopUp';
+import { batchProgress, formatEta, type BatchOperationStatus } from '@/lib/batchProgress';
+
+const STATUS_LABELS: Record<BatchOperationStatus, string> = {
+  pending: 'Waiting',
+  running: 'Submitting…',
+  success: '✓ Success',
+  error: '',
+  cancelled: 'Cancelled',
+};
+
+const STATUS_CLASSES: Record<BatchOperationStatus, string> = {
+  pending: 'text-will-light/50',
+  running: 'text-amber-300',
+  success: 'text-emerald-400',
+  error: 'text-red-400',
+  cancelled: 'text-will-light/50',
+};
 
 interface BatchTopUpPanelProps {
   amounts: Record<string, string>;
   exceedsBalance: boolean;
   invalidWillIds: string[];
   isSubmitting: boolean;
+  /** Stops the batch before its next operation (#883). */
+  onCancel?: () => void;
+  /** When the current batch started, for the time estimate (#883). */
+  startedAt?: number | null;
+  /** Current time, injectable for tests. */
+  now?: number;
   onAmountChange: (willId: string, amount: string) => void;
   onSubmit: () => void;
   results: Record<string, BatchTopUpResult>;
@@ -25,13 +48,22 @@ export function BatchTopUpPanel({
   invalidWillIds,
   isSubmitting,
   onAmountChange,
+  onCancel,
   onSubmit,
   results,
   selectedWillIds,
+  startedAt = null,
+  now,
   total,
   walletBalance,
   wills,
 }: BatchTopUpPanelProps) {
+  const statuses = selectedWillIds
+    .map((id) => results[id]?.status)
+    .filter((status): status is BatchOperationStatus => Boolean(status));
+  const progress = statuses.length > 0 ? batchProgress(statuses, startedAt, now) : null;
+  const eta = isSubmitting && progress ? formatEta(progress.etaMs) : '';
+
   return (
     <form
       onSubmit={(event) => {
@@ -44,6 +76,25 @@ export function BatchTopUpPanel({
         Batch Top-up ({selectedWillIds.length} will{selectedWillIds.length === 1 ? '' : 's'} selected)
       </h3>
       <p className="text-xs text-will-light/60">Specify the top-up amount for each selected will.</p>
+
+      {progress ? (
+        <div className="space-y-1" data-testid="batch-progress">
+          <div
+            role="progressbar"
+            aria-label="Batch top-up progress"
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.completed}
+            className="h-2 w-full overflow-hidden rounded-full bg-white/10"
+          >
+            <div className="h-full bg-will-purple transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <p className="text-xs text-will-light/70" aria-live="polite">
+            {progress.completed} of {progress.total} done ({progress.percent}%)
+            {eta ? ` · ${eta} remaining` : ''}
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         {selectedWillIds.map((willId) => {
@@ -72,8 +123,8 @@ export function BatchTopUpPanel({
                   <span className="text-xs text-will-light/70">USDC</span>
                 </div>
                 {result && (
-                  <span className={`text-xs font-medium ${result.status === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {result.status === 'success' ? '✓ Success' : `✗ ${result.message}`}
+                  <span className={`text-xs font-medium ${STATUS_CLASSES[result.status]}`} data-status={result.status}>
+                    {result.status === 'error' ? `✗ ${result.message}` : STATUS_LABELS[result.status]}
                   </span>
                 )}
               </div>
@@ -88,6 +139,16 @@ export function BatchTopUpPanel({
           {exceedsBalance && <span className="block text-xs font-normal text-red-400">Total exceeds your available balance ({walletBalance} USDC).</span>}
           {invalidWillIds.length > 0 && <span className="block text-xs font-normal text-red-400">Enter a valid amount for every selected will (no scientific notation).</span>}
         </span>
+        {isSubmitting && onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40"
+            title="Stops before the next top-up; a top-up already submitted cannot be recalled"
+          >
+            Cancel remaining
+          </button>
+        ) : null}
         <button type="submit" disabled={isSubmitting || invalidWillIds.length > 0 || exceedsBalance} className="rounded-full bg-will-purple px-5 py-2 text-sm font-semibold text-white transition hover:bg-will-purple/90 disabled:opacity-60">
           {isSubmitting ? 'Submitting Batch…' : 'Submit Batch Top-up'}
         </button>

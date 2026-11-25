@@ -31,11 +31,11 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
+    "copiedToast": "Dirección copiada al portapapeles",
     "copyAddress": "Copiar {address}",
     "refresh": "Actualizar",
     "refreshing": "Actualizando…",
-    "lastRefreshed": "Última actualización: {time}",
-    "neverRefreshed": "Aún no actualizado"
+    "lastRefreshed": "Última actualización: {time}"
   },
   "landing": {
     "heroTitle": "Protege tu herencia criptográfica",
@@ -166,22 +166,17 @@
   },
   "verify": {
     "accountBalance": "Saldo de la cuenta",
-    "balanceLoading": "Cargando saldo…",
-    "balanceError": "No se pudo cargar el saldo de la cuenta.",
     "requiredAmount": "Monto requerido: {amount} USDC",
     "lowBalanceWarning": "Tu saldo es bajo. Necesitas al menos {amount} USDC para completar esta operación.",
-    "insufficientBalance": "Saldo insuficiente para completar esta operación.",
-    "fundAccount": "Fondear cuenta",
-    "fundAccountDescription": "Añade fondos a tu cuenta Stellar para continuar."
+    "fundAccount": "Fondear cuenta"
   },
   "inherit": {
-    "guardianAccountCheck": "Verificando cuenta del tutor…",
-    "guardianAccountExists": "La cuenta del tutor está financiada y lista.",
-    "guardianAccountNotFound": "Esta cuenta aún no existe en la red Stellar.",
+    "guardianAccountMissing": "La cuenta del tutor {address} todavía no existe en la red.",
     "guardianAccountNotFunded": "La cuenta del tutor no está financiada. Debe tener al menos {amount} XLM para activarse.",
     "guardianSetupInstructions": "Pídele al tutor que fondee su cuenta con al menos {amount} XLM. Puede usar el Friendbot en testnet o transferir XLM desde un exchange o monedero existente.",
     "fundWithFriendbot": "Fondear con Friendbot",
-    "guardianAccountCheckError": "No se pudo verificar la cuenta del tutor. Inténtalo de nuevo."
+    "guardianSetupInstructions": "Pide al tutor que cree y financie su cuenta de Stellar antes de continuar.",
+    "fundWithFriendbot": "Financiar con Friendbot"
   },
   "faq": {
     "title": "Cómo funciona y Preguntas Frecuentes",

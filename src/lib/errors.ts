@@ -329,17 +329,72 @@ export interface ApiErrorBody {
 }
 
 /**
+ * Older route handlers name error categories in SCREAMING_CASE. They are kept
+ * as aliases so every endpoint can keep calling `apiError` without rewriting
+ * its call sites, while responses always carry the canonical `ApiErrorCode`.
+ */
+export const ErrorCodes = {
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INVALID_TOKEN: 'INVALID_TOKEN',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  NOT_FOUND: 'NOT_FOUND',
+  RATE_LIMITED: 'RATE_LIMITED',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type LegacyErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+
+const LEGACY_ERROR_CODES: Readonly<Record<LegacyErrorCode, ApiErrorCode>> = {
+  VALIDATION_ERROR: 'validation',
+  INVALID_TOKEN: 'validation',
+  UNAUTHORIZED: 'unauthorized',
+  NOT_FOUND: 'not_found',
+  RATE_LIMITED: 'rate_limited',
+  INTERNAL_ERROR: 'server_error',
+};
+
+/** Alias used by reminder routes, which pass a code constant. */
+export const ErrorCode = ErrorCodes;
+
+export type ErrorCodeInput = ApiErrorCode | LegacyErrorCode;
+
+function resolveErrorCode(code: ErrorCodeInput): ApiErrorCode {
+  return code in LEGACY_ERROR_CODES
+    ? LEGACY_ERROR_CODES[code as LegacyErrorCode]
+    : (code as ApiErrorCode);
+}
+
+export interface ApiErrorOptions {
+  status?: number;
+  headers?: Record<string, string>;
+}
+
+/**
  * Builds a standardized API error response.
  *
- * @param code    Machine-readable error category.
+ * @param code    Machine-readable error category (canonical or legacy alias).
  * @param message Human-readable, user-safe message.
- * @param status  Optional explicit HTTP status; defaults to the canonical
- *                status for `code` from `API_ERROR_STATUS`.
+ * @param options Optional HTTP status and extra headers; the status defaults
+ *                to the canonical status for `code`.
  */
 export function apiError(
-  code: ApiErrorCode,
+  code: ErrorCodeInput,
   message: string,
-  status: number = API_ERROR_STATUS[code],
+  options: number | ApiErrorOptions = {},
 ): NextResponse<ApiErrorBody> {
-  return NextResponse.json<ApiErrorBody>({ error: { code, message } }, { status });
+  const canonical = resolveErrorCode(code);
+  const { status, headers } = typeof options === 'number' ? { status: options, headers: undefined } : options;
+  return NextResponse.json<ApiErrorBody>(
+    { error: { code: canonical, message } },
+    { status: status ?? API_ERROR_STATUS[canonical], ...(headers ? { headers } : {}) },
+  );
+}
+
+/** Compat alias for the reminder routes' `errorResponse(code, message, status)` form. */
+export function errorResponse(
+  code: ErrorCodeInput,
+  message: string,
+  status?: number,
+): NextResponse<ApiErrorBody> {
+  return apiError(code, message, status);
 }
