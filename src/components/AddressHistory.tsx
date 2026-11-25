@@ -42,10 +42,10 @@ export function useAddressHistory(scope: string, isValid: (address: string) => b
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-will-light/80">
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={history !== null} onChange={(event) => save(event.target.checked ? [] : null)} />
-          Remember addresses in this tab
+          Remember Addresses in This Tab
         </label>
         {!!history?.length && (
-          <button type="button" className="underline" onClick={() => save([])}>Clear address history</button>
+          <button type="button" className="underline" onClick={() => save([])}>Clear Address History</button>
         )}
         <datalist id={id}>
           {history?.filter(isValid).map((address) => <option key={address} value={address} />)}

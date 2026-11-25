@@ -13,6 +13,12 @@ interface ProtocolStats {
   completedInheritances: number;
 }
 
+/** Formats a check-in timestamp for display, or a placeholder when there is none. */
+function formatTimestamp(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'No check-ins yet';
+  return new Date(value).toLocaleString();
+}
+
 interface UserInsights {
   willCount: number;
   totalBalance: string;
