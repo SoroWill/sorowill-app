@@ -20,6 +20,7 @@ import { fetchWithCsrf } from '@/lib/csrfClient';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
+import { WillVersionHistory } from '@/components/WillVersionHistory';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
@@ -635,6 +636,17 @@ export default function WillDetailPage() {
           </div>
         </form>
       ) : null}
+
+      <div className="print-hide">
+        <WillVersionHistory
+          will={will}
+          canRevert={isOwner && will.status === WillStatus.Active}
+          onRevert={(beneficiaries) => {
+            setDraftBeneficiaries(beneficiaries.map((b) => ({ ...b })));
+            setShowEditBeneficiaries(true);
+          }}
+        />
+      </div>
 
       {showEditBeneficiaries ? (
         <div className="print-hide space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
