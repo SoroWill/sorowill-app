@@ -5,9 +5,10 @@ import { rejectUnsupportedContentType } from '@/lib/contentType';
 import { apiError, ErrorCode } from '@/lib/errors';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { registerReminderSubscription } from '@/lib/reminders';
-import { validateRegisterFields } from '@/lib/serverValidation';
+import { isValidWillId } from '@/lib/willId';
 import { getSoroWillClient } from '@/lib/sorowill';
 import { withCorrelationId } from '@/lib/correlation';
+import { rotateCsrfToken, verifyCsrf } from '@/lib/csrf';
 
 /**
  * @openapi POST
@@ -268,6 +269,11 @@ async function handlePOST(request: Request) {
 
     if (!willId || !email || !owner || !signature || !message) {
       return apiError(ErrorCode.VALIDATION_ERROR, 'Missing required fields');
+    }
+
+    // Reject malformed ids before any signature or chain work.
+    if (!isValidWillId(willId)) {
+      return apiError(ErrorCode.VALIDATION_ERROR, 'Invalid will ID');
     }
 
     if (!isValidEmail(email)) {

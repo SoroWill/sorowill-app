@@ -10,6 +10,11 @@ import { getSafeBalance } from '@/lib/tokenDecimals';
 import { BeneficiaryListDialog } from './BeneficiaryListDialog';
 import { StatusBanner } from './StatusBanner';
 
+/** Reads the creation timestamp from a will, when the SDK provides one. */
+function createdAtOf(will: Will): Date | null {
+  return parseCreatedAt((will as Will & { createdAt?: unknown }).createdAt);
+}
+
 /** Beneficiaries listed on the card before the rest move behind "and N more" (#821). */
 export const MAX_CARD_BENEFICIARIES = 3;
 
@@ -127,7 +132,7 @@ function WillCardComponent({
     (b, index) => index < MAX_CARD_BENEFICIARIES || (needle !== '' && b.address.toLowerCase().includes(needle)),
   ).length;
   const hiddenBeneficiaries = (will.beneficiaries?.length ?? 0) - shownBeneficiaryCount;
-  const createdAt = useMemo(() => parseCreatedAt(will), [will]);
+  const createdAt = useMemo(() => createdAtOf(will), [will]);
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
 
@@ -249,7 +254,7 @@ function WillCardComponent({
                   and {hiddenBeneficiaries} more
                 </button>
               </li>
-            ) : null}
+            ))}
           </ul>
         ) : null}
 
@@ -366,7 +371,7 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
       a.checkinPeriodDays === b.checkinPeriodDays &&
       a.lastCheckin?.getTime() === b.lastCheckin?.getTime() &&
       a.triggerTime?.getTime() === b.triggerTime?.getTime() &&
-      parseCreatedAt(a)?.getTime() === parseCreatedAt(b)?.getTime() &&
+      createdAtOf(a)?.getTime() === createdAtOf(b)?.getTime() &&
       sameBeneficiaries(a.beneficiaries, b.beneficiaries));
 
   return (

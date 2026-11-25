@@ -25,6 +25,7 @@ import { CountdownTimer } from '@/components/CountdownTimer';
 
 // Only shown in multi-select mode, so it is loaded when first needed rather than with the page.
 const BatchTopUpPanel = dynamic(() => import('@/components/BatchTopUpPanel').then((mod) => mod.BatchTopUpPanel));
+const WillCalendar = dynamic(() => import('@/components/WillCalendar').then((mod) => mod.WillCalendar));
 
 // TODO(#5): Add an activity feed (check-ins, top-ups, guardian votes) once
 // @sorowill/sdk exposes an event subscription/query API — SoroWillClient
@@ -94,6 +95,7 @@ function DashboardPageOld() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [checkedWallet, setCheckedWallet] = useState(false);
   const [tab, setTab] = useState<Tab>('owned');
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Restore the last selected tab after mount (avoids an SSR hydration mismatch).
   useEffect(() => {
@@ -612,6 +614,16 @@ function DashboardPageOld() {
           {tab === 'owned' && ownedWills.length > 0 && (
             <button
               type="button"
+              onClick={() => setShowCalendar((current) => !current)}
+              aria-pressed={showCalendar}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            >
+              {showCalendar ? 'Hide Calendar' : 'Calendar'}
+            </button>
+          )}
+          {tab === 'owned' && ownedWills.length > 0 && (
+            <button
+              type="button"
               onClick={handleExportCSV}
               className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
             >
@@ -793,6 +805,8 @@ function DashboardPageOld() {
         </div>
       ) : null}
 
+      {tab === 'owned' && showCalendar && ownedWills.length > 0 && <WillCalendar wills={ownedWills} />}
+
       {tab === 'owned' && batchTopUp.isMultiSelectMode && batchTopUp.selectedWillIds.length > 0 && (
         <BatchTopUpPanel
           amounts={batchTopUp.amounts}
@@ -800,6 +814,8 @@ function DashboardPageOld() {
           invalidWillIds={batchTopUp.invalidWillIds}
           isSubmitting={batchTopUp.isSubmitting}
           onAmountChange={batchTopUp.setAmount}
+          onCancel={batchTopUp.cancel}
+          startedAt={batchTopUp.startedAt}
           onSubmit={() => {
             if (batchTopUp.exceedsBalance) {
               toast.error('Total top-up amount exceeds your available balance.');

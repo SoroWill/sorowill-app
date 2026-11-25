@@ -32,11 +32,11 @@ function withHeader(response: Response, correlationId: string): Response {
  * outcome with it, adds it to the response headers, and turns an uncaught error into a 500 that
  * also carries the id. The wrapper has the same call signature as the handler.
  */
-export function withCorrelationId<Args extends [request?: Request, ...rest: never[]]>(
+export function withCorrelationId<Args extends [Request, ...unknown[]]>(
   handler: (...args: Args) => Response | Promise<Response>,
 ): (...args: Args) => Promise<Response> {
   return async (...args: Args) => {
-    const request = args[0];
+    const [request] = args;
     const correlationId = getCorrelationId(request);
     const method = request?.method ?? 'GET';
     const path = request?.url ? new URL(request.url).pathname : 'unknown';
