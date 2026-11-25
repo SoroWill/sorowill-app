@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { useAddressHistory } from './AddressHistory';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -496,7 +498,10 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   return (
     <fieldset className="space-y-3">
       <div className="flex items-center justify-between">
-        <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+        <span className="inline-flex items-center">
+          <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+          <HelpTooltip label={FIELD_HELP.beneficiaries.label} text={FIELD_HELP.beneficiaries.text} docsHref={FIELD_HELP_DOCS} />
+        </span>
         <button
           type="button"
           onClick={applyEqualSplit}
