@@ -308,6 +308,43 @@ export async function acquireLock(): Promise<string> {
 // Store read / write
 // ---------------------------------------------------------------------------
 
+/**
+ * Fields of a reminder subscription that are encrypted at rest (#911): the
+ * subscriber's email address and the single-use confirmation/unsubscribe
+ * tokens. The store key is a hash of the email so lookups still work.
+ */
+const SENSITIVE_SUBSCRIPTION_FIELDS = [
+  'email',
+  'confirmationToken',
+  'unsubscribeToken',
+] as const;
+
+const SENSITIVE_HISTORY_FIELDS = ['email'] as const;
+
+function encryptStore(store: ReminderStore): ReminderStore {
+  const subscriptions: Record<string, ReminderSubscription> = {};
+  for (const [key, subscription] of Object.entries(store.subscriptions)) {
+    subscriptions[key] = encryptFields(subscription, SENSITIVE_SUBSCRIPTION_FIELDS);
+  }
+  const history: Record<string, ReminderHistoryEntry> = {};
+  for (const [key, entry] of Object.entries(store.history)) {
+    history[key] = encryptFields(entry, SENSITIVE_HISTORY_FIELDS);
+  }
+  return { subscriptions, history };
+}
+
+function decryptStore(store: ReminderStore): ReminderStore {
+  const subscriptions: Record<string, ReminderSubscription> = {};
+  for (const [key, subscription] of Object.entries(store.subscriptions)) {
+    subscriptions[key] = decryptFields(subscription, SENSITIVE_SUBSCRIPTION_FIELDS);
+  }
+  const history: Record<string, ReminderHistoryEntry> = {};
+  for (const [key, entry] of Object.entries(store.history)) {
+    history[key] = decryptFields(entry, SENSITIVE_HISTORY_FIELDS);
+  }
+  return { subscriptions, history };
+}
+
 async function readStore(): Promise<ReminderStore> {
   const { url, token, storeKey } = kvConfig();
   const response = await fetch(`${url}/get/${encodeURIComponent(storeKey)}`, {
@@ -322,7 +359,7 @@ async function readStore(): Promise<ReminderStore> {
     return { subscriptions: {}, history: {}, notifications: {} };
   }
   const parsed = JSON.parse(payload.result) as Partial<ReminderStore>;
-  return {
+  return decryptStore({
     subscriptions: parsed.subscriptions ?? {},
     history: parsed.history ?? {},
     notifications: parsed.notifications ?? {},
@@ -337,7 +374,7 @@ async function writeStore(store: ReminderStore): Promise<void> {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'text/plain',
     },
-    body: JSON.stringify(store),
+    body: JSON.stringify(encryptStore(store)),
   });
   if (!response.ok) {
     throw new Error(`Failed to write reminder store: ${response.status}`);

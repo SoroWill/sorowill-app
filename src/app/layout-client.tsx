@@ -85,6 +85,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      <PhishingWarningBanner />
       <TestnetBanner />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {willDeepLink && (
