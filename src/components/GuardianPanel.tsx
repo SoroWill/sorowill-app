@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { getCheckinStatus, type CheckinTone } from '@/lib/checkinStatus';
+import { describeCoSignPhase, getCoSignState, type CoSignerStatus } from '@/lib/guardianCoSign';
 import { CopyAddress } from './CopyAddress';
 import { useToast } from './Toast';
 
@@ -19,7 +20,21 @@ export interface GuardianPanelProps {
   lastCheckin?: Date | null;
   /** Check-in period in days, used for the next check-in date and the overdue colour. */
   checkinPeriodDays?: number;
+  /** When the guardian co-sign request was opened; drives the co-sign timeout (#897). */
+  coSignRequestedAt?: Date | null;
 }
+
+const COSIGN_STATUS_LABEL: Record<CoSignerStatus, string> = {
+  signed: 'Signed',
+  pending: 'Awaiting signature',
+  expired: 'Timed out',
+};
+
+const COSIGN_STATUS_CLASS: Record<CoSignerStatus, string> = {
+  signed: 'text-emerald-400',
+  pending: 'text-amber-400',
+  expired: 'text-red-400',
+};
 
 const CHECKIN_TONE_CLASS: Record<CheckinTone, string> = {
   ok: 'text-emerald-400',
@@ -40,6 +55,7 @@ export function GuardianPanel({
   error,
   lastCheckin,
   checkinPeriodDays,
+  coSignRequestedAt,
 }: GuardianPanelProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const toast = useToast();
@@ -72,6 +88,8 @@ export function GuardianPanel({
   };
 
   const hasEnoughGuardians = guardians.length >= GUARDIAN_THRESHOLD;
+  const coSign = getCoSignState(guardians, guardianVotes, coSignRequestedAt ?? null);
+  const coSignStatusByAddress = new Map(coSign.signers.map((signer) => [signer.address, signer.status]));
   const checkin =
     lastCheckin && checkinPeriodDays !== undefined ? getCheckinStatus(lastCheckin, checkinPeriodDays) : null;
 
@@ -127,25 +145,45 @@ export function GuardianPanel({
         {guardians.map((guardian, index) => (
           <li key={guardian} className="flex items-center justify-between font-mono text-sm text-will-light/80">
             <CopyAddress address={guardian} />
-            {isOwner && willId ? (
-              <button
-                type="button"
-                onClick={() => handleCopy(index)}
-                className="text-xs text-will-purple hover:underline"
-                aria-label={`Copy invite link for guardian ${index + 1}`}
+            <span className="flex items-center gap-3">
+              <span
+                className={`font-sans text-xs ${COSIGN_STATUS_CLASS[coSignStatusByAddress.get(guardian) ?? 'pending']}`}
+                data-testid={`guardian-cosign-status-${index}`}
               >
-                {copiedIndex === index ? 'Copied!' : 'Copy invite link'}
-              </button>
-            ) : null}
+                {COSIGN_STATUS_LABEL[coSignStatusByAddress.get(guardian) ?? 'pending']}
+              </span>
+              {isOwner && willId ? (
+                <button
+                  type="button"
+                  onClick={() => handleCopy(index)}
+                  className="font-sans text-xs text-will-purple hover:underline"
+                  aria-label={`Copy invite link for guardian ${index + 1}`}
+                >
+                  {copiedIndex === index ? 'Copied!' : 'Copy invite link'}
+                </button>
+              ) : null}
+            </span>
           </li>
         ))}
       </ul>
+      <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3" aria-label="Guardian co-sign workflow">
+        <p className="text-xs text-will-light/70" role="status" data-testid="cosign-phase" data-phase={coSign.phase}>
+          {describeCoSignPhase(coSign)}
+        </p>
+        {coSign.deadline && coSign.phase === 'collecting' ? (
+          <p className={`mt-1 text-xs ${coSign.dueSoon ? 'text-amber-400' : 'text-will-light/50'}`}>
+            Co-signatures close{' '}
+            <time dateTime={coSign.deadline.toISOString()}>{coSign.deadline.toLocaleString()}</time>
+            {coSign.dueSoon ? ' (expiring soon)' : null}
+          </p>
+        ) : null}
+      </div>
       {isGuardian && isActive ? (
         <div className="mt-3">
           <button
             type="button"
             onClick={onCastVote}
-            disabled={isCastingVote || hasVoted}
+            disabled={isCastingVote || hasVoted || coSign.timedOut}
             className="rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60"
           >
             {hasVoted ? "You've already voted" : isCastingVote ? 'Casting vote…' : 'Cast guardian vote'}

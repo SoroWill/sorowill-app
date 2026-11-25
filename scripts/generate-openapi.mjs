@@ -110,6 +110,17 @@ export function buildSpec() {
           scheme: 'bearer',
           description: 'The value of the CRON_SECRET environment variable.',
         },
+        oauth2: {
+          type: 'oauth2',
+          description:
+            'Client-credentials token from POST /api/oauth/token, sent as `Authorization: Bearer <access_token>`.',
+          flows: {
+            clientCredentials: {
+              tokenUrl: '/api/oauth/token',
+              scopes: {},
+            },
+          },
+        },
       },
     },
   };

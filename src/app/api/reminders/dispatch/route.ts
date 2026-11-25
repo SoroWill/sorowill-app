@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { dispatchDueReminders } from '@/lib/reminders/dispatch';
 import { apiError } from '@/lib/errors';
+import { withCorrelationId } from '@/lib/correlation';
 
 export const dynamic = 'force-dynamic';
 

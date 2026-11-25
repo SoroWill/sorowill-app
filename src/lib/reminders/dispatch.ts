@@ -1,11 +1,20 @@
 import type { ReminderStore, ReminderDispatchResult } from '@/lib/reminders';
-import { getReminderKind, acquireLock, releaseLock, parseReminderStore } from '@/lib/reminders';
+import { getReminderKind, acquireLock, releaseLock } from '@/lib/reminders';
+import { decryptFields, encryptFields } from '@/lib/encryption';
 import { nextCheckinDeadline } from '@/lib/deadlines';
 import { getSoroWillClient } from '@/lib/sorowill';
 
 const BATCH_SIZE = 10;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Subscription/history fields encrypted at rest (#911). */
+const SENSITIVE_SUBSCRIPTION_FIELDS = [
+  'email',
+  'confirmationToken',
+  'unsubscribeToken',
+] as const;
+const SENSITIVE_HISTORY_FIELDS = ['email'] as const;
 
 function isValidEmail(email: string | undefined | null): boolean {
   if (!email || typeof email !== 'string') {
@@ -38,10 +47,15 @@ async function readStoreFromKv(): Promise<ReminderStore> {
   }
 
   const parsed = JSON.parse(payload.result) as Partial<ReminderStore>;
-  return {
-    subscriptions: parsed.subscriptions ?? {},
-    history: parsed.history ?? {},
-  };
+  const subscriptions: ReminderStore['subscriptions'] = {};
+  for (const [key, subscription] of Object.entries(parsed.subscriptions ?? {})) {
+    subscriptions[key] = decryptFields(subscription, SENSITIVE_SUBSCRIPTION_FIELDS);
+  }
+  const history: ReminderStore['history'] = {};
+  for (const [key, entry] of Object.entries(parsed.history ?? {})) {
+    history[key] = decryptFields(entry, SENSITIVE_HISTORY_FIELDS);
+  }
+  return { subscriptions, history };
 }
 
 async function writeStoreToKv(store: ReminderStore): Promise<void> {
@@ -53,13 +67,22 @@ async function writeStoreToKv(store: ReminderStore): Promise<void> {
     throw new Error('KV configuration missing');
   }
 
+  const subscriptions: ReminderStore['subscriptions'] = {};
+  for (const [key, subscription] of Object.entries(store.subscriptions)) {
+    subscriptions[key] = encryptFields(subscription, SENSITIVE_SUBSCRIPTION_FIELDS);
+  }
+  const history: ReminderStore['history'] = {};
+  for (const [key, entry] of Object.entries(store.history)) {
+    history[key] = encryptFields(entry, SENSITIVE_HISTORY_FIELDS);
+  }
+
   const response = await fetch(`${url}/set/${encodeURIComponent(storeKey)}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'text/plain',
     },
-    body: JSON.stringify(store),
+    body: JSON.stringify({ subscriptions, history }),
   });
 
   if (!response.ok) {
