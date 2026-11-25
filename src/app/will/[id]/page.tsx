@@ -32,6 +32,8 @@ import { WillPasswordPanel } from '@/components/WillPasswordPanel';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
 import { invalidateWillsCache } from '@/lib/willsCache';
+import { estimateFee, type FeeOperation } from '@/lib/fees';
+import { FeeEstimate } from '@/components/FeeEstimate';
 
 interface ActivityEntry {
   action: string;
@@ -134,6 +136,7 @@ export default function WillDetailPage() {
   const [exportingCertificate, setExportingCertificate] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingAction, setPendingAction] = useState<FeeOperation | null>(null);
 
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
@@ -273,6 +276,7 @@ export default function WillDetailPage() {
     onSuccess?: () => void,
   ) {
     setBusyAction(name);
+    setPendingAction(null);
     setError(null);
     try {
       const { txHash } = await fn();
@@ -289,6 +293,7 @@ export default function WillDetailPage() {
       toast.error(message);
     } finally {
       setBusyAction(null);
+      setPendingAction(null);
     }
   }
 
@@ -474,7 +479,7 @@ export default function WillDetailPage() {
         {isOwner && will.status === WillStatus.Active ? (
           <button
             type="button"
-            onClick={() => runAction('check_in', () => client.checkIn(will.id))}
+            onClick={() => setPendingAction('check_in')}
             disabled={busyAction !== null}
             className="w-full rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60 sm:w-auto"
           >
@@ -482,10 +487,34 @@ export default function WillDetailPage() {
           </button>
         ) : null}
 
+        {isOwner && will.status === WillStatus.Active && pendingAction === 'check_in' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Check in" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('check_in', () => client.checkIn(will.id))}
+                disabled={busyAction !== null}
+                className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60"
+              >
+                Confirm Check In
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {isOwner && will.status === WillStatus.Triggered && !graceExpired ? (
           <button
             type="button"
-            onClick={() => runAction('emergency_checkin', () => client.emergencyCheckIn(will.id))}
+            onClick={() => setPendingAction('emergency_check_in')}
             disabled={busyAction !== null}
             className="w-full rounded-full bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500/90 disabled:opacity-60 sm:w-auto"
           >
@@ -493,10 +522,34 @@ export default function WillDetailPage() {
           </button>
         ) : null}
 
+        {isOwner && will.status === WillStatus.Triggered && !graceExpired && pendingAction === 'emergency_check_in' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Emergency check in" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('emergency_checkin', () => client.emergencyCheckIn(will.id))}
+                disabled={busyAction !== null}
+                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500/90 disabled:opacity-60"
+              >
+                Confirm Emergency Check In
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {!isOwner && checkinOverdue ? (
             <button
               type="button"
-              onClick={() => runAction('trigger_will', () => client.triggerWill(will.id))}
+              onClick={() => setPendingAction('trigger_will')}
               disabled={busyAction !== null || !publicKey}
               title={!publicKey ? 'Connect your wallet first' : undefined}
               className="w-full rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60 sm:w-auto"
@@ -505,16 +558,64 @@ export default function WillDetailPage() {
             </button>
           ) : null}
 
+        {!isOwner && checkinOverdue && pendingAction === 'trigger_will' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Trigger will" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('trigger_will', () => client.triggerWill(will.id))}
+                disabled={busyAction !== null || !publicKey}
+                className="rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60"
+              >
+                Confirm Trigger
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {graceExpired ? (
           <button
             type="button"
-            onClick={() => runAction('release_inheritance', () => client.releaseInheritance(will.id))}
+            onClick={() => setPendingAction('release_inheritance')}
             disabled={busyAction !== null || !publicKey}
             title={!publicKey ? 'Connect your wallet first' : undefined}
             className="w-full rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60 sm:w-auto"
           >
             {busyAction === 'release_inheritance' ? 'Releasing…' : 'Release Inheritance'}
           </button>
+        ) : null}
+
+        {graceExpired && pendingAction === 'release_inheritance' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Release inheritance" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('release_inheritance', () => client.releaseInheritance(will.id))}
+                disabled={busyAction !== null || !publicKey}
+                className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60"
+              >
+                Confirm Release
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {isOwner && will.status === WillStatus.Active ? (
@@ -637,6 +738,7 @@ export default function WillDetailPage() {
               Confirm
             </button>
           </div>
+          <FeeEstimate fee={estimateFee(1)} label="Top up" className="mt-3" />
         </form>
       ) : null}
 

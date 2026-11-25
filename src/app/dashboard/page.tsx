@@ -20,6 +20,14 @@ import { useBatchTopUp } from '@/hooks/useBatchTopUp';
 import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts';
 import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { getCachedWills, isWillsCacheFresh, setCachedWills } from '@/lib/willsCache';
+import {
+  activityLogFileName,
+  downloadActivityLog,
+  exportActivityLogToCSV,
+  exportActivityLogToJSON,
+  getActivityLogForUser,
+  logActivity,
+} from '@/lib/activityLog';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { RateLimitStatusBadge } from '@/components/RateLimitStatusBadge';
@@ -248,6 +256,11 @@ function DashboardPageOld() {
         guardian: guardian.wills,
         guardianHasErrors: guardian.hasErrors,
       });
+      logActivity('wills-loaded', owner, 'Loaded wills from the network', {
+        owned: owned.length,
+        inheriting: inheriting.length,
+        guardian: guardian.wills.length,
+      });
     } catch (err) {
       if (signal.aborted) {
         return;
@@ -310,6 +323,11 @@ function DashboardPageOld() {
       if (!silent) {
         channelRef.current?.postMessage({ type: 'wills-changed' });
         toast.success('Data refreshed');
+        logActivity('wills-refreshed', publicKey, 'Refreshed wills from the network', {
+          owned: owned.length,
+          inheriting: inheriting.length,
+          guardian: guardian.wills.length,
+        });
       }
     } catch (err) {
       console.error('[Dashboard] Failed to refresh wills:', err);
@@ -348,6 +366,9 @@ function DashboardPageOld() {
       }
       setPublicKey(key);
       setCheckedWallet(true);
+      if (key) {
+        logActivity('wallet-connected', key, 'Wallet connected to the dashboard');
+      }
       // If no wallet is connected there is nothing to load — stop the spinner.
       if (!key) {
         setLoading(false);
@@ -387,6 +408,7 @@ function DashboardPageOld() {
       }
       channelRef.current?.postMessage({ type: 'wills-changed' });
       toast.success('Check-in successful');
+      logActivity('check-in', publicKey, `Checked in to will #${willId}`, { willId });
     } catch (err) {
       const kind = classifyCheckInError(err);
       console.error(`[Dashboard] Check-in failed (${kind}):`, err);
@@ -443,10 +465,14 @@ function DashboardPageOld() {
       link.download = `sorowill-wills-${new Date().toISOString().slice(0, 10)}.csv`;
       link.click();
       URL.revokeObjectURL(url);
+      logActivity('will-exported', publicKey, 'Exported wills as CSV', {
+        format: 'csv',
+        count: activeList.length,
+      });
     } catch (error) {
       toast.error(`CSV export failed: ${formatError(error)}`);
     }
-  }, [activeList, toast]);
+  }, [activeList, publicKey, toast]);
 
   const handleExportJSON = useCallback(() => {
     try {
@@ -458,10 +484,37 @@ function DashboardPageOld() {
       link.download = exportFileName('json');
       link.click();
       URL.revokeObjectURL(url);
+      logActivity('will-exported', publicKey, 'Exported wills as JSON', {
+        format: 'json',
+        count: activeList.length,
+      });
     } catch (error) {
       toast.error(`JSON export failed: ${formatError(error)}`);
     }
-  }, [activeList, toast]);
+  }, [activeList, publicKey, toast]);
+
+  // #894: download this wallet's activity log as JSON or CSV.
+  const handleDownloadActivityLog = useCallback(
+    (format: 'csv' | 'json') => {
+      try {
+        const entries = getActivityLogForUser(publicKey);
+        const content =
+          format === 'csv' ? exportActivityLogToCSV(entries) : exportActivityLogToJSON(entries);
+        downloadActivityLog(
+          content,
+          activityLogFileName(format),
+          format === 'csv' ? 'text/csv' : 'application/json',
+        );
+        logActivity('activity-log-downloaded', publicKey, `Downloaded the activity log as ${format.toUpperCase()}`, {
+          format,
+          count: entries.length,
+        });
+      } catch (error) {
+        toast.error(`Activity log download failed: ${formatError(error)}`);
+      }
+    },
+    [publicKey, toast],
+  );
 
   const handleExportPDF = useCallback(() => {
     if (activeList.length === 0) return;
@@ -551,6 +604,9 @@ function DashboardPageOld() {
   };
   return (
     <div className="space-y-6">
+      {/* #896: Network status, gas price trend and transaction speed */}
+      <NetworkStatusMonitor />
+
       {/* Top Guardian Alert */}
       {activeGuardianWills.length > 0 && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-300 text-sm flex justify-between items-center">
@@ -682,6 +738,22 @@ function DashboardPageOld() {
               Export PDF ({activeList.length})
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => handleDownloadActivityLog('json')}
+            className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            title="Download your activity log as JSON"
+          >
+            Activity log (JSON)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDownloadActivityLog('csv')}
+            className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            title="Download your activity log as CSV"
+          >
+            Activity log (CSV)
+          </button>
           <button
             type="button"
             onClick={handleManualRefresh}
