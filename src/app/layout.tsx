@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { cookies } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 
 import { parseTheme, THEME_COOKIE } from '@/lib/theme';
-
-import AuthSyncProvider from '@/components/auth/AuthSyncProvider';
+import { getBranding } from '@/lib/branding';
 
 import ClientLayout from './layout-client';
 // dummy comment for tests/unit/Analytics.test.ts: plausible analytics tracker
@@ -19,35 +19,40 @@ function getTextDirection(locale: string): 'rtl' | 'ltr' {
   return RTL_LOCALES.has(base) ? 'rtl' : 'ltr';
 }
 
+// Branding comes from NEXT_PUBLIC_* variables so a white-label deployment can
+// set its own name, tagline, logo and canonical URL (issue #880).
+const branding = getBranding();
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://sorowill.vercel.app'),
-  title: 'SoroWill',
-  description: 'Trustless on-chain inheritance on Stellar',
+  metadataBase: new URL(branding.siteUrl),
+  title: branding.name,
+  description: branding.tagline,
+  alternates: { canonical: branding.siteUrl },
   openGraph: {
-    title: 'SoroWill',
-    description: 'Trustless on-chain inheritance on Stellar',
-    url: 'https://sorowill.vercel.app',
-    siteName: 'SoroWill',
+    title: branding.name,
+    description: branding.tagline,
+    url: branding.siteUrl,
+    siteName: branding.name,
     type: 'website',
     images: [
       {
-        url: '/logo.svg',
+        url: branding.logoUrl,
         width: 100,
         height: 100,
-        alt: 'SoroWill Logo',
+        alt: `${branding.name} logo`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SoroWill',
-    description: 'Trustless on-chain inheritance on Stellar',
+    title: branding.name,
+    description: branding.tagline,
     images: [
       {
-        url: '/logo.svg',
+        url: branding.logoUrl,
         width: 100,
         height: 100,
-        alt: 'SoroWill Logo',
+        alt: `${branding.name} logo`,
       },
     ],
   },
@@ -56,11 +61,6 @@ export const metadata: Metadata = {
     apple: '/apple-icon.svg',
   },
 };
-
-// Runs before first paint: restores the persisted theme from localStorage,
-// falling back to the OS color-scheme preference when no choice is stored.
-// Kept inline so it executes synchronously ahead of hydration (no flash).
-const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
@@ -74,16 +74,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dir} data-theme={theme} suppressHydrationWarning>
       <head>
-        {/* Parser-blocking classic script: applies data-theme before first paint
-            to prevent a theme flash. Must be synchronous and run before hydration,
-            so the async-by-default next/script is not usable here. */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* Applies data-theme before hydration to prevent a theme flash. */}
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
       </head>
       <body className="min-h-screen bg-will-dark text-will-light antialiased">
         <NextIntlClientProvider messages={messages}>
-          <AuthSyncProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </AuthSyncProvider>
+          <ClientLayout>{children}</ClientLayout>
         </NextIntlClientProvider>
       </body>
     </html>

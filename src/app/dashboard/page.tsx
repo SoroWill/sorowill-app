@@ -12,7 +12,7 @@ import { getSoroWillClient, getWillsByGuardian } from '@/lib/sorowill';
 import { formatError, formatLoadError, classifyCheckInError, formatCheckInError, isWillStatusChangedError } from '@/lib/errors';
 import { withTimeout } from '@/lib/timeout';
 import { getUserBalance } from '@/lib/balance';
-import { exportFileName, exportWillsToCSV, exportWillsToJSON } from '@/lib/willExport';
+import { exportFileName, exportWillsToCSV, exportWillsToJSON, exportWillToPdf } from '@/lib/willExport';
 import { loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
@@ -30,10 +30,11 @@ import {
 } from '@/lib/activityLog';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
-import { NetworkStatusMonitor } from '@/components/NetworkStatusMonitor';
+import { RateLimitStatusBadge } from '@/components/RateLimitStatusBadge';
 
 // Only shown in multi-select mode, so it is loaded when first needed rather than with the page.
 const BatchTopUpPanel = dynamic(() => import('@/components/BatchTopUpPanel').then((mod) => mod.BatchTopUpPanel));
+const WillCalendar = dynamic(() => import('@/components/WillCalendar').then((mod) => mod.WillCalendar));
 
 // TODO(#5): Add an activity feed (check-ins, top-ups, guardian votes) once
 // @sorowill/sdk exposes an event subscription/query API — SoroWillClient
@@ -43,6 +44,17 @@ const BatchTopUpPanel = dynamic(() => import('@/components/BatchTopUpPanel').the
 const WILLS_PAGE_SIZE = 20;
 
 type Tab = 'owned' | 'inheriting' | 'guardianship';
+
+/** localStorage key tracking whether `guardian` has already voted on `willId` (#763). */
+function guardianVoteStorageKey(willId: string, guardian: string): string {
+  return `sorowill-guardian-voted-${willId}-${guardian}`;
+}
+
+/** Whether `guardian` has already cast their release vote for `willId` in this browser. */
+function hasGuardianVoted(willId: string, guardian: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(guardianVoteStorageKey(willId, guardian)) === 'true';
+}
 type StatusFilter = 'all' | WillStatus;
 
 const STATUS_FILTERS: StatusFilter[] = [
@@ -103,6 +115,7 @@ function DashboardPageOld() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [checkedWallet, setCheckedWallet] = useState(false);
   const [tab, setTab] = useState<Tab>('owned');
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Restore the last selected tab after mount (avoids an SSR hydration mismatch).
   useEffect(() => {
@@ -503,6 +516,28 @@ function DashboardPageOld() {
     [publicKey, toast],
   );
 
+  const handleExportPDF = useCallback(() => {
+    if (activeList.length === 0) return;
+    try {
+      // Export each will as an individual signed PDF package (JSON envelope).
+      activeList.forEach((will) => {
+        const pkg = exportWillToPdf(will);
+        const blob = new Blob([JSON.stringify(pkg, null, 2)], {
+          type: 'application/json;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `sorowill-${will.id}-signed.pdf.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+      toast.success(`PDF export complete (${activeList.length} will${activeList.length === 1 ? '' : 's'})`);
+    } catch (error) {
+      toast.error(`PDF export failed: ${formatError(error)}`);
+    }
+  }, [activeList, toast]);
+
   const isFiltering = search.trim() !== '' || statusFilter !== 'all';
 
   // #785: expiration countdown for the soonest-expiring active owned will.
@@ -669,6 +704,16 @@ function DashboardPageOld() {
           {tab === 'owned' && ownedWills.length > 0 && (
             <button
               type="button"
+              onClick={() => setShowCalendar((current) => !current)}
+              aria-pressed={showCalendar}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            >
+              {showCalendar ? 'Hide Calendar' : 'Calendar'}
+            </button>
+          )}
+          {tab === 'owned' && ownedWills.length > 0 && (
+            <button
+              type="button"
               onClick={handleExportCSV}
               className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
             >
@@ -682,6 +727,15 @@ function DashboardPageOld() {
               className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
             >
               Export JSON ({activeList.length})
+            </button>
+          )}
+          {tab === 'owned' && ownedWills.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+            >
+              Export PDF ({activeList.length})
             </button>
           )}
           <button
@@ -725,16 +779,19 @@ function DashboardPageOld() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-will-light/60">
-        <span>Last updated {formatTimeAgo(lastFetchTime)}</span>
-        {!isRefreshing && refreshDurationMs !== null && refreshDurationMs > 2000 && (
-          <span className="ml-2">Refreshed in {(refreshDurationMs / 1000).toFixed(1)}s</span>
-        )}
-        {isStale && (
-          <span className="ml-2 text-amber-300" role="status">
-            Syncing latest changes…
-          </span>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-will-light/60">
+        <div className="flex items-center gap-2">
+          <span>Last updated {formatTimeAgo(lastFetchTime)}</span>
+          {!isRefreshing && refreshDurationMs !== null && refreshDurationMs > 2000 && (
+            <span>· Refreshed in {(refreshDurationMs / 1000).toFixed(1)}s</span>
+          )}
+          {isStale && (
+            <span className="text-amber-300" role="status">
+              · Syncing latest changes…
+            </span>
+          )}
+        </div>
+        <RateLimitStatusBadge />
       </div>
 
       {/* Tabs */}
@@ -866,6 +923,8 @@ function DashboardPageOld() {
         </div>
       ) : null}
 
+      {tab === 'owned' && showCalendar && ownedWills.length > 0 && <WillCalendar wills={ownedWills} />}
+
       {tab === 'owned' && batchTopUp.isMultiSelectMode && batchTopUp.selectedWillIds.length > 0 && (
         <BatchTopUpPanel
           amounts={batchTopUp.amounts}
@@ -873,9 +932,17 @@ function DashboardPageOld() {
           invalidWillIds={batchTopUp.invalidWillIds}
           isSubmitting={batchTopUp.isSubmitting}
           onAmountChange={batchTopUp.setAmount}
+          onCancel={batchTopUp.cancel}
+          startedAt={batchTopUp.startedAt}
           onSubmit={() => {
             if (batchTopUp.exceedsBalance) {
               toast.error('Total top-up amount exceeds your available balance.');
+              return;
+            }
+            if (batchTopUp.invalidWillIds.length > 0) {
+              toast.error(
+                `Fix ${batchTopUp.invalidWillIds.length} invalid amount${batchTopUp.invalidWillIds.length === 1 ? '' : 's'} before submitting — no top-ups were sent.`,
+              );
               return;
             }
             void batchTopUp.submit(async () => {
@@ -952,6 +1019,9 @@ function DashboardPageOld() {
                     connectedAddress={publicKey}
                     showEntitledShare={tab === 'inheriting'}
                     searchQuery={search}
+                    hasVoted={
+                      tab === 'guardianship' && publicKey ? hasGuardianVoted(will.id, publicKey) : false
+                    }
                   />
                 </div>
               </div>

@@ -263,21 +263,21 @@ export async function resolveFederatedAddress(address: string): Promise<string> 
 
     // #666 — The payload must be a non-null, non-array object.
     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-      throw new Error('Federation server returned a malformed federation response (expected an object)');
+      throw new Error('Federation server response must be a JSON object');
     }
 
     const accountId = (data as Record<string, unknown>).account_id;
 
-    if (accountId === undefined || accountId === null) {
-      throw new Error('No account_id in federation response');
+    if (accountId === undefined) {
+      throw new Error('Federation response is missing "account_id"');
     }
 
     if (typeof accountId !== 'string') {
-      throw new Error('Federation server returned a malformed account_id (expected a string)');
+      throw new Error('Federation response account_id must be a string');
     }
 
     if (!STELLAR_PUBLIC_KEY_REGEX.test(accountId)) {
-      throw new Error('Federation server returned a malformed account_id');
+      throw new Error('Federation response has a malformed account_id: not a valid Stellar public key');
     }
 
     return accountId;

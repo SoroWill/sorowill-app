@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { safeGetWalletNetwork, safeGetPublicKey } from '@/lib/freighter';
 import { getNetwork } from '@/lib/sorowill';
 import { detectNetworkMismatch } from '@/lib/validation';
-import type { SoroWillNetwork } from '@sorowill/sdk';
 
 const STORAGE_KEY = 'sorowill_network_mismatch_dismissed';
 
@@ -16,7 +15,7 @@ const POLL_INTERVAL_MS = 4000;
 // on focus/visibility change and polling (#85, #214).
 
 interface Mismatch {
-  appNetwork: SoroWillNetwork;
+  appNetwork: string;
   walletNetwork: string;
 }
 

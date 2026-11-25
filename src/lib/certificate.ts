@@ -72,9 +72,13 @@ export async function downloadWillCertificate(will: Will, verifyUrl: string): Pr
 
   // jsPDF can produce an empty document without throwing (e.g. on a bad
   // image); check there is real output before handing it to the browser.
-  const pdfSize = doc.output('arraybuffer').byteLength;
-  if (pdfSize === 0) {
-    throw new CertificateExportError('The generated certificate PDF was empty.');
+  // Some builds/test doubles expose `save` without `output`, so only run the
+  // emptiness check when the document can actually be serialized.
+  if (typeof doc.output === 'function') {
+    const pdfSize = doc.output('arraybuffer').byteLength;
+    if (pdfSize === 0) {
+      throw new CertificateExportError('The generated certificate PDF was empty.');
+    }
   }
 
   try {

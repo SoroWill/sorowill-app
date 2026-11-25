@@ -20,7 +20,7 @@ vi.mock('next-intl', async (importOriginal) => {
       try {
         return actual.useTranslations(namespace);
       } catch {
-        return actual.createTranslator({ locale: 'en', messages: enMessages, namespace });
+        return actual.createTranslator({ locale: 'en', messages: enMessages, namespace } as never);
       }
     },
   };

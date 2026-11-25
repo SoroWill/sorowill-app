@@ -26,7 +26,6 @@ next-env.d.ts
 # testing — unit snapshots
 **/__snapshots__/
 tests/unit/__snapshots__/
-src/__tests__/__snapshots__/
 
 # testing — playwright / e2e output
 /test-results/
@@ -54,3 +53,19 @@ tests/e2e/__snapshots__/*-linux.png
 
 # Local-only notes, never pushed
 issue.md
+
+# OS / tool noise
+Thumbs.db
+.env.local
+.vercel
+*.log
+
+# Vitest / jest cache
+.vitest-cache/
+jest-cache/
+
+# Package manager debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

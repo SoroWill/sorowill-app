@@ -16,6 +16,7 @@ import { useToast } from '@/components/Toast';
 import { StatusBanner } from '@/components/StatusBanner';
 import { CopyAddress } from '@/components/CopyAddress';
 import { BeneficiaryRows } from '@/components/BeneficiaryRows';
+import { BeneficiaryAccountCheck, BeneficiaryNotificationPrefs } from '@/components/BeneficiaryPanels';
 
 function isValidWillId(id: string): boolean {
   return /^\d+$/.test(id);
@@ -23,6 +24,20 @@ function isValidWillId(id: string): boolean {
 
 export function claimIsAvailable(status: WillStatus, grace: Date | null, now: number): boolean {
   return status === WillStatus.Triggered && grace !== null && now >= grace.getTime();
+}
+
+/** Shown when the will owner is also a beneficiary and tries to claim their own will (#764). */
+export const OWNER_CANNOT_CLAIM_ERROR =
+  'You are the owner of this will and cannot claim your own inheritance, even as a beneficiary.';
+
+/**
+ * True when the connected wallet owns the will and is also listed as one of its
+ * beneficiaries — the owner must never be able to release their own will (#764).
+ */
+export function isOwnerClaimingOwnWill(will: Will, publicKey: string | null): boolean {
+  if (!publicKey) return false;
+  if (will.owner !== publicKey) return false;
+  return will.beneficiaries.some((b) => b.address === publicKey);
 }
 
 /** Address that released the will, when the SDK/contract exposes it. */
@@ -215,6 +230,9 @@ export default function InheritPageClient({ id }: { id: string }) {
     setClaiming(true);
     setError(null);
     try {
+      if (will && isOwnerClaimingOwnWill(will, publicKey)) {
+        throw new Error(OWNER_CANNOT_CLAIM_ERROR);
+      }
       if (publicKey) {
         if (!isValidStellarAddress(publicKey)) {
           throw new Error('The connected address is not a valid Stellar account address.');
@@ -292,6 +310,7 @@ export default function InheritPageClient({ id }: { id: string }) {
   const claimedBy = getClaimedBy(will);
   const grace = graceDeadline(will);
   const canClaim = claimIsAvailable(will.status, grace, now);
+  const ownerClaimingOwnWill = isOwnerClaimingOwnWill(will, publicKey);
   const secondsUntilClaim = grace ? Math.max(0, Math.ceil((grace.getTime() - now) / 1000)) : 0;
 
   return (
@@ -334,6 +353,13 @@ export default function InheritPageClient({ id }: { id: string }) {
           </p>
         </div>
       )}
+
+      {publicKey && myShare && will.beneficiaries.some((b) => b.address === publicKey) ? (
+        <>
+          <BeneficiaryAccountCheck address={publicKey} amountUsdc={Number(BigInt(myShare.share)) / 1e7} />
+          <BeneficiaryNotificationPrefs wallet={publicKey} willId={String(will.id)} />
+        </>
+      ) : null}
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-4" aria-labelledby="will-summary-heading" role="group">
         <h2 id="will-summary-heading" className="text-sm font-semibold text-will-light">
@@ -397,6 +423,13 @@ export default function InheritPageClient({ id }: { id: string }) {
               <span className="mt-2 block text-xs">Claimed by you ({truncateAddress(publicKey)})</span>
             ) : null}
           </div>
+        </div>
+      ) : canClaim && ownerClaimingOwnWill ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-300"
+        >
+          {OWNER_CANNOT_CLAIM_ERROR}
         </div>
       ) : canClaim ? (
         <div className="space-y-3">
