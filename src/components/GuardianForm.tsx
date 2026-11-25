@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { memo, useEffect, useRef, useState } from 'react';
 
 import { MAX_GUARDIANS, GUARDIAN_THRESHOLD } from '@/lib/constants';
@@ -354,9 +356,12 @@ export function GuardianForm({
   return (
     <fieldset ref={fieldsetRef} className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <legend className="text-sm font-medium text-will-light">
-          Guardians (optional, up to {MAX_GUARDIANS})
-        </legend>
+        <span className="inline-flex items-center">
+          <legend className="text-sm font-medium text-will-light">
+            Guardians (optional, up to {MAX_GUARDIANS})
+          </legend>
+          <HelpTooltip label={FIELD_HELP.guardians.label} text={FIELD_HELP.guardians.text} docsHref={FIELD_HELP_DOCS} />
+        </span>
         <button
           type="button"
           onClick={handleAdd}

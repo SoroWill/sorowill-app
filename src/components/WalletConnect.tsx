@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import {
@@ -10,6 +10,12 @@ import {
 } from '@/lib/freighter';
 import { formatError } from '@/lib/errors';
 import { clearCsrfToken } from '@/lib/csrfClient';
+import {
+  DISCONNECTED_KEY,
+  LAST_ACTIVITY_KEY,
+  SESSION_WARNING_MS,
+  getIdleDeadline,
+} from '@/lib/walletSession';
 
 // TODO(#4): Replace this Freighter-only connect flow with a wallet-selection
 // UI once @sorowill/sdk ships adapters for other wallets (Albedo, xBull,

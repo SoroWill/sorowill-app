@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -9,15 +11,30 @@ import {
   safeGetPublicKey,
   truncateAddress,
 } from '@/lib/freighter';
-import { getNetwork, getSoroWillClient } from '@/lib/sorowill';
+import { getNetwork } from '@/lib/network';
+import { getSoroWillClient } from '@/lib/sorowill';
 import { GUARDIAN_THRESHOLD, MAX_GUARDIANS } from '@/lib/constants';
 import { formatError, classifyCloneError, type CloneErrorKind } from '@/lib/errors';
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { getUserBalance } from '@/lib/balance';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { useRefreshOnVisible } from '@/lib/useRefreshOnVisible';
 import { isValidAmount } from '@/lib/amount';
 import { isValidContractAddress } from '@/lib/willId';
 import { invalidateWillsCache } from '@/lib/willsCache';
+import {
+  WILL_FORM_FIELD_INPUT_ID,
+  WILL_FORM_FIELD_LABEL,
+  WILL_FORM_FIELD_STEP,
+  classifyWillFormError,
+  type WillFormField,
+} from '@/lib/willFormErrors';
+import {
+  firstIncompleteStepBefore,
+  getStepProblems,
+  type WillStepData,
+} from '@/lib/willStepValidation';
+import { hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
 import { BeneficiaryForm } from '@/components/BeneficiaryForm';
 import { GuardianForm } from '@/components/GuardianForm';
 import { validateGuardians } from '@/lib/guardianValidation';
@@ -176,24 +193,35 @@ export default function NewWillPage() {
     }
   }, [cloneFromId, toast]);
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        setLoadingBalance(true);
-        const publicKey = await safeGetPublicKey();
-        if (publicKey) {
-          const balance = await getUserBalance(publicKey);
-          setWalletBalance(balance);
-        }
-      } catch {
-        setWalletBalance(null);
-      } finally {
-        setLoadingBalance(false);
+  // Fetch the balance on mount and refresh it whenever the tab becomes visible
+  // again, so the displayed balance and the Max button never go stale (#762).
+  const refreshBalance = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setLoadingBalance(true);
+      const publicKey = await safeGetPublicKey();
+      if (!publicKey) {
+        if (!signal?.aborted) setWalletBalance(null);
+        return;
       }
-    };
-
-    void fetchBalance();
+      const balance = await getUserBalance(publicKey, signal);
+      if (signal?.aborted) return;
+      setWalletBalance(balance);
+    } catch {
+      if (!signal?.aborted) setWalletBalance(null);
+    } finally {
+      if (!signal?.aborted) setLoadingBalance(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshBalance(controller.signal);
+    return () => controller.abort();
+  }, [refreshBalance]);
+
+  useRefreshOnVisible(() => {
+    void refreshBalance();
+  });
 
   useEffect(() => {
     if (!ownerAddress || debouncedAmount === '') return;
@@ -806,6 +834,7 @@ export default function NewWillPage() {
               <label htmlFor="token-address" className="text-sm font-medium text-will-light">
                 Token contract address
               </label>
+              <HelpTooltip label={FIELD_HELP.tokenAddress.label} text={FIELD_HELP.tokenAddress.text} docsHref={FIELD_HELP_DOCS} />
               <input
                 id="token-address"
                 type="text"
@@ -834,9 +863,12 @@ export default function NewWillPage() {
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="amount" className="text-sm font-medium text-will-light">
-                  Amount (USDC)
-                </label>
+                <span className="inline-flex items-center">
+                  <label htmlFor="amount" className="text-sm font-medium text-will-light">
+                    Amount (USDC)
+                  </label>
+                  <HelpTooltip label={FIELD_HELP.amount.label} text={FIELD_HELP.amount.text} docsHref={FIELD_HELP_DOCS} />
+                </span>
                 {walletBalance && (
                   <div className="text-xs text-will-light/60">
                     Balance: {loadingBalance ? '...' : walletBalance}
@@ -863,10 +895,11 @@ export default function NewWillPage() {
                   aria-describedby={showAmountError ? 'amount-help amount-error' : 'amount-help'}
                   aria-invalid={showAmountError || fieldError?.field === 'amount'}
                 />
-                {walletBalance && (
+                {walletBalance && !loadingBalance && (
                   <button
                     type="button"
                     onClick={setMaxAmount}
+                    aria-label="Use maximum available balance"
                     className="absolute right-2 rounded px-2 py-1 text-xs font-medium text-will-purple hover:bg-white/5"
                   >
                     Max
@@ -890,6 +923,7 @@ export default function NewWillPage() {
           <fieldset className="space-y-6">
             <div>
               <legend className="text-sm font-medium text-will-light">Check-in period</legend>
+              <HelpTooltip label={FIELD_HELP.checkinPeriod.label} text={FIELD_HELP.checkinPeriod.text} docsHref={FIELD_HELP_DOCS} />
               <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Check-in period options">
                 {CHECKIN_OPTIONS.map((days) => (
                   <button
@@ -960,6 +994,7 @@ export default function NewWillPage() {
             </div>
             <div>
               <legend className="text-sm font-medium text-will-light">Grace period</legend>
+              <HelpTooltip label={FIELD_HELP.gracePeriod.label} text={FIELD_HELP.gracePeriod.text} docsHref={FIELD_HELP_DOCS} />
               <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Grace period options">
                 {GRACE_OPTIONS.map((days) => (
                   <button

@@ -4,6 +4,7 @@
     "onStellarSoroban": "En Stellar Soroban",
     "dashboard": "Panel de Control",
     "createAWill": "Crear un Testamento",
+    "openInApp": "Abrir en la app de SoroWill",
     "connectWallet": "Conectar Monedero",
     "connecting": "Conectando…",
     "disconnect": "Desconectar",
@@ -18,6 +19,7 @@
     "changelog": "Registro de Cambios",
     "stats": "Estadísticas",
     "faq": "Preguntas Frecuentes",
+    "help": "Centro de Ayuda",
     "footerNav": "Navegación del pie de página",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
@@ -31,11 +33,11 @@
     "clipboardError": "No se pudo copiar al portapapeles. Verifica los permisos de tu navegador.",
     "copyToClipboard": "Copiar al portapapeles",
     "copied": "¡Copiado!",
+    "copiedToast": "Dirección copiada al portapapeles",
     "copyAddress": "Copiar {address}",
     "refresh": "Actualizar",
     "refreshing": "Actualizando…",
-    "lastRefreshed": "Última actualización: {time}",
-    "neverRefreshed": "Aún no actualizado"
+    "lastRefreshed": "Última actualización: {time}"
   },
   "landing": {
     "heroTitle": "Protege tu herencia criptográfica",
@@ -48,7 +50,9 @@
       "connect": "Conecta tu billetera de Stellar.",
       "configure": "Añade beneficiarios y elige un intervalo de confirmación. Revisa y firma el testamento.",
       "checkIn": "Usa el panel para confirmar tu actividad antes de la fecha límite.",
-      "create": "Crear un testamento"
+      "create": "Crear un testamento",
+      "learn": "Tutorial interactivo y glosario",
+      "help": "Centro de ayuda"
     },
     "howItWorks": "Cómo funciona",
     "whySoroWill": "Por qué SoroWill",
@@ -166,22 +170,17 @@
   },
   "verify": {
     "accountBalance": "Saldo de la cuenta",
-    "balanceLoading": "Cargando saldo…",
-    "balanceError": "No se pudo cargar el saldo de la cuenta.",
     "requiredAmount": "Monto requerido: {amount} USDC",
     "lowBalanceWarning": "Tu saldo es bajo. Necesitas al menos {amount} USDC para completar esta operación.",
-    "insufficientBalance": "Saldo insuficiente para completar esta operación.",
-    "fundAccount": "Fondear cuenta",
-    "fundAccountDescription": "Añade fondos a tu cuenta Stellar para continuar."
+    "fundAccount": "Fondear cuenta"
   },
   "inherit": {
-    "guardianAccountCheck": "Verificando cuenta del tutor…",
-    "guardianAccountExists": "La cuenta del tutor está financiada y lista.",
-    "guardianAccountNotFound": "Esta cuenta aún no existe en la red Stellar.",
+    "guardianAccountMissing": "La cuenta del tutor {address} todavía no existe en la red.",
     "guardianAccountNotFunded": "La cuenta del tutor no está financiada. Debe tener al menos {amount} XLM para activarse.",
     "guardianSetupInstructions": "Pídele al tutor que fondee su cuenta con al menos {amount} XLM. Puede usar el Friendbot en testnet o transferir XLM desde un exchange o monedero existente.",
     "fundWithFriendbot": "Fondear con Friendbot",
-    "guardianAccountCheckError": "No se pudo verificar la cuenta del tutor. Inténtalo de nuevo."
+    "guardianSetupInstructions": "Pide al tutor que cree y financie su cuenta de Stellar antes de continuar.",
+    "fundWithFriendbot": "Financiar con Friendbot"
   },
   "faq": {
     "title": "Cómo funciona y Preguntas Frecuentes",
@@ -239,6 +238,151 @@
       "title": "¿Listo para crear tu testamento?",
       "description": "Asegura tu legado criptográfico con SoroWill.",
       "button": "Crear tu Testamento"
+    }
+  },
+  "learn": {
+    "title": "Aprende SoroWill",
+    "subtitle": "Un tutorial interactivo breve, vídeos explicativos y un glosario de los términos usados en la aplicación.",
+    "tutorial": {
+      "heading": "Tutorial interactivo",
+      "description": "Recorre el ciclo de vida de un testamento. Tu progreso se guarda en este navegador.",
+      "progress": "Paso {current} de {total}",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "finish": "Finalizar",
+      "restart": "Reiniciar tutorial",
+      "completed": "Tutorial completado",
+      "steps": {
+        "connect": {
+          "title": "Conecta tu monedero",
+          "description": "Instala Freighter, cámbialo a la red Stellar que usa SoroWill y conéctalo desde la cabecera. Tus claves nunca salen de tu monedero."
+        },
+        "create": {
+          "title": "Crea un testamento",
+          "description": "Deposita USDC, añade beneficiarios cuyos porcentajes sumen exactamente 100% y elige un intervalo de chequeo y un período de gracia."
+        },
+        "checkIn": {
+          "title": "Confirma antes de la fecha límite",
+          "description": "El panel muestra tu próxima fecha límite. Confirmar la reinicia y demuestra que sigues activo."
+        },
+        "grace": {
+          "title": "Período de gracia",
+          "description": "Si pierdes una fecha límite, cualquiera puede activar el testamento. Aún puedes confirmar durante el período de gracia para mantenerlo activo."
+        },
+        "claim": {
+          "title": "Los beneficiarios reclaman",
+          "description": "Cuando el período de gracia termina, los fondos se liberan y cada beneficiario reclama su parte desde la página de herencia."
+        }
+      }
+    },
+    "videos": {
+      "heading": "Vídeos explicativos",
+      "description": "¿Prefieres verlo? Estos vídeos breves cubren lo mismo.",
+      "watch": "Ver en YouTube",
+      "items": {
+        "overview": {
+          "title": "SoroWill en 2 minutos",
+          "description": "Qué es la herencia en cadena y por qué es sin confianza."
+        },
+        "create": {
+          "title": "Crear tu primer testamento",
+          "description": "Un recorrido completo del formulario, desde conectar el monedero hasta firmar."
+        },
+        "claim": {
+          "title": "Reclamar una herencia",
+          "description": "Cómo los beneficiarios verifican un testamento y reclaman su parte."
+        }
+      }
+    },
+    "glossary": {
+      "heading": "Glosario de términos",
+      "description": "Definiciones sencillas de los términos que encontrarás en SoroWill.",
+      "terms": {
+        "will": {
+          "term": "Testamento",
+          "definition": "Un contrato inteligente que guarda tus USDC con instrucciones sobre quién los recibe y cuándo."
+        },
+        "beneficiary": {
+          "term": "Beneficiario",
+          "definition": "Una dirección Stellar que recibe un porcentaje de los fondos bloqueados cuando se libera el testamento."
+        },
+        "basisPoints": {
+          "term": "Puntos base",
+          "definition": "Centésimas de un porcentaje. 10.000 puntos base son el 100%, así que las partes deben sumar 10.000."
+        },
+        "checkIn": {
+          "term": "Confirmación",
+          "definition": "Una transacción que demuestra que sigues activo. Reinicia tu fecha límite."
+        },
+        "gracePeriod": {
+          "term": "Período de gracia",
+          "definition": "La ventana tras una confirmación perdida en la que aún puedes responder antes de que se liberen los fondos."
+        },
+        "guardian": {
+          "term": "Tutor",
+          "definition": "Una dirección de confianza que puede activar una liberación anticipada, normalmente dos de ellos juntos."
+        },
+        "federatedAddress": {
+          "term": "Dirección federada",
+          "definition": "Una dirección Stellar legible como nombre*dominio.com que se resuelve a una cuenta Stellar."
+        },
+        "usdc": {
+          "term": "USDC",
+          "definition": "Una stablecoin vinculada al dólar en Stellar. SoroWill solo bloquea USDC."
+        },
+        "soroban": {
+          "term": "Soroban",
+          "definition": "La plataforma de contratos inteligentes de Stellar, que ejecuta el contrato de SoroWill."
+        }
+      }
+    }
+  },
+  "help": {
+    "title": "Centro de Ayuda",
+    "subtitle": "Guías, respuestas y formas de contactarnos cuando algo va mal.",
+    "topics": {
+      "heading": "Explora por tema",
+      "items": {
+        "gettingStarted": {
+          "title": "Primeros pasos",
+          "description": "Conecta un monedero, crea tu primer testamento y entiende el panel.",
+          "link": "Leer el tutorial"
+        },
+        "wallets": {
+          "title": "Monederos y redes",
+          "description": "Configuración de Freighter, redes incorrectas y cambio entre testnet y mainnet.",
+          "link": "Leer las preguntas frecuentes"
+        },
+        "checkIns": {
+          "title": "Confirmaciones y fechas límite",
+          "description": "Cómo funcionan las fechas límite, qué pasa si pierdes una y cómo se envían los recordatorios.",
+          "link": "Leer las preguntas frecuentes"
+        },
+        "beneficiaries": {
+          "title": "Beneficiarios y reclamos",
+          "description": "Porcentajes, direcciones federadas y cómo reclamar una herencia.",
+          "link": "Leer las preguntas frecuentes"
+        }
+      }
+    },
+    "contact": {
+      "heading": "¿Aún necesitas ayuda?",
+      "description": "Envíanos un mensaje y te responderemos.",
+      "button": "Contactar con soporte"
+    }
+  },
+  "expirationWarning": {
+    "30Title": "Tu testamento expira en 30 días",
+    "30Description": "Confirma tu presencia en {days} días para mantener este testamento activo.",
+    "7Title": "Tu testamento expira en 7 días",
+    "7Description": "Solo quedan {days} días antes de la fecha límite. Confirma tu presencia ahora para mantenerlo activo.",
+    "1Title": "Tu testamento expira mañana",
+    "1Description": "Queda menos de {days} día antes de la fecha límite. Confirma tu presencia ahora o el testamento se activará.",
+    "methods": "Las alertas se envían por {methods}.",
+    "method": {
+      "in-app": "aviso en la aplicación",
+      "email": "correo electrónico",
+      "push": "notificación push"
     }
   },
   "status": {

@@ -1,5 +1,7 @@
 'use client';
 
+import { HelpTooltip } from '@/components/HelpTooltip';
+import { FIELD_HELP, FIELD_HELP_DOCS } from '@/lib/fieldHelp';
 import { useAddressHistory } from './AddressHistory';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,6 +10,7 @@ import type { Beneficiary } from '@sorowill/sdk';
 
 import { isFederatedAddress, resolveFederatedAddress } from '@/lib/federated';
 import { formatError } from '@/lib/errors';
+import { getWhitelistError, useBeneficiaryWhitelist } from '@/lib/beneficiaryWhitelist';
 
 export interface BeneficiaryFormProps {
   value: Beneficiary[];
@@ -115,6 +118,7 @@ export function hasDuplicateBeneficiaryAddresses(beneficiaries: Beneficiary[]): 
 function getAddressErrors(
   beneficiaries: Beneficiary[],
   addressType: BeneficiaryAddressType = 'account',
+  whitelist: readonly string[] = [],
 ): Record<number, string> {
   const errors: Record<number, string> = {};
   beneficiaries.forEach((b, i) => {
@@ -129,6 +133,10 @@ function getAddressErrors(
       errors[i] =
         getAddressTypeMismatchError(b.address, addressType) ??
         (suggestion ? `Invalid Stellar address — did you mean ${suggestion}?` : 'Invalid Stellar address');
+    } else if (b.address) {
+      // Only whitelisted addresses may be added as beneficiaries (#892).
+      const whitelistError = getWhitelistError(b.address, whitelist);
+      if (whitelistError) errors[i] = whitelistError;
     }
   });
   return errors;
@@ -255,6 +263,13 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   const total = useMemo(() => sumPercentages(value), [value]);
   const validationMessage = useMemo(() => getBeneficiaryValidationMessage(value), [value]);
   const addressErrors = useMemo(() => getAddressErrors(value, addressType), [value, addressType]);
+  const duplicateRows = useMemo(() => findDuplicateBeneficiaries(value), [value]);
+  const history = useAddressHistory('beneficiaries', (address) =>
+    isValidStellarAddress(address, addressType) || (addressType === 'account' && isFederatedAddress(address)),
+  );
+  const roundedTotal = Math.round(total * 100) / 100;
+  const remaining = Math.round((100 - roundedTotal) * 100) / 100;
+  const isOverAllocated = roundedTotal > 100;
   // Save is only allowed when both the percentage split and every address are
   // valid; address errors are computed live so the button reflects typing (#786).
   const hasAddressErrors = Object.keys(addressErrors).length > 0;
@@ -283,6 +298,9 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
 
   const [resolvedAddresses, setResolvedAddresses] = useState<Map<string, string>>(new Map());
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  // Rows waiting out the federation debounce. Kept separate from
+  // `resolvingId` so the Resolve button stays clickable while typing settles.
+  const [debouncingIds, setDebouncingIds] = useState<Set<string>>(new Set());
   // Raw text entered per row (keyed by row id) so a >2 decimal entry can be
   // flagged even though the stored value is rounded to 2 decimals (#753).
   const [precisionWarnings, setPrecisionWarnings] = useState<Map<string, string>>(new Map());
@@ -390,8 +408,21 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       const address = beneficiary.address.trim();
       if (!id || !isFederatedAddress(address)) return;
 
-      setResolvingId(id);
+      // Mark the row busy during the debounce as well, so screen readers hear
+      // that a lookup is pending.
+      setDebouncingIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
       timers.push(setTimeout(() => {
+        setDebouncingIds((prev) => {
+          if (!prev.has(id)) return prev;
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
         if (resolutionRequest.current.get(id) !== address) {
           void resolveBeneficiaryAddress(index, address);
         }
@@ -473,12 +504,15 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
   return (
     <fieldset className="space-y-3">
       <div className="flex items-center justify-between">
-        <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+        <span className="inline-flex items-center">
+          <legend className="text-sm font-semibold text-will-light">Beneficiaries</legend>
+          <HelpTooltip label={FIELD_HELP.beneficiaries.label} text={FIELD_HELP.beneficiaries.text} docsHref={FIELD_HELP_DOCS} />
+        </span>
         <button
           type="button"
           onClick={applyEqualSplit}
           disabled={value.length === 0}
-          aria-label="Distribute percentages equally among all beneficiaries"
+          aria-label="Distribute Percentages Equally Among All Beneficiaries"
           className="min-h-[48px] px-2 text-xs font-medium text-will-purple hover:underline disabled:opacity-40"
         >
           Split Equally
@@ -486,10 +520,25 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
       </div>
 
       {history.controls}
-      <div className="space-y-2" role="group" aria-label="Beneficiary list">
+      <div className="space-y-2" role="group" aria-label="Beneficiary List">
         {value.map((beneficiary, index) => {
           const beneficiaryId = stableBeneficiaryIds.get(index) || '';
-          const addressError = touchedRows.has(beneficiaryId) ? addressErrors[index] : undefined;
+          // Errors show once the row has been touched, or immediately when it
+          // already holds text (a pre-filled/duplicated/pasted invalid value), so
+          // typed and imported mistakes are visible without extra interaction.
+          const addressError =
+            (touchedRows.has(beneficiaryId) ||
+              beneficiary.address.trim() !== '' ||
+              beneficiary.percentage > 0)
+              ? addressErrors[index]
+              : undefined;
+          const percentageError = getPercentageRowError(beneficiary.percentage);
+          const hasPrecisionWarning = precisionWarnings.has(beneficiaryId);
+          const percentageDescribedBy = hasPrecisionWarning
+            ? `beneficiary-percentage-warning-${index}`
+            : percentageError
+              ? `beneficiary-percentage-error-${index}`
+              : undefined;
           return (
           <div key={beneficiaryId} className="space-y-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -506,15 +555,17 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                   onChange={(event) => updateRow(index, { address: event.target.value })}
                   onBlur={() => markTouched(index)}
                   onPaste={(event) => handleAddressPaste(index, event)}
-                  aria-invalid={addressErrors[index] || duplicateRows.has(index) ? 'true' : undefined}
+                  aria-invalid={addressError || duplicateRows.has(index) ? 'true' : undefined}
                   aria-describedby={
-                    addressErrors[index]
+                    addressError
                       ? `beneficiary-address-error-${index}`
                       : duplicateRows.has(index)
                         ? `beneficiary-duplicate-${index}`
                         : undefined
                   }
-                  aria-busy={resolvingId === beneficiaryId || undefined}
+                  aria-busy={
+                    resolvingId === beneficiaryId || debouncingIds.has(beneficiaryId) || undefined
+                  }
                   className={`w-full rounded-lg border ${
                     addressError ? 'border-red-400' : 'border-white/10'
                   } bg-white/5 px-3 py-2 font-mono text-sm text-will-light placeholder:text-will-light/40 focus:border-will-purple focus:outline-none`}
@@ -528,18 +579,18 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                     disabled={resolvingId === beneficiaryId}
                     className="min-h-[48px] whitespace-nowrap rounded-lg border border-white/20 px-3 py-2 text-xs font-medium text-will-light/70 transition hover:border-will-purple hover:text-will-light disabled:opacity-40"
                   >
-                    {resolvingId === beneficiaryId ? 'Resolving…' : 'Resolve'}
+                    Resolve
                   </button>
                 )}
                 <div className="flex items-end gap-1">
                   <div>
                     <label htmlFor={`beneficiary-percentage-${index}`} className="sr-only">
-                      Beneficiary {index + 1} percentage
+                      Beneficiary {index + 1} Percentage
                     </label>
                     <input
                       id={`beneficiary-percentage-${index}`}
                       type="number"
-                      aria-label={`Beneficiary ${index + 1} percentage`}
+                      aria-label={`Beneficiary ${index + 1} Percentage`}
                       min={0}
                       max={100}
                       step={0.01}
@@ -573,52 +624,11 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  aria-label={`Remove beneficiary ${index + 1}`}
+                  aria-label={`Remove Beneficiary ${index + 1}`}
                   className="min-h-[48px] min-w-[48px] rounded-lg border border-white/10 px-2 py-2 text-will-light/60 transition hover:border-red-400/40 hover:text-red-400"
                 >
                   ✕
                 </button>
-              )}
-              <div className="flex items-end gap-1">
-                <div>
-                  <label htmlFor={`beneficiary-percentage-${index}`} className="sr-only">
-                    Beneficiary {index + 1} Percentage
-                  </label>
-                  <input
-                    id={`beneficiary-percentage-${index}`}
-                    type="number"
-                    aria-label={`Beneficiary ${index + 1} Percentage`}
-                    min={0}
-                    max={100}
-                    step={0.01}
-                    value={beneficiary.percentage}
-                    onChange={(event) => {
-                      const raw = event.target.value;
-                      setPrecisionWarnings((prev) => {
-                        const next = new Map(prev);
-                        if (beneficiaryId && hasExcessPrecision(raw)) next.set(beneficiaryId, raw.trim());
-                        else next.delete(beneficiaryId);
-                        return next;
-                      });
-                      if (raw === '') {
-                        updateRow(index, { percentage: 0 });
-                        return;
-                      }
-                      const val = Number(raw);
-                      // Clamp the range but keep fractions, so a non-integer surfaces the
-                      // "whole numbers" validation message instead of being silently truncated.
-                      const clamped = isNaN(val) ? 0 : Math.max(0, Math.min(100, val));
-                      // Inputs are restricted to 2 decimal places (the contract's basis-point precision).
-                      updateRow(index, { percentage: Math.round(clamped * 100) / 100 });
-                    }}
-                    aria-invalid={percentageError ? 'true' : undefined}
-                    aria-describedby={percentageError ? `beneficiary-percentage-error-${index}` : undefined}
-                    className={`w-20 rounded-lg border ${
-                      percentageError ? 'border-red-400' : 'border-white/10'
-                    } bg-white/5 px-2 py-2 text-right text-sm text-will-light focus:border-will-purple focus:outline-none`}
-                  />
-                </div>
-                <span className="text-sm text-will-light/60 pb-2">%</span>
               </div>
             </div>
             {hasPrecisionWarning && (
@@ -657,12 +667,17 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
                 {percentageError}
               </p>
             )}
+            {duplicateRows.has(index) && (
+              <p id={`beneficiary-duplicate-${index}`} role="alert" className="ml-1 text-xs text-red-400">
+                Duplicate address — already used by beneficiary {(duplicateRows.get(index) ?? 0) + 1}
+              </p>
+            )}
           </div>
         );
         })}
       </div>
 
-      <div className="space-y-1" role="status" aria-live="polite">
+      <div className="space-y-1">
         <p className={`text-sm ${isOverAllocated ? 'text-red-400' : 'text-will-light/70'}`}>
           Total allocated: {total}% of 100%
         </p>
@@ -697,21 +712,23 @@ export function BeneficiaryForm({ value, onChange, addressType = 'account' }: Be
         </button>
       </div>
 
+      <BeneficiaryWhitelistPanel whitelist={whitelist} />
+
       <button
         type="button"
         disabled={!isValid}
         aria-disabled={!isValid}
         className="w-full rounded-lg bg-will-purple py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        Save beneficiaries
+        Save Beneficiaries
       </button>
 
       <div
-        className={`text-sm ${isValid ? 'text-emerald-400' : 'text-amber-400'}`}
+        className={`text-sm ${validationMessage === null ? 'text-emerald-400' : 'text-amber-400'}`}
         role="status"
         aria-live="polite"
       >
-        {isValid ? (
+        {validationMessage === null ? (
           <>Total: {total}% ✓</>
         ) : (
           <>

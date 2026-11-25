@@ -5,13 +5,42 @@ import Link from 'next/link';
 
 import { calculateShares, formatUSDC, getTimeUntilCheckin, WillStatus, type Will } from '@sorowill/sdk';
 
+import { GUARDIAN_THRESHOLD } from '@/lib/constants';
 import { formatCheckinLabel, formatRelativeTime, parseCreatedAt } from '@/lib/deadlines';
 import { getSafeBalance } from '@/lib/tokenDecimals';
 import { BeneficiaryListDialog } from './BeneficiaryListDialog';
 import { StatusBanner } from './StatusBanner';
 
+/** Reads the creation timestamp from a will, when the SDK provides one. */
+function createdAtOf(will: Will): Date | null {
+  return parseCreatedAt((will as Will & { createdAt?: unknown }).createdAt);
+}
+
 /** Beneficiaries listed on the card before the rest move behind "and N more" (#821). */
 export const MAX_CARD_BENEFICIARIES = 3;
+
+export type GuardianVoteStatus = 'approved' | 'pending' | 'rejected';
+
+const GUARDIAN_VOTE_STATUS_CLASS: Record<GuardianVoteStatus, string> = {
+  approved: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+  pending: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
+  rejected: 'border-red-400/40 bg-red-400/10 text-red-300',
+};
+
+/**
+ * Derives a guardian's vote status for a will (#763). The contract only
+ * exposes an aggregate vote count, so a guardian who has not voted is
+ * "pending" while the will can still be voted on, and "rejected" once the
+ * will is cancelled or released without their vote.
+ */
+export function getGuardianVoteStatus(
+  will: Pick<Will, 'status' | 'guardianVotes'>,
+  hasVoted: boolean,
+): GuardianVoteStatus {
+  if (hasVoted) return 'approved';
+  if (will.status === WillStatus.Cancelled || will.status === WillStatus.Released) return 'rejected';
+  return 'pending';
+}
 
 /**
  * Splits `text` into segments, flagging case-insensitive occurrences of
@@ -68,6 +97,8 @@ export interface WillCardProps {
   onRefresh?: (willId: string) => void | Promise<void>;
   /** External loading flag for the will data refresh. */
   refreshing?: boolean;
+  /** Whether the connected user has already cast their guardian vote for this will (#763). */
+  hasVoted?: boolean;
 }
 
 function WillCardComponent({
@@ -80,9 +111,11 @@ function WillCardComponent({
   searchQuery,
   onRefresh,
   refreshing = false,
+  hasVoted = false,
 }: WillCardProps) {
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAllBeneficiaries, setShowAllBeneficiaries] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -126,7 +159,7 @@ function WillCardComponent({
     (b, index) => index < MAX_CARD_BENEFICIARIES || (needle !== '' && b.address.toLowerCase().includes(needle)),
   ).length;
   const hiddenBeneficiaries = (will.beneficiaries?.length ?? 0) - shownBeneficiaryCount;
-  const createdAt = useMemo(() => parseCreatedAt(will), [will]);
+  const createdAt = useMemo(() => createdAtOf(will), [will]);
   const secondsLeft = getTimeUntilCheckin(will);
   const overdue = secondsLeft <= 0;
 
@@ -157,33 +190,45 @@ function WillCardComponent({
     }
   }, [showEntitledShare, connectedAddress, will.balance, will.beneficiaries]);
 
+  function handlePrint() {
+    window.print();
+  }
 
   return (
     <article
-      className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-will-purple/40 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-will-purple/40 sm:flex-row sm:items-center sm:justify-between print:border print:border-gray-300 print:bg-white print:text-black print:rounded-none print:shadow-none"
       aria-label={`Will #${will.id}, ${formatUSDC(getSafeBalance(will.balance))} USDC`}
     >
-      <div className="min-w-0 space-y-1">
+      {/* ── Print header: only visible when printing (#870) ── */}
+      <div className="hidden print:block print:mb-4 print:border-b print:border-gray-300 print:pb-3">
+        <p className="text-xs text-gray-500">SoroWill — Will Summary</p>
+        <p className="text-xs text-gray-400">Printed {new Date().toLocaleString()}</p>
+      </div>
+
+      <div className="min-w-0 space-y-1 print:space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/will/${will.id}`} className="font-semibold text-will-light hover:underline">
+          <Link
+            href={`/will/${will.id}`}
+            className="font-semibold text-will-light hover:underline print:text-black print:no-underline"
+          >
             Will #<Highlight text={will.id} query={searchQuery} />
           </Link>
           <StatusBanner status={will.status} compact />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70 print:text-gray-700">
           <span>{formatUSDC(getSafeBalance(will.balance))} USDC locked</span>
           {userShare ? (
             <>
-              <span className="text-will-light/40">•</span>
-              <span className="font-medium text-indigo-300">
+              <span className="text-will-light/40 print:text-gray-400">•</span>
+              <span className="font-medium text-indigo-300 print:text-gray-800">
                 Your share: {formatUSDC(BigInt(userShare.share))} USDC
               </span>
             </>
           ) : null}
           {createdAt ? (
             <>
-              <span className="text-will-light/40">•</span>
+              <span className="text-will-light/40 print:text-gray-400">•</span>
               <time dateTime={createdAt.toISOString()} title={createdAt.toLocaleString()}>
                 Created {formatRelativeTime(createdAt)}
               </time>
@@ -191,13 +236,52 @@ function WillCardComponent({
           ) : null}
         </div>
 
+        {/* Check-in / grace period details — always shown in print for full context */}
+        <div className="print:block">
+          {will.checkinPeriodDays !== undefined ? (
+            <p className="hidden text-xs text-gray-500 print:block">
+              Check-in period: {will.checkinPeriodDays} day{will.checkinPeriodDays === 1 ? '' : 's'}
+            </p>
+          ) : null}
+          {will.gracePeriodDays !== undefined ? (
+            <p className="hidden text-xs text-gray-500 print:block">
+              Grace period: {will.gracePeriodDays} day{will.gracePeriodDays === 1 ? '' : 's'}
+            </p>
+          ) : null}
+        </div>
+
         {will.beneficiaries?.length ? (
-          <ul aria-label="Beneficiaries" className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70">
-            {will.beneficiaries.map((beneficiary) => (
-              <li key={beneficiary.address} className="max-w-full truncate break-all">
-                <Highlight text={beneficiary.address} query={searchQuery} />
+          <ul
+            aria-label="Beneficiaries"
+            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-will-light/70 print:flex-col print:items-start print:gap-y-1 print:text-gray-700"
+          >
+            {will.beneficiaries
+              .filter(
+                (b, index) =>
+                  index < MAX_CARD_BENEFICIARIES ||
+                  (needle !== '' && b.address.toLowerCase().includes(needle)),
+              )
+              .map((beneficiary) => (
+                <li key={beneficiary.address} className="max-w-full truncate break-all print:truncate-none">
+                  <Highlight text={beneficiary.address} query={searchQuery} />
+                  {beneficiary.percentage !== undefined ? (
+                    <span className="ml-1 text-xs text-will-light/50 print:text-gray-500">
+                      ({beneficiary.percentage}%)
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            {hiddenBeneficiaries > 0 ? (
+              <li className="print:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowAllBeneficiaries(true)}
+                  className="text-xs text-will-purple hover:underline"
+                >
+                  and {hiddenBeneficiaries} more
+                </button>
               </li>
-            ) : null}
+            ))}
           </ul>
         ) : null}
 
@@ -210,32 +294,32 @@ function WillCardComponent({
         ) : null}
 
         {matchedWhat.length ? (
-          <p className="text-xs text-will-light/60">
+          <p className="text-xs text-will-light/60 print:hidden">
             Matched {matchedWhat.join(' and ')} for &ldquo;{searchQuery?.trim()}&rdquo;
           </p>
         ) : null}
 
         {will.status === WillStatus.Active ? (
-          <p className={`text-xs ${colorClass}`} role="status">
+          <p className={`text-xs ${colorClass} print:text-gray-700`} role="status">
             {formatCheckinLabel(secondsLeft)}
           </p>
         ) : will.status === WillStatus.Triggered ? (
-          <p className="text-xs text-amber-400" role="status">
+          <p className="text-xs text-amber-400 print:text-gray-700" role="status">
             {graceDaysLeft <= 0
               ? 'Grace period expired'
               : `Grace period ends in ${graceDaysLeft} day${graceDaysLeft === 1 ? '' : 's'}`}
           </p>
         ) : will.status === WillStatus.Released ? (
-          <p className="text-xs text-indigo-300" role="status">
+          <p className="text-xs text-indigo-300 print:text-gray-700" role="status">
             Inheritance released to beneficiaries
           </p>
         ) : will.status === WillStatus.Cancelled ? (
-          <p className="text-xs text-will-light/50" role="status">
+          <p className="text-xs text-will-light/50 print:text-gray-500" role="status">
             Will cancelled by owner
           </p>
         ) : null}
 
-        <p className="flex items-center gap-1.5 text-xs text-will-light/50">
+        <p className="flex items-center gap-1.5 text-xs text-will-light/50 print:hidden">
           {loading ? (
             <span
               className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-will-light/30 border-t-will-light/80"
@@ -249,7 +333,7 @@ function WillCardComponent({
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 print:hidden">
         {onRefresh ? (
           <button
             type="button"
@@ -261,6 +345,14 @@ function WillCardComponent({
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
         ) : null}
+        <button
+          type="button"
+          onClick={handlePrint}
+          aria-label={`Print will ${will.id} summary`}
+          className="rounded-full border border-white/20 px-3 py-1.5 text-sm text-will-light/80 transition hover:border-white/40 hover:text-will-light"
+        >
+          Print
+        </button>
         {onCheckIn && will.status === WillStatus.Active ? (
           <button
             type="button"
@@ -306,7 +398,7 @@ export function willCardPropsAreEqual(prev: WillCardProps, next: WillCardProps):
       a.checkinPeriodDays === b.checkinPeriodDays &&
       a.lastCheckin?.getTime() === b.lastCheckin?.getTime() &&
       a.triggerTime?.getTime() === b.triggerTime?.getTime() &&
-      parseCreatedAt(a)?.getTime() === parseCreatedAt(b)?.getTime() &&
+      createdAtOf(a)?.getTime() === createdAtOf(b)?.getTime() &&
       sameBeneficiaries(a.beneficiaries, b.beneficiaries));
 
   return (

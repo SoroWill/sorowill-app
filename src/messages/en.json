@@ -4,6 +4,7 @@
     "onStellarSoroban": "On Stellar Soroban",
     "dashboard": "Dashboard",
     "createAWill": "Create a Will",
+    "openInApp": "Open in the SoroWill app",
     "connectWallet": "Connect Wallet",
     "connecting": "Connecting…",
     "disconnect": "Disconnect",
@@ -18,6 +19,7 @@
     "changelog": "Changelog",
     "stats": "Stats",
     "faq": "FAQ",
+    "help": "Help Center",
     "footerNav": "Footer Navigation",
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -48,7 +50,9 @@
       "connect": "Connect your Stellar wallet.",
       "configure": "Add beneficiaries and choose a check-in interval. Review and sign the will.",
       "checkIn": "Use the dashboard to check in before the deadline.",
-      "create": "Create a will"
+      "create": "Create a will",
+      "learn": "Interactive tutorial & glossary",
+      "help": "Help center"
     },
     "howItWorks": "How it works",
     "whySoroWill": "Why SoroWill",
@@ -232,6 +236,151 @@
       "title": "Ready to create your will?",
       "description": "Secure your crypto legacy with SoroWill.",
       "button": "Create Your Will"
+    }
+  },
+  "learn": {
+    "title": "Learn SoroWill",
+    "subtitle": "A short interactive tutorial, video walkthroughs and a glossary of the terms used across the app.",
+    "tutorial": {
+      "heading": "Interactive tutorial",
+      "description": "Step through the lifecycle of a will. Your progress is saved in this browser.",
+      "progress": "Step {current} of {total}",
+      "previous": "Previous",
+      "next": "Next",
+      "finish": "Finish",
+      "restart": "Restart tutorial",
+      "completed": "Tutorial complete",
+      "steps": {
+        "connect": {
+          "title": "Connect your wallet",
+          "description": "Install Freighter, switch it to the Stellar network SoroWill uses, and connect it from the header. Your keys never leave your wallet."
+        },
+        "create": {
+          "title": "Create a will",
+          "description": "Deposit USDC, add beneficiaries whose percentages sum to exactly 100%, and choose a check-in interval and grace period."
+        },
+        "checkIn": {
+          "title": "Check in before the deadline",
+          "description": "The dashboard shows your next deadline. Checking in resets it and proves you are still active."
+        },
+        "grace": {
+          "title": "Grace period",
+          "description": "If you miss a deadline, anyone can trigger the will. You can still check in during the grace period to keep it active."
+        },
+        "claim": {
+          "title": "Beneficiaries claim",
+          "description": "Once the grace period expires, funds are released and each beneficiary claims their share from the inheritance page."
+        }
+      }
+    },
+    "videos": {
+      "heading": "Video explanations",
+      "description": "Prefer watching? These short videos cover the same ground.",
+      "watch": "Watch on YouTube",
+      "items": {
+        "overview": {
+          "title": "SoroWill in 2 minutes",
+          "description": "What on-chain inheritance is and why it is trustless."
+        },
+        "create": {
+          "title": "Creating your first will",
+          "description": "A full walkthrough of the creation form, from wallet connection to signing."
+        },
+        "claim": {
+          "title": "Claiming an inheritance",
+          "description": "How beneficiaries verify a will and claim their share."
+        }
+      }
+    },
+    "glossary": {
+      "heading": "Glossary of terms",
+      "description": "Plain-language definitions for the terms you will meet in SoroWill.",
+      "terms": {
+        "will": {
+          "term": "Will",
+          "definition": "A smart contract holding your USDC with instructions for who receives it and when."
+        },
+        "beneficiary": {
+          "term": "Beneficiary",
+          "definition": "A Stellar address that receives a percentage of the locked funds when the will is released."
+        },
+        "basisPoints": {
+          "term": "Basis points",
+          "definition": "Hundredths of a percent. 10,000 basis points is 100%, so beneficiary shares must add up to 10,000."
+        },
+        "checkIn": {
+          "term": "Check-in",
+          "definition": "A transaction proving you are still active. It resets your deadline."
+        },
+        "gracePeriod": {
+          "term": "Grace period",
+          "definition": "The window after a missed check-in during which you can still respond before funds are released."
+        },
+        "guardian": {
+          "term": "Guardian",
+          "definition": "A trusted address that can trigger an early release, typically two of them together."
+        },
+        "federatedAddress": {
+          "term": "Federated address",
+          "definition": "A human-readable Stellar address such as name*domain.com that resolves to a Stellar account."
+        },
+        "usdc": {
+          "term": "USDC",
+          "definition": "A US dollar stablecoin on Stellar. SoroWill locks USDC only."
+        },
+        "soroban": {
+          "term": "Soroban",
+          "definition": "Stellar's smart contract platform, which runs the SoroWill contract."
+        }
+      }
+    }
+  },
+  "help": {
+    "title": "Help Center",
+    "subtitle": "Guides, answers and ways to reach us when something goes wrong.",
+    "topics": {
+      "heading": "Browse by topic",
+      "items": {
+        "gettingStarted": {
+          "title": "Getting started",
+          "description": "Connect a wallet, create your first will and understand the dashboard.",
+          "link": "Read the tutorial"
+        },
+        "wallets": {
+          "title": "Wallets & networks",
+          "description": "Freighter setup, network mismatches and switching between testnet and mainnet.",
+          "link": "Read the FAQ"
+        },
+        "checkIns": {
+          "title": "Check-ins & deadlines",
+          "description": "How deadlines work, what happens when you miss one, and how reminders are sent.",
+          "link": "Read the FAQ"
+        },
+        "beneficiaries": {
+          "title": "Beneficiaries & claims",
+          "description": "Percentage splits, federated addresses and claiming an inheritance.",
+          "link": "Read the FAQ"
+        }
+      }
+    },
+    "contact": {
+      "heading": "Still need help?",
+      "description": "Send us a message and we will get back to you.",
+      "button": "Contact support"
+    }
+  },
+  "expirationWarning": {
+    "30Title": "Your will expires in 30 days",
+    "30Description": "Check in within {days} days to keep this will active.",
+    "7Title": "Your will expires in 7 days",
+    "7Description": "Only {days} days left before the check-in deadline. Check in now to keep this will active.",
+    "1Title": "Your will expires tomorrow",
+    "1Description": "Less than {days} day left before the check-in deadline. Check in now or the will will be triggered.",
+    "methods": "Alerts are sent via {methods}.",
+    "method": {
+      "in-app": "in-app banner",
+      "email": "email",
+      "push": "push notification"
     }
   },
   "status": {
