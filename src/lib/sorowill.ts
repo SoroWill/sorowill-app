@@ -1,14 +1,10 @@
 import { SoroWillClient, type SoroWillNetwork, type Will } from '@sorowill/sdk';
 import { isWillNotFoundError } from '@/lib/errors';
+import { getNetwork } from '@/lib/network';
 
-function validateStellarNetwork(value: string): SoroWillNetwork {
-  if (value !== 'testnet' && value !== 'mainnet') {
-    throw new Error(
-      `Invalid NEXT_PUBLIC_STELLAR_NETWORK: "${value}". Must be exactly 'testnet' or 'mainnet'.`,
-    );
-  }
-  return value;
-}
+// Kept as a re-export for existing callers; the implementation lives in
+// '@/lib/network' so UI code can read the network without this module.
+export { getNetwork } from '@/lib/network';
 
 function validateContractId(value: string): void {
   if (!/^C[A-Z2-7]{55}$/.test(value)) {
@@ -28,35 +24,12 @@ function validateRpcUrl(value: string): void {
   }
 }
 
-function readEnv(name: string, fallback?: string): string {
-  const value = process.env[name];
-  if (!value) {
-    if (fallback !== undefined) return fallback;
-    throw new Error(
-      `Missing required environment variable: ${name}. Copy .env.example to .env.local and fill it in.`,
-    );
-  }
-  return value;
-}
-
 let cachedClient: SoroWillClient | undefined;
 let cachedNetwork: SoroWillNetwork | undefined;
 
 export function resetSoroWillClient(): void {
   cachedClient = undefined;
   cachedNetwork = undefined;
-}
-
-/** The Stellar network configured for this deployment. */
-export function getNetwork(): SoroWillNetwork {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const stored = window.localStorage.getItem('sorowill_network');
-    if (stored === 'testnet' || stored === 'mainnet') {
-      return stored as SoroWillNetwork;
-    }
-  }
-  const value = readEnv('NEXT_PUBLIC_STELLAR_NETWORK', 'testnet');
-  return validateStellarNetwork(value);
 }
 
 /**
@@ -193,34 +166,41 @@ export function stellarExpertUrl(kind: 'contract' | 'account' | 'tx', id: string
   return `https://stellar.expert/explorer/${segment}/${kind}/${id}`;
 }
 
-export interface GuardianWillsResult {
+export interface WillsScanResult {
   wills: Will[];
   /** True if any scan errors occurred that were not simply "will not found" (e.g. RPC/network failures). */
   hasErrors: boolean;
 }
 
-const GUARDIAN_SCAN_BATCH_SIZE = 30;
-const GUARDIAN_SCAN_MAX_ID = 1000;
+/** @deprecated Use {@link WillsScanResult}; kept for existing imports. */
+export type GuardianWillsResult = WillsScanResult;
+
+/** @deprecated Use {@link getWillsByBeneficiary}; kept for existing imports. */
+export type BeneficiaryWillsResult = WillsScanResult;
+
+const SCAN_BATCH_SIZE = 30;
+const SCAN_MAX_ID = 1000;
 
 /**
- * Fetches wills by guardian by scanning will IDs in expanding batches,
- * stopping once an entire batch turns up no wills. This avoids capping the
- * scan at a fixed constant while still bounding the total work performed.
+ * Scans will IDs in expanding batches, returning every will that `matches`
+ * accepts, and stopping once an entire batch turns up no wills. Expanding
+ * batches avoid capping the scan at a fixed constant while still bounding the
+ * total work performed.
  */
-export async function getWillsByGuardian(
-  guardianAddress: string,
+async function scanWills(
+  matches: (will: Will) => boolean,
   context?: SoroWillClientContext,
   signal?: AbortSignal,
-): Promise<GuardianWillsResult> {
+): Promise<WillsScanResult> {
   const client = getSoroWillClient(context);
   const wills: Will[] = [];
   let hasErrors = false;
 
-  for (let batchStart = 1; batchStart <= GUARDIAN_SCAN_MAX_ID; batchStart += GUARDIAN_SCAN_BATCH_SIZE) {
+  for (let batchStart = 1; batchStart <= SCAN_MAX_ID; batchStart += SCAN_BATCH_SIZE) {
     // Stop scanning once the caller has gone away instead of issuing up to
-    // GUARDIAN_SCAN_MAX_ID more RPC calls nobody will read.
+    // SCAN_MAX_ID more RPC calls nobody will read.
     signal?.throwIfAborted();
-    const batchEnd = Math.min(batchStart + GUARDIAN_SCAN_BATCH_SIZE - 1, GUARDIAN_SCAN_MAX_ID);
+    const batchEnd = Math.min(batchStart + SCAN_BATCH_SIZE - 1, SCAN_MAX_ID);
     let foundAnyInBatch = false;
 
     const ids = Array.from({ length: batchEnd - batchStart + 1 }, (_, offset) => batchStart + offset);
@@ -230,7 +210,7 @@ export async function getWillsByGuardian(
           .getWill(id.toString())
           .then((will) => {
             foundAnyInBatch = true;
-            if (will && will.guardians && will.guardians.includes(guardianAddress)) {
+            if (will && matches(will)) {
               wills.push(will);
             }
           })
@@ -248,6 +228,42 @@ export async function getWillsByGuardian(
   }
 
   return { wills, hasErrors };
+}
+
+/** Fetches every will in which `guardianAddress` is listed as a guardian. */
+export function getWillsByGuardian(
+  guardianAddress: string,
+  context?: SoroWillClientContext,
+  signal?: AbortSignal,
+): Promise<WillsScanResult> {
+  const needle = guardianAddress.trim().toUpperCase();
+  return scanWills((will) =>
+    (will.guardians ?? []).some((guardian) => guardian.trim().toUpperCase() === needle),
+    context,
+    signal,
+  );
+}
+
+/**
+ * Fetches every will that names `beneficiaryAddress` as a beneficiary, so a
+ * beneficiary can find the wills they are entitled to without knowing the
+ * will IDs (issue #876). Addresses are Stellar accounts, so the comparison is
+ * case-insensitive (the contract stores them uppercase).
+ */
+export function getWillsByBeneficiary(
+  beneficiaryAddress: string,
+  context?: SoroWillClientContext,
+  signal?: AbortSignal,
+): Promise<WillsScanResult> {
+  const needle = beneficiaryAddress.trim().toUpperCase();
+  return scanWills(
+    (will) =>
+      (will.beneficiaries ?? []).some(
+        (beneficiary) => beneficiary.address.trim().toUpperCase() === needle,
+      ),
+    context,
+    signal,
+  );
 }
 
 const ENUMERATE_BATCH_SIZE = 30;

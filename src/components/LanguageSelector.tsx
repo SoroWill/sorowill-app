@@ -34,8 +34,8 @@ function writeLocaleCookie(locale: SupportedLocale) {
 }
 
 function readLocaleCookie(): string | undefined {
-  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : undefined;
+  const entry = document.cookie.split('; ').find((part) => part.startsWith(`${LOCALE_COOKIE}=`));
+  return entry ? decodeURIComponent(entry.slice(LOCALE_COOKIE.length + 1)) : undefined;
 }
 
 const localeLabels: Record<SupportedLocale, string> = {
@@ -60,7 +60,10 @@ export function LanguageSelector() {
   useEffect(() => {
     const persisted = readLocaleCookie();
     if (persisted !== undefined && !isSupportedLocale(persisted)) {
+      // A tampered/unsupported cookie is replaced with the default; do not let
+      // a stale localStorage value immediately override that reset.
       writeLocaleCookie(DEFAULT_LOCALE);
+      return;
     }
     const stored = readStoredLocale();
     if (isSupportedLocale(persisted)) {

@@ -2,6 +2,7 @@
 export { dispatchReminderEmails, dispatchReminderBatch, dispatchDueReminders } from '@/lib/reminders/dispatch';
 
 import { parseRetryAfter } from '@/lib/rate-limit';
+import type { NotificationChannel } from '@/lib/notificationChannels';
 
 export type ReminderKind = 'well-before' | 'imminent';
 
@@ -36,7 +37,7 @@ export function createReminderRateLimitError(
   response: { headers: { get(name: string): string | null } },
   fallbackMessage = 'Too many reminder requests. Please try again later.',
 ): ReminderRateLimitError {
-  const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'));
+  const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After')) ?? 0;
   const message = retryAfterMs > 0 ? formatRetryAfterMessage(retryAfterMs) : fallbackMessage;
   const error = new Error(message) as ReminderRateLimitError;
   error.name = 'ReminderRateLimitError';
@@ -89,6 +90,10 @@ export interface ReminderSubscription {
   willId: string;
   email: string;
   owner: string;
+  /** Channels this subscription is delivered over (#904). Defaults to email. */
+  channels?: NotificationChannel[];
+  /** Phone number used for SMS delivery, when `sms` is selected. */
+  phone?: string | null;
   confirmed: boolean;
   confirmationToken?: string | null;
   confirmationExpiresAt?: string | null;
@@ -103,32 +108,37 @@ export interface ReminderSubscription {
  */
 export const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Escapes characters with special meaning in HTML contexts.
- * Applied to all dynamic values interpolated into HTML email templates.
- */
-export function escapeHtml(value: string): string {
-  if (typeof value !== 'string') {
-    value = String(value);
-  }
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// Escaping lives in '@/lib/html' so route handlers can use it without the
+// store; re-exported here for existing imports.
+export { escapeHtml } from '@/lib/html';
+import { escapeHtml } from '@/lib/html';
 
 export interface ReminderHistoryEntry {
   willId: string;
   email: string;
   wellBeforeSentAt?: string;
   imminentSentAt?: string;
+  /** Channels the reminder was delivered over (#904). */
+  channels?: NotificationChannel[];
+}
+
+/** An in-app notification queued for a will owner (#904). */
+export interface InAppNotification {
+  id: string;
+  willId: string;
+  owner: string;
+  kind: ReminderKind;
+  title: string;
+  body: string;
+  createdAt: string;
+  readAt?: string | null;
 }
 
 export interface ReminderStore {
   subscriptions: Record<string, ReminderSubscription>;
   history: Record<string, ReminderHistoryEntry>;
+  /** In-app notifications, keyed by notification id. */
+  notifications?: Record<string, InAppNotification>;
 }
 
 export interface ReminderRegistrationResult {
@@ -309,12 +319,13 @@ async function readStore(): Promise<ReminderStore> {
   }
   const payload = (await response.json()) as { result: string | null };
   if (!payload.result) {
-    return { subscriptions: {}, history: {} };
+    return { subscriptions: {}, history: {}, notifications: {} };
   }
   const parsed = JSON.parse(payload.result) as Partial<ReminderStore>;
   return {
     subscriptions: parsed.subscriptions ?? {},
     history: parsed.history ?? {},
+    notifications: parsed.notifications ?? {},
   };
 }
 
@@ -533,4 +544,31 @@ export function buildReminderEmailContent({
     text: `Will ID: will #${willId}\nDeadline: ${deadlineStr}\nUnsubscribe: ${unsubscribeUrl}`,
     unsubscribeUrl,
   };
+}
+
+/**
+ * Registers a reminder subscription, retrying once when the API answers 429
+ * with a `Retry-After` hint (#793). The wait uses the server's hint so a client
+ * does not hammer the endpoint while it is rate limited.
+ */
+export async function registerWithRetry(
+  payload: Parameters<typeof registerReminderSubscription>[0],
+  options: { maxRetries?: number } = {},
+): Promise<ReminderRegistrationResult> {
+  const maxRetries = options.maxRetries ?? 1;
+  let attempt = 0;
+
+  for (;;) {
+    const result = (await registerReminderSubscription(payload)) as ReminderRegistrationResult & {
+      status?: number;
+      retryAfter?: number;
+    };
+    if (result.ok) return result;
+
+    const retryAfter = result.retryAfter ?? 0;
+    if (result.status !== 429 || attempt >= maxRetries || retryAfter <= 0) return result;
+
+    attempt += 1;
+    await new Promise<void>((resolve) => setTimeout(resolve, retryAfter * 1000));
+  }
 }

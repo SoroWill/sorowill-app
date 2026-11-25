@@ -35,7 +35,7 @@ Before opening a PR for a Wave issue, verify all of the following:
 - [ ] `npm run typecheck` passes with zero TypeScript errors
 - [ ] `npm run lint` passes with zero ESLint errors
 - [ ] `npm run build` succeeds cleanly
-- [ ] `npm test` passes all Vitest test suites
+- [ ] `npm test` passes all Vitest test suites (unit tests live in `tests/unit/` or next to the source file; `src/__tests__/` is not collected by any runner)
 - [ ] `npm run build-storybook` succeeds
 - [ ] `npx vitest run tests/unit/contract-smoke.test.ts --reporter=verbose` passes
 - [ ] `npm run test:e2e` and `npm run test:a11y` pass locally; CI also runs the Playwright suite against a production build

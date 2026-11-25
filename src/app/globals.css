@@ -200,3 +200,37 @@ svg {
     color: #000000;
   }
 }
+
+/*
+ * Right-to-left layout support (#RTL). `dir` is set on <html> by the root
+ * layout from the active locale, and the language selectors cover markup
+ * rendered without a dir attribute (e.g. a component preview).
+ * Spacing uses logical properties so the same rules work in both directions.
+ */
+[dir='rtl'],
+[lang|="ar"],
+[lang|="he"] {
+  direction: rtl;
+}
+
+[dir='rtl'] .rtl-mirror,
+[lang|="ar"] .rtl-mirror,
+[lang|="he"] .rtl-mirror {
+  transform: scaleX(-1);
+}
+
+[dir='rtl'] .rtl-inset,
+[lang|="ar"] .rtl-inset,
+[lang|="he"] .rtl-inset {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+}
+
+[dir='rtl'] .rtl-spacing,
+[lang|="ar"] .rtl-spacing,
+[lang|="he"] .rtl-spacing {
+  margin-inline-start: 0.5rem;
+  margin-inline-end: 0;
+  padding-inline-start: 0.5rem;
+  padding-inline-end: 0;
+}

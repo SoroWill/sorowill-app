@@ -17,19 +17,24 @@ import { safeGetPublicKey, truncateAddress } from '@/lib/freighter';
 import { getSoroWillClient, stellarExpertUrl } from '@/lib/sorowill';
 import { formatError, formatLoadError } from '@/lib/errors';
 import { fetchWithCsrf } from '@/lib/csrfClient';
-import { nextCheckinDeadline, graceDeadline } from '@/lib/deadlines';
+import { nextCheckinDeadline, graceDeadline, getExpirationWarning } from '@/lib/deadlines';
 import { useToast } from '@/components/Toast';
 import { BeneficiaryForm, hasDuplicateBeneficiaryAddresses } from '@/components/BeneficiaryForm';
+import { WillVersionHistory } from '@/components/WillVersionHistory';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { GuardianPanel } from '@/components/GuardianPanel';
 import { DestructiveActionConfirmation } from '@/components/DestructiveActionConfirmation';
 import { StatusBanner } from '@/components/StatusBanner';
-import { ContractUpgradePanel } from '@/components/ContractUpgradePanel';
+import { ExpirationWarningBanner } from '@/components/ExpirationWarningBanner';
 import { StatusMessageBanner, type StatusMessageVariant } from '@/components/StatusMessageBanner';
 import { CopyAddress } from '@/components/CopyAddress';
+import { WillPasswordGate } from '@/components/WillPasswordGate';
+import { WillPasswordPanel } from '@/components/WillPasswordPanel';
 import { serverNow, syncServerClock } from '@/lib/serverClock';
 import { isTopUpAmountValid } from '@/lib/amount';
 import { invalidateWillsCache } from '@/lib/willsCache';
+import { estimateFee, type FeeOperation } from '@/lib/fees';
+import { FeeEstimate } from '@/components/FeeEstimate';
 
 interface ActivityEntry {
   action: string;
@@ -127,11 +132,14 @@ export default function WillDetailPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [castingVoteId, setCastingVoteId] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
+  // When the current guardian co-sign request was opened (#897); null until a guardian votes.
+  const [coSignRequestedAt, setCoSignRequestedAt] = useState<Date | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [activityHydratedFor, setActivityHydratedFor] = useState<string | null>(null);
   const [exportingCertificate, setExportingCertificate] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pendingAction, setPendingAction] = useState<FeeOperation | null>(null);
 
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
@@ -271,6 +279,7 @@ export default function WillDetailPage() {
     onSuccess?: () => void,
   ) {
     setBusyAction(name);
+    setPendingAction(null);
     setError(null);
     try {
       const { txHash } = await fn();
@@ -287,6 +296,7 @@ export default function WillDetailPage() {
       toast.error(message);
     } finally {
       setBusyAction(null);
+      setPendingAction(null);
     }
   }
 
@@ -382,6 +392,8 @@ export default function WillDetailPage() {
 
   const checkinDeadline = nextCheckinDeadline(will);
   const checkinOverdue = will.status === WillStatus.Active && serverNow() >= checkinDeadline.getTime();
+  const expirationWarning =
+    will.status === WillStatus.Active ? getExpirationWarning(checkinDeadline) : null;
 
   const grace = graceDeadline(will);
   const graceExpired = will.status === WillStatus.Triggered && grace !== null && serverNow() >= grace.getTime();
@@ -390,6 +402,7 @@ export default function WillDetailPage() {
   const beneficiaryMap = new Map(will.beneficiaries.map((b) => [b.address, b.percentage]));
 
   return (
+    <WillPasswordGate willId={will.id}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3 print-section">
         <div>
@@ -437,9 +450,7 @@ export default function WillDetailPage() {
 
       <StatusBanner status={will.status} />
 
-      <div className="print-hide">
-        <ContractUpgradePanel />
-      </div>
+      {expirationWarning ? <ExpirationWarningBanner warning={expirationWarning} /> : null}
 
       {error ? (
         <div className="flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 p-4 print-hide">
@@ -475,7 +486,7 @@ export default function WillDetailPage() {
         {isOwner && will.status === WillStatus.Active ? (
           <button
             type="button"
-            onClick={() => runAction('check_in', () => client.checkIn(will.id))}
+            onClick={() => setPendingAction('check_in')}
             disabled={busyAction !== null}
             className="w-full rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60 sm:w-auto"
           >
@@ -483,10 +494,34 @@ export default function WillDetailPage() {
           </button>
         ) : null}
 
+        {isOwner && will.status === WillStatus.Active && pendingAction === 'check_in' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Check in" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('check_in', () => client.checkIn(will.id))}
+                disabled={busyAction !== null}
+                className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60"
+              >
+                Confirm Check In
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {isOwner && will.status === WillStatus.Triggered && !graceExpired ? (
           <button
             type="button"
-            onClick={() => runAction('emergency_checkin', () => client.emergencyCheckIn(will.id))}
+            onClick={() => setPendingAction('emergency_check_in')}
             disabled={busyAction !== null}
             className="w-full rounded-full bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500/90 disabled:opacity-60 sm:w-auto"
           >
@@ -494,10 +529,34 @@ export default function WillDetailPage() {
           </button>
         ) : null}
 
+        {isOwner && will.status === WillStatus.Triggered && !graceExpired && pendingAction === 'emergency_check_in' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Emergency check in" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('emergency_checkin', () => client.emergencyCheckIn(will.id))}
+                disabled={busyAction !== null}
+                className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500/90 disabled:opacity-60"
+              >
+                Confirm Emergency Check In
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {!isOwner && checkinOverdue ? (
             <button
               type="button"
-              onClick={() => runAction('trigger_will', () => client.triggerWill(will.id))}
+              onClick={() => setPendingAction('trigger_will')}
               disabled={busyAction !== null || !publicKey}
               title={!publicKey ? 'Connect your wallet first' : undefined}
               className="w-full rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60 sm:w-auto"
@@ -506,16 +565,64 @@ export default function WillDetailPage() {
             </button>
           ) : null}
 
+        {!isOwner && checkinOverdue && pendingAction === 'trigger_will' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Trigger will" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('trigger_will', () => client.triggerWill(will.id))}
+                disabled={busyAction !== null || !publicKey}
+                className="rounded-full bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-500/90 disabled:opacity-60"
+              >
+                Confirm Trigger
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {graceExpired ? (
           <button
             type="button"
-            onClick={() => runAction('release_inheritance', () => client.releaseInheritance(will.id))}
+            onClick={() => setPendingAction('release_inheritance')}
             disabled={busyAction !== null || !publicKey}
             title={!publicKey ? 'Connect your wallet first' : undefined}
             className="w-full rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60 sm:w-auto"
           >
             {busyAction === 'release_inheritance' ? 'Releasing…' : 'Release Inheritance'}
           </button>
+        ) : null}
+
+        {graceExpired && pendingAction === 'release_inheritance' ? (
+          <div className="w-full space-y-2 sm:w-auto">
+            <FeeEstimate fee={estimateFee(1)} label="Release inheritance" />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => runAction('release_inheritance', () => client.releaseInheritance(will.id))}
+                disabled={busyAction !== null || !publicKey}
+                className="rounded-full bg-will-purple px-4 py-2 text-sm font-medium text-white transition hover:bg-will-purple/90 disabled:opacity-60"
+              >
+                Confirm Release
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                disabled={busyAction !== null}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-will-light transition hover:border-white/40 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {isOwner && will.status === WillStatus.Active ? (
@@ -638,8 +745,20 @@ export default function WillDetailPage() {
               Confirm
             </button>
           </div>
+          <FeeEstimate fee={estimateFee(1)} label="Top up" className="mt-3" />
         </form>
       ) : null}
+
+      <div className="print-hide">
+        <WillVersionHistory
+          will={will}
+          canRevert={isOwner && will.status === WillStatus.Active}
+          onRevert={(beneficiaries) => {
+            setDraftBeneficiaries(beneficiaries.map((b) => ({ ...b })));
+            setShowEditBeneficiaries(true);
+          }}
+        />
+      </div>
 
       {showEditBeneficiaries ? (
         <div className="print-hide space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
@@ -719,6 +838,7 @@ export default function WillDetailPage() {
           isActive={will.status === WillStatus.Active}
           isCastingVote={castingVoteId === will.id}
           hasVoted={guardianHasVoted}
+          coSignRequestedAt={coSignRequestedAt}
           onCastVote={() => {
             setCastingVoteId(will.id);
             void runAction(
@@ -729,6 +849,7 @@ export default function WillDetailPage() {
                 if (publicKey) {
                   markGuardianVoted(will.id, publicKey);
                   setHasVoted(true);
+                  setCoSignRequestedAt((current) => current ?? new Date());
                 }
               },
             ).finally(() => setCastingVoteId(null));
@@ -736,6 +857,8 @@ export default function WillDetailPage() {
           error={error}
         />
       </div>
+
+      {isOwner ? <WillPasswordPanel willId={will.id} /> : null}
 
       <div className="print-hide rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm font-semibold text-will-light">Recent activity</h2>
@@ -764,5 +887,6 @@ export default function WillDetailPage() {
         )}
       </div>
     </div>
+    </WillPasswordGate>
   );
 }

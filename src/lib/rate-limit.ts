@@ -1,20 +1,26 @@
 /**
- * Configurable API rate limiting.
+ * Fixed-window, in-memory rate limiting for API routes.
  *
- * Limits are resolved from environment variables so they can be tuned per
- * deployment without a code change. When no env vars are set, the documented
- * defaults below are used, preserving the original hard-coded behavior.
+ * State is per server instance, so it bounds abuse from a single client but is
+ * not a substitute for edge/WAF rate limiting. Thresholds are resolved from
+ * environment variables (see `getRateLimitConfig`) so a deployment can tune
+ * them without a code change; call sites pick the endpoint key and the client
+ * identifier (usually the IP).
  *
- * Global defaults:
- *   RATE_LIMIT_DEFAULT_MAX       (default: 60)
- *   RATE_LIMIT_DEFAULT_WINDOW_MS (default: 60000)
+ * Known limitations, accepted for simplicity:
+ *   - Burst at the boundary: a client can send `limit` requests at the end of
+ *     one window and `limit` more at the start of the next.
+ *   - Per instance: with N server instances the effective limit is up to N x.
+ *   - IP spoofing: `getClientIp` trusts `x-forwarded-for`, so the app must sit
+ *     behind a proxy that overwrites it.
+ *   - Clients without a resolvable IP share one `'unknown'` bucket.
  *
- * Per-endpoint overrides:
- *   RATE_LIMIT_<ENDPOINT>_MAX
- *   RATE_LIMIT_<ENDPOINT>_WINDOW_MS
- * where <ENDPOINT> is the endpoint key uppercased with non-alphanumeric
- * characters replaced by underscores (e.g. "reminders/confirm" ->
- * REMINDERS_CONFIRM).
+ * Environment variables:
+ *   RATE_LIMIT_DEFAULT_MAX        (default: 60)
+ *   RATE_LIMIT_DEFAULT_WINDOW_MS  (default: 60000)
+ *   RATE_LIMIT_<ENDPOINT>_MAX / _WINDOW_MS
+ * where <ENDPOINT> is the endpoint key uppercased with non-alphanumerics turned
+ * into underscores (e.g. "reminders/register" → REMINDERS_REGISTER).
  */
 
 export interface RateLimitConfig {
@@ -29,8 +35,15 @@ export const DEFAULT_RATE_LIMIT: RateLimitConfig = {
   windowMs: 60_000,
 };
 
+interface Window {
+  count: number;
+  resetAt: number;
+}
+
+const windows = new Map<string, Window>();
+
 function parsePositiveInt(value: string | undefined): number | undefined {
-  if (value === undefined || value.trim() === "") return undefined;
+  if (value === undefined || value.trim() === '') return undefined;
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
   return Math.floor(parsed);
@@ -39,35 +52,25 @@ function parsePositiveInt(value: string | undefined): number | undefined {
 function envKeyForEndpoint(endpoint: string): string {
   return endpoint
     .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 /**
- * Resolve the rate-limit configuration for a given endpoint.
- *
- * Resolution order (first defined value wins):
- *   1. Per-endpoint env override (RATE_LIMIT_<ENDPOINT>_MAX / _WINDOW_MS)
- *   2. Global env default (RATE_LIMIT_DEFAULT_MAX / _WINDOW_MS)
- *   3. Built-in default (DEFAULT_RATE_LIMIT)
+ * Resolve the rate-limit configuration for an endpoint. Resolution order, first
+ * defined value wins: per-endpoint override, global default, built-in default.
  */
 export function getRateLimitConfig(endpoint?: string): RateLimitConfig {
   const globalMax = parsePositiveInt(process.env.RATE_LIMIT_DEFAULT_MAX);
-  const globalWindow = parsePositiveInt(
-    process.env.RATE_LIMIT_DEFAULT_WINDOW_MS,
-  );
+  const globalWindow = parsePositiveInt(process.env.RATE_LIMIT_DEFAULT_WINDOW_MS);
 
   let max = globalMax ?? DEFAULT_RATE_LIMIT.max;
   let windowMs = globalWindow ?? DEFAULT_RATE_LIMIT.windowMs;
 
   if (endpoint) {
     const key = envKeyForEndpoint(endpoint);
-    const endpointMax = parsePositiveInt(
-      process.env[`RATE_LIMIT_${key}_MAX`],
-    );
-    const endpointWindow = parsePositiveInt(
-      process.env[`RATE_LIMIT_${key}_WINDOW_MS`],
-    );
+    const endpointMax = parsePositiveInt(process.env[`RATE_LIMIT_${key}_MAX`]);
+    const endpointWindow = parsePositiveInt(process.env[`RATE_LIMIT_${key}_WINDOW_MS`]);
     if (endpointMax !== undefined) max = endpointMax;
     if (endpointWindow !== undefined) windowMs = endpointWindow;
   }
@@ -75,79 +78,97 @@ export function getRateLimitConfig(endpoint?: string): RateLimitConfig {
   return { max, windowMs };
 }
 
-interface Bucket {
-  count: number;
-  resetAt: number;
+/**
+ * Builds a collision-safe key from multiple parts.
+ *
+ * Naive `parts.join(':')` is unsafe because a part may contain the separator
+ * (IPv6 addresses do), making two distinct inputs produce the same key. Each
+ * part is length-prefixed here, which is unambiguous whatever its content.
+ */
+export function buildRateLimitKey(...parts: string[]): string {
+  return parts.map((part) => `${part.length}:${part}`).join('|');
 }
-
-const buckets = new Map<string, Bucket>();
 
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   /** Milliseconds until the current window resets. */
   resetMs: number;
+  /** Seconds until the window resets, for a `Retry-After` header. */
+  retryAfterSeconds: number;
   limit: number;
 }
 
 /**
- * Check and record a request against the rate limit for an endpoint.
+ * Check and record a request against a window.
  *
- * @param endpoint Logical endpoint key (e.g. "reminders/confirm").
- * @param identifier Caller identity used to scope the bucket (e.g. IP).
+ * @param key      Collision-safe key, usually from `buildRateLimitKey`.
+ * @param limit    Maximum requests per window (defaults to the configured default).
+ * @param windowMs Window length in milliseconds (defaults to the configured default).
+ * @param now      Time in milliseconds; defaults to the current time.
  */
 export function checkRateLimit(
-  endpoint: string,
-  identifier: string,
+  key: string,
+  limit: number = DEFAULT_RATE_LIMIT.max,
+  windowMs: number = DEFAULT_RATE_LIMIT.windowMs,
+  now: number = Date.now(),
 ): RateLimitResult {
-  const { max, windowMs } = getRateLimitConfig(endpoint);
-  const now = Date.now();
-  const key = `${endpoint}:${identifier}`;
-
-  let bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    bucket = { count: 0, resetAt: now + windowMs };
-    buckets.set(key, bucket);
+  let entry = windows.get(key);
+  if (!entry || entry.resetAt <= now) {
+    // Drop expired entries opportunistically so the map cannot grow unbounded.
+    for (const [candidate, window] of windows) {
+      if (window.resetAt <= now) windows.delete(candidate);
+    }
+    entry = { count: 0, resetAt: now + windowMs };
+    windows.set(key, entry);
   }
 
-  bucket.count += 1;
-  const allowed = bucket.count <= max;
-
+  entry.count += 1;
+  const resetMs = Math.max(0, entry.resetAt - now);
   return {
-    allowed,
-    remaining: Math.max(0, max - bucket.count),
-    resetMs: Math.max(0, bucket.resetAt - now),
-    limit: max,
+    allowed: entry.count <= limit,
+    remaining: Math.max(0, limit - entry.count),
+    resetMs,
+    retryAfterSeconds: Math.max(0, Math.ceil(resetMs / 1000)),
+    limit,
   };
 }
 
 /**
- * Parses a `Retry-After` header value into a wait duration in seconds.
- *
- * The header may be either a non-negative number of seconds (e.g. `"120"`) or
- * an HTTP-date (e.g. `"Wed, 21 Oct 2015 07:28:00 GMT"`). Returns `0` when the
- * value is absent, empty, or unparseable so callers can treat it as "no hint".
+ * Parses a `Retry-After` header into seconds to wait. Accepts either a number
+ * of seconds or an HTTP-date. Returns `null` when the value is absent, empty
+ * or unparseable, so callers can distinguish "no hint" from an explicit zero;
+ * a date in the past is a valid hint and clamps to `0`.
  */
-export function parseRetryAfter(headerValue: string | null, now: number = Date.now()): number {
-  if (!headerValue) return 0;
+export function parseRetryAfter(
+  headerValue: string | null | undefined,
+  now: number = Date.now(),
+): number | null {
+  if (!headerValue) return null;
   const trimmed = headerValue.trim();
-  if (!trimmed) return 0;
-
-  // Numeric form: delay in seconds.
-  if (/^\d+$/.test(trimmed)) {
-    return Math.max(0, Math.ceil(Number(trimmed)));
+  if (!trimmed) return null;
+  if (/^[+-]?\d+$/.test(trimmed)) {
+    const seconds = Number(trimmed);
+    // A negative delay is invalid rather than an explicit "retry now".
+    return seconds >= 0 ? Math.ceil(seconds) : null;
   }
 
-  // HTTP-date form: wait until that instant.
   const target = Date.parse(trimmed);
-  if (Number.isNaN(target)) return 0;
+  if (Number.isNaN(target)) return null;
   return Math.max(0, Math.ceil((target - now) / 1000));
 }
 
-/**
- * Builds a 429 response carrying a `Retry-After` header derived from a
- * `RateLimitResult`, so clients know when to retry.
- */
+/** A human-readable "try again in …" message for a Retry-After wait. */
+export function formatRetryAfterMessage(seconds: number): string {
+  const total = Math.max(0, Math.ceil(seconds));
+  if (total <= 0) return 'Please retry in a moment.';
+  if (total < 60) return `Please retry in ${total} second${total === 1 ? '' : 's'}.`;
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return `Please retry in ${minutes} minute${minutes === 1 ? '' : 's'}${rest ? ` and ${rest} second${rest === 1 ? '' : 's'}` : ''}.`;
+}
+
+/** Builds a 429 response carrying a `Retry-After` header from a rate-limit result. */
 export function buildRateLimitResponse(
   result: RateLimitResult,
   message = 'Too many requests. Please try again later.',
@@ -162,12 +183,14 @@ export function buildRateLimitResponse(
   });
 }
 
+/** The caller's IP, as far as the proxy in front of the app reports it. */
 export function getClientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || request.headers.get('x-real-ip')?.trim();
   return ip || 'unknown';
 }
 
+/** Clears every window. Used by tests. */
 export function resetRateLimits(): void {
   buckets.clear();
 }

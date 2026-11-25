@@ -57,6 +57,10 @@ export function TutorialOptions({ children }: { children: ReactNode }) {
           <li>{t('checkIn')}</li>
         </ol>
         <Link href="/will/new" className="text-sm underline">{t('create')}</Link>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Link href="/learn" className="underline">{t('learn')}</Link>
+          <Link href="/help" className="underline">{t('help')}</Link>
+        </div>
       </details>
       <div id="full-tutorial" className="scroll-mt-24" hidden={skipped}>{children}</div>
     </section>

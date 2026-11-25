@@ -52,6 +52,6 @@ export function GET() {
   try {
     return NextResponse.json({ now: Date.now() }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    return apiError('INTERNAL_ERROR', 'Failed to retrieve server time', 500);
+    return apiError('server_error', 'Failed to retrieve server time', 500);
   }
 }
