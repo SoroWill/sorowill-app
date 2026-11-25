@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DASHBOARD_TAB_KEY, loadDashboardTab, saveDashboardTab } from '@/lib/dashboardTab';
 import {
   DASHBOARD_FILTERS_KEY,
+  DEFAULT_DASHBOARD_FILTERS,
   clearDashboardFilters,
   loadDashboardFilters,
   saveDashboardFilters,
+  type DashboardFilters,
 } from '@/lib/dashboardTab';
 
 describe('dashboard tab persistence', () => {
@@ -31,34 +33,34 @@ describe('dashboard filter persistence', () => {
   beforeEach(() => window.localStorage.clear());
 
   it('defaults when storage is empty', () => {
-    expect(loadDashboardFilters()).toEqual({});
+    expect(loadDashboardFilters()).toEqual(DEFAULT_DASHBOARD_FILTERS);
   });
 
   it('defaults when stored value is invalid', () => {
     window.localStorage.setItem(DASHBOARD_FILTERS_KEY, 'not-json');
-    expect(loadDashboardFilters()).toEqual({});
+    expect(loadDashboardFilters()).toEqual(DEFAULT_DASHBOARD_FILTERS);
   });
 
   it('defaults when stored value is not an object', () => {
     window.localStorage.setItem(DASHBOARD_FILTERS_KEY, JSON.stringify('bogus'));
-    expect(loadDashboardFilters()).toEqual({});
+    expect(loadDashboardFilters()).toEqual(DEFAULT_DASHBOARD_FILTERS);
   });
 
   it('saves filters to the expected key', () => {
-    const filters = { status: 'active', search: 'abc' };
+    const filters: DashboardFilters = { status: 'active', search: 'abc' };
     saveDashboardFilters(filters);
     expect(window.localStorage.getItem(DASHBOARD_FILTERS_KEY)).toBe(JSON.stringify(filters));
   });
 
   it('clears saved filters', () => {
-    saveDashboardFilters({ status: 'active' });
+    saveDashboardFilters({ status: 'active', search: '' });
     clearDashboardFilters();
     expect(window.localStorage.getItem(DASHBOARD_FILTERS_KEY)).toBeNull();
-    expect(loadDashboardFilters()).toEqual({});
+    expect(loadDashboardFilters()).toEqual(DEFAULT_DASHBOARD_FILTERS);
   });
 
   it('round-trips filters after save', () => {
-    const filters = { status: 'active', search: 'abc' };
+    const filters: DashboardFilters = { status: 'active', search: 'abc' };
     saveDashboardFilters(filters);
     expect(loadDashboardFilters()).toEqual(filters);
   });

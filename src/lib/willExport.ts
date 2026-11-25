@@ -37,21 +37,22 @@ function escapeCSVField(val: string | number | bigint | null | undefined): strin
 }
 
 /**
- * Formats a will's balance for CSV export. A zero or missing balance is always
- * written as `0` regardless of how it is represented (`0n`, `'0'`, `''`),
- * rather than sometimes `0` and sometimes `0.0000000` (#699). A malformed
- * balance is written as an empty cell instead of aborting the whole export.
+ * Formats a will's balance for CSV export with the token's real precision.
+ *
+ * Thousands separators are removed so the cell is a plain decimal number: a
+ * comma would both split the row when the file is parsed naively and force the
+ * cell to be quoted. A missing balance is written as an empty cell and a
+ * malformed one as an empty cell too, instead of aborting the whole export.
  */
 function formatExportBalance(balance: Will['balance'] | null | undefined, token: string): string {
-  if (balance === null || balance === undefined || balance === '') return '0';
+  if (balance === null || balance === undefined || balance === '') return '';
   let raw: bigint;
   try {
     raw = BigInt(balance);
   } catch {
     return '';
   }
-  if (raw === 0n) return '0';
-  return formatTokenBalance(raw, token);
+  return formatTokenBalance(raw, token).replace(/,/g, '');
 }
 
 /** ISO 8601 timestamp (unix seconds, bigint, string or Date input); empty for missing/invalid values. */
@@ -104,14 +105,17 @@ export function exportWillsToCSV(wills: Will[]): string {
     const percentagesStr = beneficiaryList
       .map((b) => (typeof b === 'string' ? '' : String((b as { percentage?: unknown })?.percentage ?? '')))
       .join(';');
-    const beneficiaryNotesStr = beneficiaryList
-      .map((b) => {
-        if (typeof b === 'string') return '';
-        const extra = b as { note?: unknown; notes?: unknown; memo?: unknown };
-        const note = extra.note ?? extra.notes ?? extra.memo;
-        return note === null || note === undefined ? '' : String(note);
-      })
-      .join(';');
+    const beneficiaryNotes = beneficiaryList.map((b) => {
+      if (typeof b === 'string') return '';
+      const extra = b as { note?: unknown; notes?: unknown; memo?: unknown };
+      const note = extra.note ?? extra.notes ?? extra.memo;
+      return note === null || note === undefined ? '' : String(note);
+    });
+    // Use an empty cell when no beneficiary has a note; otherwise keep the
+    // semicolon placeholders so positions still line up with the addresses.
+    const beneficiaryNotesStr = beneficiaryNotes.every((note) => note === '')
+      ? ''
+      : beneficiaryNotes.join(';');
 
     const extra = will as unknown as {
       guardianVotes?: number | bigint | null;
