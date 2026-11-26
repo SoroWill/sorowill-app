@@ -48,6 +48,10 @@ import {
 } from '@/lib/draftValidation';
 import { shouldWarnOnClone } from '@/lib/cloneWarning';
 import { useToast } from '@/components/Toast';
+import { BeneficiaryCsvImport } from '@/components/BeneficiaryCsvImport';
+import { AddressBookPicker } from '@/components/AddressBook';
+import { WillTemplatePicker } from '@/components/WillTemplatePicker';
+import { decodeTemplate, type WillTemplate } from '@/lib/willTemplates';
 
 const CHECKIN_OPTIONS = [30, 60, 90, 180, 365];
 const GRACE_OPTIONS = [3, 7, 14];
@@ -131,6 +135,11 @@ export default function NewWillPage() {
   const [token, setToken] = useState('');
   const [amount, setAmount] = useState('');
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([{ address: '', percentage: 100 }]);
+  // #890: a template shared as /will/new?template=… is offered in the template picker.
+  const sharedTemplate = useMemo(() => {
+    const encoded = searchParams.get('template');
+    return encoded ? decodeTemplate(encoded) : null;
+  }, [searchParams]);
   const [checkinPeriodDays, setCheckinPeriodDays] = useState(90);
   const [gracePeriodDays, setGracePeriodDays] = useState(7);
   const [guardians, setGuardians] = useState<string[]>([]);
@@ -521,6 +530,13 @@ export default function NewWillPage() {
     } finally {
       setResolvingGuardianId(null);
     }
+  }
+
+  /** Applies a will template: one empty-address row per share, plus its periods (#890). */
+  function applyTemplate(template: WillTemplate) {
+    setBeneficiaries(template.shares.map((share) => ({ address: '', percentage: share.percentage })));
+    setCheckinPeriodDays(template.checkinPeriodDays);
+    setGracePeriodDays(template.gracePeriodDays);
   }
 
   function addGuardian() {
@@ -917,7 +933,36 @@ export default function NewWillPage() {
           </div>
         ) : null}
 
-        {step === 1 ? <BeneficiaryForm value={beneficiaries} onChange={setBeneficiaries} /> : null}
+        {step === 1 ? (
+          <div className="space-y-4">
+            <WillTemplatePicker
+              sharedTemplate={sharedTemplate}
+              current={{
+                shares: beneficiaries.map((b, i) => ({ label: `Beneficiary ${i + 1}`, percentage: Number(b.percentage) })),
+                checkinPeriodDays,
+                gracePeriodDays,
+              }}
+              onApply={applyTemplate}
+            />
+            <BeneficiaryCsvImport onImport={setBeneficiaries} />
+            <AddressBookPicker
+              label="Pick a beneficiary from your address book"
+              exclude={beneficiaries.map((b) => b.address)}
+              onPick={(address) =>
+                setBeneficiaries((prev) => {
+                  const empty = prev.findIndex((b) => !b.address.trim());
+                  return empty >= 0
+                    ? prev.map((b, i) => (i === empty ? { ...b, address } : b))
+                    : [...prev, { address, percentage: 0 }];
+                })
+              }
+            />
+            <p className="text-xs text-will-light/50">
+              <a href="/address-book" className="underline">Manage your address book</a>
+            </p>
+            <BeneficiaryForm value={beneficiaries} onChange={setBeneficiaries} />
+          </div>
+        ) : null}
 
         {step === 2 ? (
           <fieldset className="space-y-6">
@@ -1084,6 +1129,17 @@ export default function NewWillPage() {
 
         {step === 3 ? (
           <>
+            <AddressBookPicker
+              label="Pick a guardian from your address book"
+              exclude={guardians}
+              onPick={(address) =>
+                setGuardians((prev) => {
+                  const empty = prev.findIndex((g) => !g.trim());
+                  if (empty >= 0) return prev.map((g, i) => (i === empty ? address : g));
+                  return prev.length < MAX_GUARDIANS ? [...prev, address] : prev;
+                })
+              }
+            />
             <GuardianForm
               guardians={guardians}
               guardianIds={stableGuardianIds}

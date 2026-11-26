@@ -28,6 +28,7 @@ import {
   getActivityLogForUser,
   logActivity,
 } from '@/lib/activityLog';
+import { TransactionHistory } from '@/components/TransactionHistory';
 import { WillCard } from '@/components/WillCard';
 import { CountdownTimer } from '@/components/CountdownTimer';
 import { RateLimitStatusBadge } from '@/components/RateLimitStatusBadge';
@@ -1048,6 +1049,9 @@ function DashboardPageOld() {
           </div>
         )}
       </div>
+
+      {/* #891: searchable on-chain transaction history for the connected wallet. */}
+      {publicKey ? <TransactionHistory account={publicKey} /> : null}
     </div>
   );
 }
